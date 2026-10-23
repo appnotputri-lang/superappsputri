@@ -29,7 +29,12 @@ import {
   Tag,
   Check,
   FileText,
-  ListFilter
+  ListFilter,
+  Layers,
+  Users,
+  Briefcase,
+  History,
+  FileCheck
 } from 'lucide-react';
 import { Invoice, PaymentRecord } from '../../../types';
 import { InvoiceService } from '../../services/InvoiceService';
@@ -70,24 +75,36 @@ const formatIndonesianDate = (dateStr?: string): string => {
   return dateStr;
 };
 
+export type FinancialTabType = 
+  | 'overview' 
+  | 'rekap_invoice' 
+  | 'laporan_pembayaran' 
+  | 'laporan_piutang' 
+  | 'rekap_pendapatan' 
+  | 'laporan_bulanan' 
+  | 'laporan_tahunan' 
+  | 'laporan_klien' 
+  | 'riwayat_transaksi'
+  | 'pdf_merger';
+
 export const FinancialReport: React.FC = () => {
   const navigate = useNavigate();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  // Active Tab: 'overview' | 'unpaid' | 'paid' | 'monthly_matrix'
-  const [activeTab, setActiveTab] = useState<'overview' | 'unpaid' | 'paid' | 'monthly_matrix'>('overview');
+  // Active Tab
+  const [activeTab, setActiveTab] = useState<FinancialTabType>('overview');
 
-  // Sub view inside Unpaid & Paid tabs
-  const [unpaidSubView, setUnpaidSubView] = useState<'all' | 'monthly'>('all');
-  const [paidSubView, setPaidSubView] = useState<'all' | 'monthly' | 'history'>('all');
-
-  // Filters
+  // Filter States
   const [selectedYear, setSelectedYear] = useState<string>(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState<string>('all'); // 'all' or '0' - '11'
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [selectedClient, setSelectedClient] = useState<string>('all');
+  const [invoiceStatusFilter, setInvoiceStatusFilter] = useState<string>('all'); // 'all', 'PAID', 'UNPAID', 'DRAFT', 'CANCELLED'
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>('all'); // 'all', 'LUNAS', 'SEBAGIAN', 'BELUM_DIBAYAR'
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('all'); // for unpaid view
 
   // Payment Modal State
   const [paymentModalInvoice, setPaymentModalInvoice] = useState<Invoice | null>(null);
@@ -98,12 +115,20 @@ export const FinancialReport: React.FC = () => {
   const [paymentNotes, setPaymentNotes] = useState<string>('');
   const [isSubmittingPayment, setIsSubmittingPayment] = useState<boolean>(false);
 
-  // Print Modal Options
-  const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
-  const [printType, setPrintType] = useState<'summary' | 'detailed'>('summary'); // 'summary' vs 'detailed'
-  const [printScope, setPrintScope] = useState<'all' | 'unpaid' | 'paid'>('all');
+  // PDF Merger / Multi-Report Export Selection State
+  const [selectedReportsForPDF, setSelectedReportsForPDF] = useState<Record<string, boolean>>({
+    rekap_invoice: true,
+    laporan_pembayaran: true,
+    laporan_piutang: true,
+    rekap_pendapatan: false,
+    laporan_bulanan: false,
+    laporan_klien: false,
+    riwayat_transaksi: false
+  });
+  const [pdfOrientation, setPdfOrientation] = useState<'portrait' | 'landscape'>('portrait');
+  const [showLivePreview, setShowLivePreview] = useState<boolean>(true);
 
-  // Monthly breakdown expansion state in Unpaid/Paid per month views
+  // Monthly breakdown expansion state
   const [expandedMonths, setExpandedMonths] = useState<Record<string, boolean>>({});
 
   // Fetch invoices
@@ -130,22 +155,6 @@ export const FinancialReport: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
-  // Available Years
-  const availableYears = useMemo(() => {
-    const years = new Set<string>();
-    const currentYr = new Date().getFullYear().toString();
-    years.add(currentYr);
-
-    invoices.forEach(inv => {
-      if (inv.issueDate) {
-        const y = inv.issueDate.split('-')[0];
-        if (y && y.length === 4) years.add(y);
-      }
-    });
-
-    return Array.from(years).sort().reverse();
-  }, [invoices]);
-
   // Format IDR Currency
   const formatCurrency = (val?: number) => {
     if (val === undefined || val === null || isNaN(val)) return 'Rp 0';
@@ -155,7 +164,7 @@ export const FinancialReport: React.FC = () => {
   // Helper date parsing for overdue
   const isOverdue = (invoice: Invoice) => {
     if (invoice.status === 'PAID' || invoice.status === 'CANCELLED') return false;
-    const balance = invoice.balanceDue !== undefined ? invoice.balanceDue : (invoice.totalAmount - (invoice.paidAmount || 0));
+    const balance = invoice.balanceDue !== undefined ? invoice.balanceDue : ((invoice.totalAmount || 0) - (invoice.paidAmount || 0));
     if (balance <= 0) return false;
     if (!invoice.dueDate) return false;
     
@@ -174,22 +183,79 @@ export const FinancialReport: React.FC = () => {
     return Math.max(0, Math.floor(diffTime / (1000 * 3600 * 24)));
   };
 
-  // Filtered Invoices according to Year & Month & Search Query
+  // Unique Clients List
+  const availableClients = useMemo(() => {
+    const clientsSet = new Set<string>();
+    invoices.forEach(inv => {
+      if (inv.clientName && inv.clientName.trim()) {
+        clientsSet.add(inv.clientName.trim());
+      }
+    });
+    return Array.from(clientsSet).sort();
+  }, [invoices]);
+
+  // Available Years
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    const currentYr = new Date().getFullYear().toString();
+    years.add(currentYr);
+
+    invoices.forEach(inv => {
+      if (inv.issueDate) {
+        const y = inv.issueDate.split('-')[0];
+        if (y && y.length === 4) years.add(y);
+      }
+    });
+
+    return Array.from(years).sort().reverse();
+  }, [invoices]);
+
+  // Master Filtered Invoices according to all active filter controls
   const filteredInvoices = useMemo(() => {
     return invoices.filter(inv => {
       if (inv.status === 'DRAFT' || inv.status === 'CANCELLED') return false;
 
-      // Year Filter
-      if (selectedYear !== 'all') {
+      // Custom Date Range Filter
+      if (startDate) {
+        if (!inv.issueDate || inv.issueDate < startDate) return false;
+      }
+      if (endDate) {
+        if (!inv.issueDate || inv.issueDate > endDate) return false;
+      }
+
+      // Year Filter (if no custom dates set)
+      if (!startDate && !endDate && selectedYear !== 'all') {
         const issueYr = inv.issueDate ? inv.issueDate.split('-')[0] : '';
         if (issueYr !== selectedYear) return false;
       }
 
-      // Month Filter
-      if (selectedMonth !== 'all') {
+      // Month Filter (if no custom dates set)
+      if (!startDate && !endDate && selectedMonth !== 'all') {
         if (!inv.issueDate) return false;
         const monthIndex = parseInt(inv.issueDate.split('-')[1], 10) - 1;
         if (monthIndex !== parseInt(selectedMonth, 10)) return false;
+      }
+
+      // Client Filter
+      if (selectedClient !== 'all') {
+        if ((inv.clientName || '').trim() !== selectedClient.trim()) return false;
+      }
+
+      // Invoice Status Filter
+      if (invoiceStatusFilter !== 'all') {
+        if (inv.status !== invoiceStatusFilter) return false;
+      }
+
+      // Payment Status Filter
+      const balance = inv.balanceDue !== undefined ? inv.balanceDue : ((inv.totalAmount || 0) - (inv.paidAmount || 0));
+      const paid = inv.paidAmount || 0;
+
+      if (paymentStatusFilter === 'LUNAS') {
+        if (balance > 0) return false;
+      } else if (paymentStatusFilter === 'SEBAGIAN') {
+        if (paid === 0 || balance <= 0) return false;
+      } else if (paymentStatusFilter === 'BELUM_DIBAYAR') {
+        if (paid > 0) return false;
       }
 
       // Search Query
@@ -203,9 +269,9 @@ export const FinancialReport: React.FC = () => {
 
       return true;
     });
-  }, [invoices, selectedYear, selectedMonth, searchQuery]);
+  }, [invoices, selectedYear, selectedMonth, startDate, endDate, selectedClient, invoiceStatusFilter, paymentStatusFilter, searchQuery]);
 
-  // Overall Financial Metrics
+  // Financial Metrics Calculation
   const metrics = useMemo(() => {
     let totalInvoiced = 0;
     let totalPaid = 0;
@@ -257,50 +323,117 @@ export const FinancialReport: React.FC = () => {
     };
   }, [filteredInvoices]);
 
-  // Unpaid Invoices List
+  // Filtered Unpaid Invoices
   const unpaidInvoices = useMemo(() => {
     return filteredInvoices.filter(inv => {
-      const balance = inv.balanceDue !== undefined ? inv.balanceDue : (inv.totalAmount - (inv.paidAmount || 0));
-      if (balance <= 0 || inv.status === 'PAID') return false;
-
-      if (statusFilter === 'overdue') {
-        return isOverdue(inv);
-      }
-      if (statusFilter === 'unpaid_only') {
-        return (inv.paidAmount || 0) === 0;
-      }
-      if (statusFilter === 'partial_only') {
-        return (inv.paidAmount || 0) > 0;
-      }
-      return true;
+      const balance = inv.balanceDue !== undefined ? inv.balanceDue : ((inv.totalAmount || 0) - (inv.paidAmount || 0));
+      return balance > 0;
     });
-  }, [filteredInvoices, statusFilter]);
+  }, [filteredInvoices]);
 
-  // Paid Invoices List
+  // Filtered Paid Invoices
   const paidInvoices = useMemo(() => {
     return filteredInvoices.filter(inv => (inv.paidAmount || 0) > 0);
   }, [filteredInvoices]);
 
-  // All Payment Records Log
-  const allPaymentHistoryRecords = useMemo(() => {
-    const list: Array<{
-      record: PaymentRecord;
-      invoice: Invoice;
-    }> = [];
+  // Payment Records Log (Sourced from payment history)
+  const paymentRecordsLog = useMemo(() => {
+    const list: Array<{ record: PaymentRecord; invoice: Invoice }> = [];
 
     filteredInvoices.forEach(inv => {
       if (Array.isArray(inv.paymentHistory)) {
         inv.paymentHistory.forEach(rec => {
+          // Check payment date against start/end date if set
+          if (startDate && rec.date < startDate) return;
+          if (endDate && rec.date > endDate) return;
+
           list.push({ record: rec, invoice: inv });
         });
       }
     });
 
-    // Sort by payment date descending
     return list.sort((a, b) => new Date(b.record.date).getTime() - new Date(a.record.date).getTime());
+  }, [filteredInvoices, startDate, endDate]);
+
+  // Total Payments Collected in filtered period
+  const totalActualPaymentsReceived = useMemo(() => {
+    return paymentRecordsLog.reduce((sum, item) => sum + (item.record.amount || 0), 0);
+  }, [paymentRecordsLog]);
+
+  // Revenue by Service/Product Category
+  const revenueByServices = useMemo(() => {
+    const serviceMap: Record<string, { serviceName: string; count: number; totalInvoiced: number; totalPaid: number }> = {};
+
+    filteredInvoices.forEach(inv => {
+      const items = Array.isArray(inv.items) ? inv.items : [];
+      const totalInv = inv.totalAmount || 1;
+      const paidInv = inv.paidAmount || 0;
+      const paidRatio = paidInv / totalInv;
+
+      if (items.length === 0) {
+        const cat = inv.projectTitle || 'Jasa Kenotariatan & PPAT Umum';
+        if (!serviceMap[cat]) {
+          serviceMap[cat] = { serviceName: cat, count: 0, totalInvoiced: 0, totalPaid: 0 };
+        }
+        serviceMap[cat].count++;
+        serviceMap[cat].totalInvoiced += inv.totalAmount || 0;
+        serviceMap[cat].totalPaid += inv.paidAmount || 0;
+      } else {
+        items.forEach(it => {
+          const cat = it.description || (it as any).name || 'Jasa Kenotariatan & PPAT';
+          if (!serviceMap[cat]) {
+            serviceMap[cat] = { serviceName: cat, count: 0, totalInvoiced: 0, totalPaid: 0 };
+          }
+          const itemAmt = it.amount || ((it.quantity || 1) * (it.unitPrice || 0));
+          serviceMap[cat].count++;
+          serviceMap[cat].totalInvoiced += itemAmt;
+          serviceMap[cat].totalPaid += itemAmt * paidRatio;
+        });
+      }
+    });
+
+    return Object.values(serviceMap).sort((a, b) => b.totalInvoiced - a.totalInvoiced);
   }, [filteredInvoices]);
 
-  // Monthly Breakdown Matrix Data (12 months of selected year)
+  // Client Financial Summaries
+  const clientFinancialSummaries = useMemo(() => {
+    const map: Record<string, {
+      clientName: string;
+      invoiceCount: number;
+      totalInvoiced: number;
+      totalPaid: number;
+      totalUnpaid: number;
+      invoices: Invoice[];
+    }> = {};
+
+    filteredInvoices.forEach(inv => {
+      const cName = (inv.clientName || 'Klien Tanpa Nama').trim();
+      if (!map[cName]) {
+        map[cName] = {
+          clientName: cName,
+          invoiceCount: 0,
+          totalInvoiced: 0,
+          totalPaid: 0,
+          totalUnpaid: 0,
+          invoices: []
+        };
+      }
+
+      const total = inv.totalAmount || 0;
+      const paid = inv.paidAmount || 0;
+      const balance = inv.balanceDue !== undefined ? inv.balanceDue : Math.max(0, total - paid);
+
+      map[cName].invoiceCount++;
+      map[cName].totalInvoiced += total;
+      map[cName].totalPaid += paid;
+      map[cName].totalUnpaid += balance;
+      map[cName].invoices.push(inv);
+    });
+
+    return Object.values(map).sort((a, b) => b.totalInvoiced - a.totalInvoiced);
+  }, [filteredInvoices]);
+
+  // Monthly Data Matrix
   const monthlyDataMatrix = useMemo(() => {
     const months = Array.from({ length: 12 }, (_, i) => {
       return {
@@ -310,14 +443,12 @@ export const FinancialReport: React.FC = () => {
         totalInvoiced: 0,
         totalPaid: 0,
         totalUnpaid: 0,
-        invoices: [] as Invoice[],
-        unpaidInvoices: [] as Invoice[],
-        paidInvoices: [] as Invoice[]
+        invoices: [] as Invoice[]
       };
     });
 
     invoices.forEach(inv => {
-      if (inv.status === 'DRAFT' || inv.status === 'CANCELLED') return false;
+      if (inv.status === 'DRAFT' || inv.status === 'CANCELLED') return;
       if (!inv.issueDate) return;
 
       const [y, m] = inv.issueDate.split('-');
@@ -335,28 +466,47 @@ export const FinancialReport: React.FC = () => {
         item.totalPaid += paid;
         item.totalUnpaid += balance;
         item.invoices.push(inv);
-
-        if (balance > 0) {
-          item.unpaidInvoices.push(inv);
-        }
-        if (paid > 0) {
-          item.paidInvoices.push(inv);
-        }
       }
     });
 
     return months;
   }, [invoices, selectedYear]);
 
-  // Toggle Month Expansion
-  const toggleMonthExpansion = (key: string) => {
-    setExpandedMonths(prev => ({ ...prev, [key]: !prev[key] }));
-  };
+  // Yearly Data Matrix
+  const yearlyDataMatrix = useMemo(() => {
+    const yearMap: Record<string, {
+      year: string;
+      invoiceCount: number;
+      totalInvoiced: number;
+      totalPaid: number;
+      totalUnpaid: number;
+    }> = {};
+
+    invoices.forEach(inv => {
+      if (inv.status === 'DRAFT' || inv.status === 'CANCELLED') return;
+      const yr = inv.issueDate ? inv.issueDate.split('-')[0] : 'Lainnya';
+
+      if (!yearMap[yr]) {
+        yearMap[yr] = { year: yr, invoiceCount: 0, totalInvoiced: 0, totalPaid: 0, totalUnpaid: 0 };
+      }
+
+      const total = inv.totalAmount || 0;
+      const paid = inv.paidAmount || 0;
+      const balance = inv.balanceDue !== undefined ? inv.balanceDue : Math.max(0, total - paid);
+
+      yearMap[yr].invoiceCount++;
+      yearMap[yr].totalInvoiced += total;
+      yearMap[yr].totalPaid += paid;
+      yearMap[yr].totalUnpaid += balance;
+    });
+
+    return Object.values(yearMap).sort((a, b) => b.year.localeCompare(a.year));
+  }, [invoices]);
 
   // Open Payment Modal
   const openPaymentModal = (inv: Invoice) => {
     setPaymentModalInvoice(inv);
-    const remaining = inv.balanceDue !== undefined ? inv.balanceDue : (inv.totalAmount - (inv.paidAmount || 0));
+    const remaining = inv.balanceDue !== undefined ? inv.balanceDue : ((inv.totalAmount || 0) - (inv.paidAmount || 0));
     setPaymentAmount(remaining.toString());
     setPaymentDate(new Date().toISOString().split('T')[0]);
     setPaymentMethod('Transfer Bank');
@@ -397,10 +547,22 @@ export const FinancialReport: React.FC = () => {
   const getWhatsAppReminderUrl = (inv: Invoice) => {
     const phone = inv.clientPhone ? inv.clientPhone.replace(/[^0-9]/g, '') : '';
     const formattedPhone = phone.startsWith('0') ? '62' + phone.substring(1) : phone;
-    const balance = inv.balanceDue !== undefined ? inv.balanceDue : (inv.totalAmount - (inv.paidAmount || 0));
+    const balance = inv.balanceDue !== undefined ? inv.balanceDue : ((inv.totalAmount || 0) - (inv.paidAmount || 0));
     const msg = `Halo Bapak/Ibu ${inv.clientName},\n\nKami menginformasikan mengenai Invoice *#${inv.invoiceNumber}* sebesar *${formatCurrency(inv.totalAmount)}* dengan sisa tagihan *${formatCurrency(balance)}* yang jatuh tempo pada *${formatIndonesianDate(inv.dueDate)}*.\n\nMohon konfirmasinya jika telah melakukan pembayaran. Terima kasih!\n\n_Salam, Notaris & PPAT_`;
     
     return `https://wa.me/${formattedPhone}?text=${encodeURIComponent(msg)}`;
+  };
+
+  // Reset All Filters
+  const handleResetFilters = () => {
+    setSelectedYear(new Date().getFullYear().toString());
+    setSelectedMonth('all');
+    setStartDate('');
+    setEndDate('');
+    setSelectedClient('all');
+    setInvoiceStatusFilter('all');
+    setPaymentStatusFilter('all');
+    setSearchQuery('');
   };
 
   // CSV Export Function
@@ -408,7 +570,7 @@ export const FinancialReport: React.FC = () => {
     let csv = 'No Invoice,Klien,Proyek,Tanggal Issue,Jatuh Tempo,Status,Total Tagihan,Sudah Dibayar,Sisa Piutang\n';
     
     filteredInvoices.forEach(inv => {
-      const balance = inv.balanceDue !== undefined ? inv.balanceDue : (inv.totalAmount - (inv.paidAmount || 0));
+      const balance = inv.balanceDue !== undefined ? inv.balanceDue : ((inv.totalAmount || 0) - (inv.paidAmount || 0));
       const statusStr = balance <= 0 ? 'LUNAS' : (inv.paidAmount || 0) > 0 ? 'SEBAGIAN' : 'BELUM DIBAYAR';
       const row = [
         `"${inv.invoiceNumber || ''}"`,
@@ -434,253 +596,468 @@ export const FinancialReport: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // Print Executer with Ringkasan or Detail Seluruh Invoice
-  const executePrintReport = () => {
-    setIsPrintModalOpen(false);
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    // Filter scope
-    let targetInvoices = filteredInvoices;
-    if (printScope === 'unpaid') {
-      targetInvoices = unpaidInvoices;
-    } else if (printScope === 'paid') {
-      targetInvoices = paidInvoices;
+  // Generate HTML string for PDF Export or Live Preview
+  const buildCombinedReportHTML = () => {
+    const todayStr = formatIndonesianDate(new Date().toISOString().split('T')[0]);
+    
+    let periodText = 'Keseluruhan Periode';
+    if (startDate || endDate) {
+      periodText = `${startDate ? formatIndonesianDate(startDate) : 'Awal'} s/d ${endDate ? formatIndonesianDate(endDate) : 'Hari Ini'}`;
+    } else if (selectedYear !== 'all') {
+      periodText = `Tahun ${selectedYear}${selectedMonth !== 'all' ? ' — Bulan ' + MONTH_NAMES[parseInt(selectedMonth, 10)] : ''}`;
     }
 
-    const todayStr = formatIndonesianDate(new Date().toISOString().split('T')[0]);
-    const periodText = `${selectedYear === 'all' ? 'Semua Tahun' : 'Tahun ' + selectedYear}${selectedMonth !== 'all' ? ' — Bulan ' + MONTH_NAMES[parseInt(selectedMonth, 10)] : ''}`;
+    const isPortrait = pdfOrientation === 'portrait';
 
-    let printBodyHTML = '';
+    let sectionsHTML = '';
 
-    if (printType === 'summary') {
-      // RINGKASAN HTML
-      printBodyHTML = `
-        <div class="summary-grid">
-          <div class="summary-card">
-            <div class="title">Total Tagihan (Omset)</div>
-            <div class="value">${formatCurrency(metrics.totalInvoiced)}</div>
-          </div>
-          <div class="summary-card">
-            <div class="title">Sudah Dibayar</div>
-            <div class="value" style="color: #16a34a;">${formatCurrency(metrics.totalPaid)}</div>
-          </div>
-          <div class="summary-card">
-            <div class="title">Sisa Piutang (Belum Dibayar)</div>
-            <div class="value" style="color: #dc2626;">${formatCurrency(metrics.totalUnpaid)}</div>
-          </div>
-          <div class="summary-card">
-            <div class="title">Tingkat Pelunasan</div>
-            <div class="value" style="color: #2563eb;">${metrics.collectionRate.toFixed(1)}%</div>
-          </div>
+    // 1. REKAP INVOICE
+    if (selectedReportsForPDF.rekap_invoice) {
+      sectionsHTML += `
+        <div class="report-section">
+          <div class="section-title">1. REKAPITULASI INVOICE</div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 120px;">No. Invoice</th>
+                <th>Nama Klien & Proyek</th>
+                <th style="width: 100px;">Tgl Issue</th>
+                <th style="width: 100px;">Jatuh Tempo</th>
+                <th style="width: 90px;">Status</th>
+                <th style="width: 110px;" class="text-right">Total Tagihan</th>
+                <th style="width: 110px;" class="text-right">Sudah Dibayar</th>
+                <th style="width: 110px;" class="text-right">Sisa Piutang</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredInvoices.map(inv => {
+                const balance = inv.balanceDue !== undefined ? inv.balanceDue : ((inv.totalAmount || 0) - (inv.paidAmount || 0));
+                const isP = balance <= 0;
+                const isPart = (inv.paidAmount || 0) > 0 && balance > 0;
+                return `
+                  <tr>
+                    <td><b>${inv.invoiceNumber}</b></td>
+                    <td><b>${inv.clientName}</b>${inv.projectTitle ? '<br/><span style="font-size:10px; color:#64748b;">' + inv.projectTitle + '</span>' : ''}</td>
+                    <td>${formatIndonesianDate(inv.issueDate)}</td>
+                    <td>${formatIndonesianDate(inv.dueDate)}</td>
+                    <td><span class="badge ${isP ? 'badge-paid' : isPart ? 'badge-partial' : 'badge-unpaid'}">${isP ? 'LUNAS' : isPart ? 'SEBAGIAN' : 'BELUM BAYAR'}</span></td>
+                    <td class="text-right">${formatCurrency(inv.totalAmount)}</td>
+                    <td class="text-right" style="color:#16a34a; font-weight:bold;">${formatCurrency(inv.paidAmount)}</td>
+                    <td class="text-right" style="color:#dc2626; font-weight:bold;">${formatCurrency(balance)}</td>
+                  </tr>
+                `;
+              }).join('')}
+              ${filteredInvoices.length === 0 ? '<tr><td colSpan="8" style="text-align:center; color:#94a3b8;">Tidak ada data invoice.</td></tr>' : ''}
+            </tbody>
+            <tfoot>
+              <tr style="background:#f1f5f9; font-weight:bold;">
+                <td colSpan="5">TOTAL (${metrics.totalCount} INVOICE)</td>
+                <td class="text-right">${formatCurrency(metrics.totalInvoiced)}</td>
+                <td class="text-right" style="color:#16a34a;">${formatCurrency(metrics.totalPaid)}</td>
+                <td class="text-right" style="color:#dc2626;">${formatCurrency(metrics.totalUnpaid)}</td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
+      `;
+    }
 
-        <h3>REKAPITULASI INVOICE (${targetInvoices.length} DOKUMEN)</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>No. Invoice</th>
-              <th>Nama Klien & Proyek</th>
-              <th>Tgl Issue</th>
-              <th>Jatuh Tempo</th>
-              <th>Status</th>
-              <th class="text-right">Total Tagihan</th>
-              <th class="text-right">Sudah Dibayar</th>
-              <th class="text-right">Sisa Piutang</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${targetInvoices.map(inv => {
-              const balance = inv.balanceDue !== undefined ? inv.balanceDue : (inv.totalAmount - (inv.paidAmount || 0));
-              const isP = balance <= 0;
-              const isPart = (inv.paidAmount || 0) > 0 && balance > 0;
-              return `
+    // 2. LAPORAN PEMBAYARAN
+    if (selectedReportsForPDF.laporan_pembayaran) {
+      sectionsHTML += `
+        <div class="report-section">
+          <div class="section-title">2. LAPORAN PEMBAYARAN MASUK (${paymentRecordsLog.length} TRANSAKSI)</div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 110px;">Tgl Bayar</th>
+                <th style="width: 120px;">No. Invoice</th>
+                <th>Nama Klien</th>
+                <th style="width: 110px;">Metode</th>
+                <th>No. Referensi / Catatan</th>
+                <th style="width: 120px;" class="text-right">Jumlah Diterima</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${paymentRecordsLog.map(item => `
                 <tr>
-                  <td><b>${inv.invoiceNumber}</b></td>
-                  <td>
-                    <b>${inv.clientName}</b>
+                  <td><b>${formatIndonesianDate(item.record.date)}</b></td>
+                  <td>${item.invoice.invoiceNumber}</td>
+                  <td><b>${item.invoice.clientName}</b></td>
+                  <td><span class="badge badge-paid">${item.record.method || 'Transfer Bank'}</span></td>
+                  <td>${item.record.refNumber ? 'Ref: ' + item.record.refNumber : ''} ${item.record.notes ? ' (' + item.record.notes + ')' : ''}</td>
+                  <td class="text-right" style="color:#16a34a; font-weight:bold;">${formatCurrency(item.record.amount)}</td>
+                </tr>
+              `).join('')}
+              ${paymentRecordsLog.length === 0 ? '<tr><td colSpan="6" style="text-align:center; color:#94a3b8;">Belum ada riwayat pembayaran masuk.</td></tr>' : ''}
+            </tbody>
+            <tfoot>
+              <tr style="background:#f1f5f9; font-weight:bold;">
+                <td colSpan="5">TOTAL KAS PEMBAYARAN DITERIMA</td>
+                <td class="text-right" style="color:#16a34a;">${formatCurrency(totalActualPaymentsReceived)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      `;
+    }
+
+    // 3. LAPORAN PIUTANG
+    if (selectedReportsForPDF.laporan_piutang) {
+      sectionsHTML += `
+        <div class="report-section">
+          <div class="section-title">3. LAPORAN PIUTANG INVOICE BELUM LUNAS (${unpaidInvoices.length} DOKUMEN)</div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 120px;">No. Invoice</th>
+                <th>Nama Klien</th>
+                <th style="width: 100px;">Tgl Issue</th>
+                <th style="width: 100px;">Jatuh Tempo</th>
+                <th style="width: 110px;">Status Aging</th>
+                <th style="width: 110px;" class="text-right">Total Tagihan</th>
+                <th style="width: 110px;" class="text-right">Sudah Dibayar</th>
+                <th style="width: 110px;" class="text-right">Sisa Piutang</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${unpaidInvoices.map(inv => {
+                const balance = inv.balanceDue !== undefined ? inv.balanceDue : ((inv.totalAmount || 0) - (inv.paidAmount || 0));
+                const overdue = isOverdue(inv);
+                const agingDays = getAgingDays(inv.dueDate);
+                return `
+                  <tr>
+                    <td><b>${inv.invoiceNumber}</b></td>
+                    <td><b>${inv.clientName}</b></td>
+                    <td>${formatIndonesianDate(inv.issueDate)}</td>
+                    <td>${formatIndonesianDate(inv.dueDate)}</td>
+                    <td>
+                      <span class="badge ${overdue ? 'badge-unpaid' : 'badge-partial'}">
+                        ${overdue ? 'Terlambat ' + agingDays + ' Hari' : 'Akan Jatuh Tempo'}
+                      </span>
+                    </td>
+                    <td class="text-right">${formatCurrency(inv.totalAmount)}</td>
+                    <td class="text-right" style="color:#16a34a;">${formatCurrency(inv.paidAmount)}</td>
+                    <td class="text-right" style="color:#dc2626; font-weight:bold;">${formatCurrency(balance)}</td>
+                  </tr>
+                `;
+              }).join('')}
+              ${unpaidInvoices.length === 0 ? '<tr><td colSpan="8" style="text-align:center; color:#15803d; font-weight:bold;">Tidak ada tunggakan piutang! Semua lunas.</td></tr>' : ''}
+            </tbody>
+            <tfoot>
+              <tr style="background:#fee2e2; font-weight:bold; color:#991b1b;">
+                <td colSpan="7">TOTAL SISA PIUTANG MURNI</td>
+                <td class="text-right">${formatCurrency(metrics.totalUnpaid)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      `;
+    }
+
+    // 4. REKAP PENDAPATAN
+    if (selectedReportsForPDF.rekap_pendapatan) {
+      sectionsHTML += `
+        <div class="report-section">
+          <div class="section-title">4. REKAPITULASI PENDAPATAN PER KATEGORI JASA / PRODUK</div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 40px; text-align:center;">No</th>
+                <th>Kategori / Deskripsi Layanan</th>
+                <th style="width: 90px; text-align:center;">Frekuensi</th>
+                <th style="width: 140px;" class="text-right">Total Tagihan</th>
+                <th style="width: 140px;" class="text-right">Estimasi Kas Diterima</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${revenueByServices.map((srv, idx) => `
+                <tr>
+                  <td style="text-align:center;">${idx + 1}</td>
+                  <td><b>${srv.serviceName}</b></td>
+                  <td style="text-align:center;">${srv.count}x</td>
+                  <td class="text-right">${formatCurrency(srv.totalInvoiced)}</td>
+                  <td class="text-right" style="color:#16a34a; font-weight:bold;">${formatCurrency(srv.totalPaid)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // 5. LAPORAN BULANAN
+    if (selectedReportsForPDF.laporan_bulanan) {
+      sectionsHTML += `
+        <div class="report-section">
+          <div class="section-title">5. LAPORAN REKAPITULASI PER BULAN (${selectedYear === 'all' ? 'SEMUA TAHUN' : 'TAHUN ' + selectedYear})</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Bulan</th>
+                <th style="text-align:center;">Jumlah Inv</th>
+                <th class="text-right">Total Omset Tagihan</th>
+                <th class="text-right">Sudah Dibayar</th>
+                <th class="text-right">Sisa Piutang</th>
+                <th style="text-align:center;">Tingkat Pelunasan</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${monthlyDataMatrix.map(m => {
+                const rate = m.totalInvoiced > 0 ? (m.totalPaid / m.totalInvoiced) * 100 : 0;
+                return `
+                  <tr>
+                    <td><b>${m.monthName}</b></td>
+                    <td style="text-align:center;">${m.invoiceCount}</td>
+                    <td class="text-right">${formatCurrency(m.totalInvoiced)}</td>
+                    <td class="text-right" style="color:#16a34a; font-weight:bold;">${formatCurrency(m.totalPaid)}</td>
+                    <td class="text-right" style="color:#dc2626; font-weight:bold;">${m.totalUnpaid > 0 ? formatCurrency(m.totalUnpaid) : '-'}</td>
+                    <td style="text-align:center;"><b>${rate.toFixed(0)}%</b></td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // 6. LAPORAN KLIEN
+    if (selectedReportsForPDF.laporan_klien) {
+      sectionsHTML += `
+        <div class="report-section">
+          <div class="section-title">6. LAPORAN REKAPITULASI PER KLIEN (${clientFinancialSummaries.length} KLIEN)</div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 40px; text-align:center;">No</th>
+                <th>Nama Klien</th>
+                <th style="width: 90px; text-align:center;">Jumlah Inv</th>
+                <th style="width: 120px;" class="text-right">Total Tagihan</th>
+                <th style="width: 120px;" class="text-right">Sudah Dibayar</th>
+                <th style="width: 120px;" class="text-right">Sisa Piutang</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${clientFinancialSummaries.map((cli, idx) => `
+                <tr>
+                  <td style="text-align:center;">${idx + 1}</td>
+                  <td><b>${cli.clientName}</b></td>
+                  <td style="text-align:center;">${cli.invoiceCount} Inv</td>
+                  <td class="text-right">${formatCurrency(cli.totalInvoiced)}</td>
+                  <td class="text-right" style="color:#16a34a; font-weight:bold;">${formatCurrency(cli.totalPaid)}</td>
+                  <td class="text-right" style="color:#dc2626; font-weight:bold;">${cli.totalUnpaid > 0 ? formatCurrency(cli.totalUnpaid) : '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // 7. RIWAYAT TRANSAKSI ITEM
+    if (selectedReportsForPDF.riwayat_transaksi) {
+      sectionsHTML += `
+        <div class="report-section">
+          <div class="section-title">7. RIWAYAT TRANSAKSI & DETAIL INVOICE ITEM</div>
+          ${filteredInvoices.map((inv, idx) => {
+            const balance = inv.balanceDue !== undefined ? inv.balanceDue : ((inv.totalAmount || 0) - (inv.paidAmount || 0));
+            const isP = balance <= 0;
+            const isPart = (inv.paidAmount || 0) > 0 && balance > 0;
+            const items = Array.isArray(inv.items) ? inv.items : [];
+            const history = Array.isArray(inv.paymentHistory) ? inv.paymentHistory : [];
+
+            return `
+              <div style="border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; margin-bottom: 12px; page-break-inside: avoid;">
+                <div style="display: flex; justify-content: space-between; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">
+                  <div>
+                    <b>#${idx + 1}. Invoice ${inv.invoiceNumber}</b> — ${inv.clientName}
                     ${inv.projectTitle ? '<br/><span style="font-size: 10px; color: #64748b;">Proyek: ' + inv.projectTitle + '</span>' : ''}
-                  </td>
-                  <td>${formatIndonesianDate(inv.issueDate)}</td>
-                  <td>${formatIndonesianDate(inv.dueDate)}</td>
-                  <td>
+                  </div>
+                  <div style="text-align: right;">
                     <span class="badge ${isP ? 'badge-paid' : isPart ? 'badge-partial' : 'badge-unpaid'}">
                       ${isP ? 'LUNAS' : isPart ? 'SEBAGIAN' : 'BELUM BAYAR'}
                     </span>
-                  </td>
-                  <td class="text-right">${formatCurrency(inv.totalAmount)}</td>
-                  <td class="text-right" style="color: #16a34a; font-weight: bold;">${formatCurrency(inv.paidAmount)}</td>
-                  <td class="text-right" style="color: #dc2626; font-weight: bold;">${formatCurrency(balance)}</td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-      `;
-    } else {
-      // DETAIL SELURUH INVOICE HTML (Full Line Items Breakdown)
-      printBodyHTML = `
-        <div class="summary-grid">
-          <div class="summary-card">
-            <div class="title">Total Tagihan (Omset)</div>
-            <div class="value">${formatCurrency(metrics.totalInvoiced)}</div>
-          </div>
-          <div class="summary-card">
-            <div class="title">Sudah Dibayar</div>
-            <div class="value" style="color: #16a34a;">${formatCurrency(metrics.totalPaid)}</div>
-          </div>
-          <div class="summary-card">
-            <div class="title">Sisa Piutang (Belum Dibayar)</div>
-            <div class="value" style="color: #dc2626;">${formatCurrency(metrics.totalUnpaid)}</div>
-          </div>
-          <div class="summary-card">
-            <div class="title">Total Invoice Dicetak</div>
-            <div class="value" style="color: #2563eb;">${targetInvoices.length} Invoice</div>
-          </div>
-        </div>
-
-        <h3 style="border-bottom: 2px solid #0f172a; padding-bottom: 6px; margin-top: 24px;">DETAIL RINCIAN ITEM SELURUH INVOICE</h3>
-
-        ${targetInvoices.map((inv, idx) => {
-          const balance = inv.balanceDue !== undefined ? inv.balanceDue : (inv.totalAmount - (inv.paidAmount || 0));
-          const isP = balance <= 0;
-          const isPart = (inv.paidAmount || 0) > 0 && balance > 0;
-          const items = Array.isArray(inv.items) ? inv.items : [];
-          const history = Array.isArray(inv.paymentHistory) ? inv.paymentHistory : [];
-
-          return `
-            <div class="invoice-detail-card">
-              <div class="invoice-header">
-                <div>
-                  <div class="inv-num">#${idx + 1}. INVOICE: ${inv.invoiceNumber}</div>
-                  <div class="inv-client"><b>Klien:</b> ${inv.clientName} ${inv.clientPhone ? '(' + inv.clientPhone + ')' : ''}</div>
-                  ${inv.clientAddress ? '<div class="inv-sub">Alamat: ' + inv.clientAddress + '</div>' : ''}
-                  ${inv.projectTitle ? '<div class="inv-sub">Proyek: ' + inv.projectTitle + '</div>' : ''}
-                </div>
-                <div style="text-align: right;">
-                  <span class="badge ${isP ? 'badge-paid' : isPart ? 'badge-partial' : 'badge-unpaid'}" style="font-size: 11px; padding: 4px 8px;">
-                    ${isP ? 'LUNAS' : isPart ? 'BELUM LUNAS (SEBAGIAN)' : 'BELUM DIBAYAR'}
-                  </span>
-                  <div style="margin-top: 6px; font-size: 11px; color: #475569;">
-                    Issue: <b>${formatIndonesianDate(inv.issueDate)}</b><br/>
-                    Jatuh Tempo: <b>${formatIndonesianDate(inv.dueDate)}</b>
+                    <br/><span style="font-size: 10px; color: #64748b;">Issue: ${formatIndonesianDate(inv.issueDate)}</span>
                   </div>
                 </div>
-              </div>
 
-              <!-- ITEMS TABLE -->
-              <table className="items-table" style="margin-top: 10px;">
-                <thead>
-                  <tr>
-                    <th style="width: 40px; text-align: center;">No</th>
-                    <th>Deskripsi Produk / Layanan</th>
-                    <th style="width: 60px; text-align: center;">Qty</th>
-                    <th style="text-align: right; width: 110px;">Harga Satuan</th>
-                    <th style="text-align: right; width: 120px;">Subtotal</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${items.map((it, iIdx) => `
+                <table style="margin-top: 6px; margin-bottom: 6px;">
+                  <thead>
                     <tr>
-                      <td style="text-align: center;">${iIdx + 1}</td>
-                      <td>${it.description || (it as any).name || '-'}</td>
-                      <td style="text-align: center;">${it.quantity || 1}</td>
-                      <td style="text-align: right;">${formatCurrency(it.unitPrice)}</td>
-                      <td style="text-align: right; font-weight: bold;">${formatCurrency(it.amount || ((it.quantity || 1) * (it.unitPrice || 0)))}</td>
+                      <th style="width: 30px; text-align:center;">No</th>
+                      <th>Produk / Layanan</th>
+                      <th style="width: 50px; text-align:center;">Qty</th>
+                      <th style="width: 100px; text-align:right;">Harga</th>
+                      <th style="width: 100px; text-align:right;">Subtotal</th>
                     </tr>
-                  `).join('')}
-                  ${items.length === 0 ? '<tr><td colspan="5" style="text-align:center; color:#94a3b8; italic;">Tidak ada rincian item.</td></tr>' : ''}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    ${items.map((it, iIdx) => `
+                      <tr>
+                        <td style="text-align:center;">${iIdx + 1}</td>
+                        <td>${it.description || (it as any).name || '-'}</td>
+                        <td style="text-align:center;">${it.quantity || 1}</td>
+                        <td style="text-align:right;">${formatCurrency(it.unitPrice)}</td>
+                        <td style="text-align:right; font-weight:bold;">${formatCurrency(it.amount || ((it.quantity || 1) * (it.unitPrice || 0)))}</td>
+                      </tr>
+                    `).join('')}
+                    ${items.length === 0 ? '<tr><td colSpan="5" style="text-align:center; color:#94a3b8;">Item tidak dirinci.</td></tr>' : ''}
+                  </tbody>
+                </table>
 
-              <!-- INVOICE TOTAL & PAYMENTS -->
-              <div class="invoice-summary-box">
-                <div style="width: 50%;">
-                  ${history.length > 0 ? `
-                    <div style="font-weight: bold; font-size: 10px; color: #475569; text-transform: uppercase; margin-bottom: 4px;">Riwayat Angsuran Pembayaran:</div>
-                    <ul style="margin: 0; padding-left: 14px; font-size: 10px; color: #334155;">
-                      ${history.map(h => `
-                        <li><b>${formatIndonesianDate(h.date)}</b>: ${formatCurrency(h.amount)} (${h.method || 'Transfer'}${h.refNumber ? ' - Ref: ' + h.refNumber : ''})</li>
-                      `).join('')}
-                    </ul>
-                  ` : '<span style="font-size:10px; color:#94a3b8; italic;">Belum ada riwayat angsuran.</span>'}
-                </div>
-
-                <div style="width: 45%; text-align: right; font-size: 11px;">
-                  <div>Subtotal: <b>${formatCurrency(inv.subtotal || inv.totalAmount)}</b></div>
-                  ${inv.taxAmount ? `<div>Pajak: ${formatCurrency(inv.taxAmount)}</div>` : ''}
-                  ${inv.discount ? `<div>Diskon: -${formatCurrency(inv.discount)}</div>` : ''}
-                  <div style="font-size: 12px; font-weight: bold; margin-top: 4px; border-top: 1px border #cbd5e1; padding-top: 4px;">
-                    Total Tagihan: ${formatCurrency(inv.totalAmount)}
+                <div style="display: flex; justify-content: space-between; background: #f8fafc; padding: 6px 10px; border-radius: 4px; font-size: 11px;">
+                  <div>
+                    ${history.length > 0 ? `
+                      <b>Histori Angsuran:</b>
+                      <ul style="margin: 2px 0 0 14px; padding: 0; font-size: 10px;">
+                        ${history.map(h => `<li>${formatIndonesianDate(h.date)}: ${formatCurrency(h.amount)} (${h.method || 'Transfer'})</li>`).join('')}
+                      </ul>
+                    ` : '<span>Belum ada angsuran.</span>'}
                   </div>
-                  <div style="color: #16a34a; font-weight: bold;">
-                    Sudah Dibayar: ${formatCurrency(inv.paidAmount || 0)}
-                  </div>
-                  <div style="color: #dc2626; font-size: 13px; font-weight: 900; margin-top: 2px;">
-                    Sisa Piutang: ${formatCurrency(balance)}
+                  <div style="text-align: right;">
+                    Total: <b>${formatCurrency(inv.totalAmount)}</b> | Terbayar: <b style="color:#16a34a;">${formatCurrency(inv.paidAmount)}</b> | Sisa: <b style="color:#dc2626;">${formatCurrency(balance)}</b>
                   </div>
                 </div>
               </div>
-            </div>
-          `;
-        }).join('')}
+            `;
+          }).join('')}
+        </div>
       `;
     }
 
-    const htmlContent = `
+    return `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Laporan Keuangan - ${printType === 'detailed' ? 'Detail Seluruh Invoice' : 'Ringkasan'}</title>
+        <title>Laporan Keuangan Notaris & PPAT</title>
         <style>
-          body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 24px; color: #0f172a; font-size: 12px; line-height: 1.4; }
-          .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 20px; }
-          .header h1 { margin: 0; font-size: 20px; text-transform: uppercase; letter-spacing: 1px; color: #0f172a; font-weight: 900; }
-          .header p { margin: 4px 0 0 0; color: #475569; font-size: 11px; font-weight: bold; }
+          @page {
+            size: A4 ${pdfOrientation};
+            margin: 12mm;
+          }
+          body { 
+            font-family: 'Helvetica Neue', Arial, sans-serif; 
+            padding: 16px; 
+            color: #0f172a; 
+            font-size: 11px; 
+            line-height: 1.4; 
+          }
+          .office-header { 
+            text-align: center; 
+            border-bottom: 2.5px solid #0f172a; 
+            padding-bottom: 10px; 
+            margin-bottom: 16px; 
+          }
+          .office-header h2 { 
+            margin: 0; 
+            font-size: 16px; 
+            font-weight: 900; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px; 
+            color: #0f172a; 
+          }
+          .office-header h1 { 
+            margin: 2px 0; 
+            font-size: 18px; 
+            font-weight: 900; 
+            text-transform: uppercase; 
+            color: #1e3a8a; 
+          }
+          .office-header p { 
+            margin: 2px 0 0 0; 
+            color: #475569; 
+            font-size: 10px; 
+            font-weight: 600; 
+          }
           
-          .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
-          .summary-card { border: 1px solid #cbd5e1; padding: 10px 12px; border-radius: 8px; background: #f8fafc; }
-          .summary-card .title { font-size: 10px; color: #64748b; font-weight: bold; text-transform: uppercase; }
-          .summary-card .value { font-size: 15px; font-weight: 900; margin-top: 4px; color: #0f172a; }
+          .summary-kpi-bar {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+          }
+          .kpi-card {
+            border: 1px solid #cbd5e1;
+            padding: 8px 12px;
+            border-radius: 6px;
+            background: #f8fafc;
+          }
+          .kpi-card .title { font-size: 9px; color: #64748b; font-weight: bold; text-transform: uppercase; }
+          .kpi-card .val { font-size: 14px; font-weight: 900; margin-top: 3px; color: #0f172a; }
 
-          table { width: 100%; border-collapse: collapse; margin-top: 8px; margin-bottom: 12px; }
-          th { background: #0f172a; color: white; text-align: left; padding: 8px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
-          td { border-bottom: 1px solid #e2e8f0; padding: 8px; font-size: 11px; }
+          .report-section {
+            margin-bottom: 24px;
+            page-break-inside: auto;
+          }
+          .section-title {
+            font-size: 12px;
+            font-weight: 900;
+            color: #0f172a;
+            border-bottom: 1.5px solid #0f172a;
+            padding-bottom: 4px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+
+          table { width: 100%; border-collapse: collapse; margin-top: 6px; margin-bottom: 10px; }
+          th { background: #0f172a; color: white; text-align: left; padding: 6px 8px; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.5px; }
+          td { border-bottom: 1px solid #e2e8f0; padding: 6px 8px; font-size: 10.5px; }
           .text-right { text-align: right; }
           
-          .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; }
+          .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 8.5px; font-weight: bold; }
           .badge-paid { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
           .badge-unpaid { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
           .badge-partial { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
 
-          .invoice-detail-card { border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px; margin-bottom: 16px; background: #ffffff; page-break-inside: avoid; }
-          .invoice-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
-          .inv-num { font-size: 14px; font-weight: 900; color: #0f172a; }
-          .inv-client { font-size: 12px; color: #334155; margin-top: 2px; }
-          .inv-sub { font-size: 10px; color: #64748b; }
-          .invoice-summary-box { display: flex; justify-content: space-between; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0; margin-top: 8px; }
-
-          .footer { margin-top: 30px; border-top: 1px solid #cbd5e1; padding-top: 10px; display: flex; justify-content: space-between; font-size: 10px; color: #64748b; }
+          .footer-note {
+            margin-top: 30px;
+            border-top: 1px solid #cbd5e1;
+            padding-top: 8px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 9.5px;
+            color: #64748b;
+          }
 
           @media print {
             body { padding: 0; }
-            .invoice-detail-card { page-break-inside: avoid; }
+            .report-section { page-break-inside: auto; }
           }
         </style>
       </head>
       <body>
-        <div class="header">
-          <h1>LAPORAN KEUANGAN NOTARIS & PPAT</h1>
-          <p>${printType === 'detailed' ? 'DOKUMEN DETAIL RINCIAN SELURUH INVOICE' : 'DOKUMEN RINGKASAN KEUANGAN INVOICE'} | Periode: ${periodText}</p>
-          <p style="font-weight: normal; font-size: 10px; color: #64748b; margin-top: 2px;">Tanggal Cetak Laporan: ${todayStr}</p>
+        <div class="office-header">
+          <h2>NOTARIS & PPAT NUKANTINI PUTRI PARINCHA, S.H., M.Kn.</h2>
+          <h1>LAPORAN KEUANGAN KEGIATAN KANTOR</h1>
+          <p>Periode: <b>${periodText}</b> | Dicetak: <b>${todayStr}</b></p>
         </div>
 
-        ${printBodyHTML}
+        <div class="summary-kpi-bar">
+          <div class="kpi-card">
+            <div class="title">Total Tagihan (Omset)</div>
+            <div class="val">${formatCurrency(metrics.totalInvoiced)}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="title">Total Kas Masuk</div>
+            <div class="val" style="color:#16a34a;">${formatCurrency(metrics.totalPaid)}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="title">Sisa Piutang</div>
+            <div class="val" style="color:#dc2626;">${formatCurrency(metrics.totalUnpaid)}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="title">Tingkat Pelunasan</div>
+            <div class="val" style="color:#2563eb;">${metrics.collectionRate.toFixed(1)}%</div>
+          </div>
+        </div>
 
-        <div class="footer">
-          <span>Laporan Resmi Kantor Notaris & PPAT — Hak Cipta Dilindungi</span>
-          <span>Halaman Cetak Otomatis Sistem</span>
+        ${sectionsHTML}
+
+        <div class="footer-note">
+          <span>Laporan Keuangan Otomatis — Superapps Notaris Putri Office System</span>
+          <span>Dicetak Tanggal: ${todayStr}</span>
         </div>
 
         <script>
@@ -689,8 +1066,14 @@ export const FinancialReport: React.FC = () => {
       </body>
       </html>
     `;
+  };
 
-    printWindow.document.write(htmlContent);
+  // Direct Execute Print Function
+  const handleDirectPrintPDF = () => {
+    const html = buildCombinedReportHTML();
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(html);
     printWindow.document.close();
   };
 
@@ -698,7 +1081,7 @@ export const FinancialReport: React.FC = () => {
     return (
       <div className="p-6 md:p-8 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[400px]">
         <RefreshCw className="w-8 h-8 text-emerald-600 animate-spin mb-3" />
-        <p className="text-sm font-semibold text-slate-600">Memuat Laporan Keuangan...</p>
+        <p className="text-sm font-semibold text-slate-600">Memuat Modul Laporan Keuangan...</p>
       </div>
     );
   }
@@ -714,13 +1097,13 @@ export const FinancialReport: React.FC = () => {
           </div>
           <div>
             <h1 className="text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-              Laporan Keuangan & Piutang
+              Modul Laporan Keuangan Notaris & PPAT
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-                Live Data
+                Data Real
               </span>
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Rekapitulasi omset, tagihan belum dibayar, dan penerimaan pembayaran dari invoice.
+              Sistem laporan keuangan komprehensif berdasarkan transaksi invoice & pembayaran aktual.
             </p>
           </div>
         </div>
@@ -745,65 +1128,139 @@ export const FinancialReport: React.FC = () => {
           </button>
 
           <button
-            onClick={() => setIsPrintModalOpen(true)}
+            onClick={() => setActiveTab('pdf_merger')}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 transition-all shadow-xs cursor-pointer"
           >
             <Printer className="w-3.5 h-3.5" />
-            <span>Cetak PDF / Print</span>
+            <span>Cetak / Ekspor PDF</span>
           </button>
         </div>
       </div>
 
-      {/* FILTER CONTROLS BAR */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1 shrink-0">
-            <Filter className="w-3.5 h-3.5 text-slate-400" /> Filter:
-          </span>
+      {/* ADVANCED FILTER CONTROLS PANEL */}
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+          <div className="flex items-center gap-2 text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+            <Filter className="w-4 h-4 text-emerald-600" />
+            <span>Filter Laporan Keuangan</span>
+          </div>
 
-          {/* Year Selector */}
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(e.target.value)}
-            className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 outline-none focus:border-emerald-500 cursor-pointer"
+          <button
+            type="button"
+            onClick={handleResetFilters}
+            className="text-xs text-slate-500 hover:text-emerald-600 font-semibold cursor-pointer transition-colors"
           >
-            <option value="all">Semua Tahun</option>
-            {availableYears.map(yr => (
-              <option key={yr} value={yr}>Tahun {yr}</option>
-            ))}
-          </select>
-
-          {/* Month Selector */}
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 outline-none focus:border-emerald-500 cursor-pointer"
-          >
-            <option value="all">Semua Bulan</option>
-            {MONTH_NAMES.map((mName, idx) => (
-              <option key={idx} value={idx.toString()}>{mName}</option>
-            ))}
-          </select>
+            Reset Filter
+          </button>
         </div>
 
-        {/* Search Input */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Cari No. Invoice, Nama Klien, atau Proyek..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-emerald-500 focus:bg-white transition-all"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          
+          {/* Rentang Tanggal Custom / Tahun */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+              Tahun & Bulan
+            </label>
+            <div className="flex gap-1.5">
+              <select
+                value={selectedYear}
+                onChange={(e) => { setSelectedYear(e.target.value); setStartDate(''); setEndDate(''); }}
+                className="w-1/2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-slate-800 outline-none focus:border-emerald-500 cursor-pointer"
+              >
+                <option value="all">Semua Thn</option>
+                {availableYears.map(yr => (
+                  <option key={yr} value={yr}>{yr}</option>
+                ))}
+              </select>
+
+              <select
+                value={selectedMonth}
+                onChange={(e) => { setSelectedMonth(e.target.value); setStartDate(''); setEndDate(''); }}
+                className="w-1/2 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-slate-800 outline-none focus:border-emerald-500 cursor-pointer"
+              >
+                <option value="all">Semua Bln</option>
+                {MONTH_NAMES.map((mName, idx) => (
+                  <option key={idx} value={idx.toString()}>{mName}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Custom Date Range */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+              Periode Tanggal Custom
+            </label>
+            <div className="flex items-center gap-1">
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-1/2 text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-500"
+                placeholder="Awal"
+              />
+              <span className="text-slate-400 text-xs">-</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-1/2 text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-500"
+                placeholder="Akhir"
+              />
+            </div>
+          </div>
+
+          {/* Filter Klien */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+              Filter Klien
+            </label>
+            <select
+              value={selectedClient}
+              onChange={(e) => setSelectedClient(e.target.value)}
+              className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 outline-none focus:border-emerald-500 cursor-pointer"
             >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
+              <option value="all">Semua Klien ({availableClients.length})</option>
+              {availableClients.map(cli => (
+                <option key={cli} value={cli}>{cli}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status Invoice */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+              Status Pembayaran
+            </label>
+            <select
+              value={paymentStatusFilter}
+              onChange={(e) => setPaymentStatusFilter(e.target.value)}
+              className="w-full text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 outline-none focus:border-emerald-500 cursor-pointer"
+            >
+              <option value="all">Semua Status Bayar</option>
+              <option value="LUNAS">Hanya Lunas</option>
+              <option value="SEBAGIAN">Sebagian (Piutang Ada)</option>
+              <option value="BELUM_DIBAYAR">Belum Ada Bayar</option>
+            </select>
+          </div>
+
+          {/* Search Query */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
+              Cari No / Proyek
+            </label>
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Cari..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 outline-none focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
         </div>
       </div>
 
@@ -813,7 +1270,7 @@ export const FinancialReport: React.FC = () => {
         {/* Total Invoiced */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs relative overflow-hidden group">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Omset Tagihan</span>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Tagihan (Omset)</span>
             <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
               <DollarSign className="w-4 h-4" />
             </div>
@@ -827,10 +1284,10 @@ export const FinancialReport: React.FC = () => {
           </div>
         </div>
 
-        {/* Total Paid */}
+        {/* Total Paid / Cash Received */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs relative overflow-hidden group">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Sudah Dibayar (Masuk)</span>
+            <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider">Kas Masuk Diterima</span>
             <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <CheckCircle2 className="w-4 h-4" />
             </div>
@@ -840,14 +1297,14 @@ export const FinancialReport: React.FC = () => {
           </div>
           <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-500 font-medium">
             <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold">{metrics.paidCount} Invoice Lunas</span>
-            <span className="text-emerald-600 font-semibold">({metrics.collectionRate.toFixed(0)}% Lunas)</span>
+            <span className="text-emerald-600 font-semibold">({metrics.collectionRate.toFixed(0)}% Realisasi)</span>
           </div>
         </div>
 
         {/* Total Unpaid / Balance Due */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-rose-200 bg-rose-50/10 shadow-xs relative overflow-hidden group">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-bold text-rose-600 uppercase tracking-wider">Belum Dibayar (Piutang)</span>
+            <span className="text-[11px] font-bold text-rose-600 uppercase tracking-wider">Sisa Piutang Tagihan</span>
             <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
               <Clock className="w-4 h-4" />
             </div>
@@ -856,7 +1313,7 @@ export const FinancialReport: React.FC = () => {
             {formatCurrency(metrics.totalUnpaid)}
           </div>
           <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-500 font-medium">
-            <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 font-bold">{metrics.unpaidCount + metrics.partialCount} Invoice Belum Lunas</span>
+            <span className="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 font-bold">{metrics.unpaidCount + metrics.partialCount} Belum Lunas</span>
           </div>
         </div>
 
@@ -872,96 +1329,151 @@ export const FinancialReport: React.FC = () => {
             {formatCurrency(metrics.overdueAmount)}
           </div>
           <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-500 font-medium">
-            <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">{metrics.overdueCount} Invoice Terlambat</span>
+            <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">{metrics.overdueCount} Terlambat</span>
           </div>
         </div>
 
       </div>
 
-      {/* MAIN CONTENT TABS */}
+      {/* MAIN NAVIGATION TABS */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
         
-        {/* Navigation Tabs Header */}
+        {/* Navigation Bar */}
         <div className="border-b border-slate-200/80 bg-slate-50/50 p-2 sm:p-3 flex items-center gap-1 sm:gap-2 overflow-x-auto">
+          
           <button
             onClick={() => setActiveTab('overview')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
               activeTab === 'overview'
                 ? 'bg-white text-emerald-700 shadow-xs border border-slate-200'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
             <BarChart3 className="w-4 h-4" />
-            <span>Ikhtisar Keuangan</span>
+            <span>Ikhtisar</span>
           </button>
 
           <button
-            onClick={() => setActiveTab('unpaid')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
-              activeTab === 'unpaid'
-                ? 'bg-rose-50 text-rose-700 border border-rose-200 shadow-xs'
+            onClick={() => setActiveTab('rekap_invoice')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+              activeTab === 'rekap_invoice'
+                ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            <Clock className="w-4 h-4 text-rose-500" />
-            <span>Belum Dibayar ({unpaidInvoices.length})</span>
-            {metrics.totalUnpaid > 0 && (
-              <span className="px-1.5 py-0.5 text-[10px] rounded-full bg-rose-200 text-rose-900 font-extrabold">
-                {formatCurrency(metrics.totalUnpaid)}
-              </span>
-            )}
+            <FileText className="w-4 h-4 text-blue-600" />
+            <span>Rekap Invoice</span>
           </button>
 
           <button
-            onClick={() => setActiveTab('paid')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
-              activeTab === 'paid'
+            onClick={() => setActiveTab('laporan_pembayaran')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+              activeTab === 'laporan_pembayaran'
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            <span>Sudah Dibayar ({paidInvoices.length})</span>
+            <span>Pembayaran Masuk</span>
           </button>
 
           <button
-            onClick={() => setActiveTab('monthly_matrix')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
-              activeTab === 'monthly_matrix'
-                ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
+            onClick={() => setActiveTab('laporan_piutang')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+              activeTab === 'laporan_piutang'
+                ? 'bg-rose-50 text-rose-700 border border-rose-200 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
-            <Calendar className="w-4 h-4 text-blue-600" />
-            <span>Perbulan Matrix</span>
+            <Clock className="w-4 h-4 text-rose-500" />
+            <span>Laporan Piutang</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('rekap_pendapatan')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+              activeTab === 'rekap_pendapatan'
+                ? 'bg-white text-indigo-700 shadow-xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <PieChart className="w-4 h-4 text-indigo-600" />
+            <span>Pendapatan Jasa</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('laporan_bulanan')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+              activeTab === 'laporan_bulanan'
+                ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <Calendar className="w-4 h-4 text-amber-600" />
+            <span>Per Bulan</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('laporan_klien')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+              activeTab === 'laporan_klien'
+                ? 'bg-white text-purple-700 shadow-xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <Users className="w-4 h-4 text-purple-600" />
+            <span>Laporan Klien</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('riwayat_transaksi')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+              activeTab === 'riwayat_transaksi'
+                ? 'bg-white text-slate-900 shadow-xs border border-slate-200'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <History className="w-4 h-4 text-slate-600" />
+            <span>Riwayat Transaksi</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('pdf_merger')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+              activeTab === 'pdf_merger'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+            }`}
+          >
+            <Layers className="w-4 h-4 text-emerald-200" />
+            <span>Cetak PDF & Merger</span>
+          </button>
+
         </div>
 
-        {/* TAB 1: IKHTISAR KEUANGAN (OVERVIEW) */}
+        {/* TAB 1: OVERVIEW */}
         {activeTab === 'overview' && (
           <div className="p-4 sm:p-6 space-y-6">
             
-            {/* Visual Progress Bar of Paid vs Unpaid */}
+            {/* Visual Progress Bar */}
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-2">
               <div className="flex justify-between text-xs font-bold text-slate-700">
-                <span>Progres Realisasi Pembayaran Invoice</span>
+                <span>Realisasi Kas Pembayaran Diterima</span>
                 <span>{formatCurrency(metrics.totalPaid)} dari {formatCurrency(metrics.totalInvoiced)} ({metrics.collectionRate.toFixed(1)}%)</span>
               </div>
               <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden flex">
                 <div 
                   className="bg-emerald-500 h-full transition-all duration-500"
                   style={{ width: `${Math.min(100, metrics.collectionRate)}%` }}
-                  title={`Terbayar: ${formatCurrency(metrics.totalPaid)}`}
                 />
                 <div 
                   className="bg-rose-400 h-full transition-all duration-500"
                   style={{ width: `${Math.min(100, 100 - metrics.collectionRate)}%` }}
-                  title={`Sisa Piutang: ${formatCurrency(metrics.totalUnpaid)}`}
                 />
               </div>
               <div className="flex justify-between items-center text-[11px] text-slate-500 font-medium pt-1">
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Lunas / Terbayar: <b>{formatCurrency(metrics.totalPaid)}</b>
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Kas Diterima: <b>{formatCurrency(metrics.totalPaid)}</b>
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-rose-400" /> Belum Dibayar: <b>{formatCurrency(metrics.totalUnpaid)}</b>
@@ -976,9 +1488,6 @@ export const FinancialReport: React.FC = () => {
                   <Calendar className="w-4 h-4 text-emerald-600" />
                   Rekapitulasi Keuangan Per Bulan ({selectedYear === 'all' ? 'Semua Tahun' : selectedYear})
                 </h3>
-                <span className="text-xs text-slate-500">
-                  Ringkasan tagihan & pembayaran per bulan
-                </span>
               </div>
 
               <div className="overflow-x-auto rounded-xl border border-slate-200/80">
@@ -988,7 +1497,7 @@ export const FinancialReport: React.FC = () => {
                       <th className="p-3">Bulan</th>
                       <th className="p-3 text-center">Jumlah Invoice</th>
                       <th className="p-3 text-right">Total Tagihan</th>
-                      <th className="p-3 text-right">Sudah Dibayar</th>
+                      <th className="p-3 text-right">Kas Diterima</th>
                       <th className="p-3 text-right">Sisa Piutang</th>
                       <th className="p-3 text-center">Tingkat Pelunasan</th>
                     </tr>
@@ -1021,16 +1530,6 @@ export const FinancialReport: React.FC = () => {
                       );
                     })}
                   </tbody>
-                  <tfoot className="bg-slate-100 font-bold text-slate-900 border-t-2 border-slate-300">
-                    <tr>
-                      <td className="p-3">TOTAL KESELURUHAN</td>
-                      <td className="p-3 text-center">{metrics.totalCount}</td>
-                      <td className="p-3 text-right">{formatCurrency(metrics.totalInvoiced)}</td>
-                      <td className="p-3 text-right text-emerald-700">{formatCurrency(metrics.totalPaid)}</td>
-                      <td className="p-3 text-right text-rose-700">{formatCurrency(metrics.totalUnpaid)}</td>
-                      <td className="p-3 text-center text-blue-700">{metrics.collectionRate.toFixed(1)}%</td>
-                    </tr>
-                  </tfoot>
                 </table>
               </div>
             </div>
@@ -1038,442 +1537,13 @@ export const FinancialReport: React.FC = () => {
           </div>
         )}
 
-        {/* TAB 2: LAPORAN BELUM DIBAYAR (UNPAID INVOICES) */}
-        {activeTab === 'unpaid' && (
-          <div className="p-4 sm:p-6 space-y-5">
-            
-            {/* Sub View Toggle & Filter */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-rose-50/50 p-3.5 rounded-xl border border-rose-100">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setUnpaidSubView('all')}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    unpaidSubView === 'all'
-                      ? 'bg-rose-600 text-white shadow-xs'
-                      : 'bg-white text-rose-800 hover:bg-rose-100 border border-rose-200'
-                  }`}
-                >
-                  Semua Invoice Belum Dibayar ({unpaidInvoices.length})
-                </button>
-                <button
-                  onClick={() => setUnpaidSubView('monthly')}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    unpaidSubView === 'monthly'
-                      ? 'bg-rose-600 text-white shadow-xs'
-                      : 'bg-white text-rose-800 hover:bg-rose-100 border border-rose-200'
-                  }`}
-                >
-                  Per Bulan
-                </button>
-              </div>
-
-              {/* Status sub filter */}
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="text-xs font-semibold bg-white border border-rose-200 rounded-lg px-3 py-1.5 text-rose-900 outline-none focus:border-rose-500 cursor-pointer"
-              >
-                <option value="all">Semua Belum Lunas</option>
-                <option value="overdue">Hanya Terlambat Jatuh Tempo</option>
-                <option value="unpaid_only">Belum Ada Pembayaran sama sekali</option>
-                <option value="partial_only">Sudah Dicuil (Sebagian)</option>
-              </select>
-            </div>
-
-            {/* UNPAID SUBVIEW 1: ALL UNPAID TABLE */}
-            {unpaidSubView === 'all' && (
-              <div>
-                {unpaidInvoices.length === 0 ? (
-                  <div className="p-8 text-center bg-emerald-50/50 rounded-xl border border-emerald-200 text-emerald-800 space-y-2">
-                    <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-600" />
-                    <h4 className="font-bold text-sm">Tidak Ada Invoice Belum Dibayar!</h4>
-                    <p className="text-xs text-emerald-700">Semua tagihan untuk filter yang dipilih telah lunas terbayar.</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto rounded-xl border border-slate-200/80">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
-                        <tr>
-                          <th className="p-3">No. Invoice & Klien</th>
-                          <th className="p-3">Tgl Issue</th>
-                          <th className="p-3">Jatuh Tempo</th>
-                          <th className="p-3 text-right">Total Tagihan</th>
-                          <th className="p-3 text-right">Sudah Dibayar</th>
-                          <th className="p-3 text-right">Sisa Piutang</th>
-                          <th className="p-3 text-center">Status Aging</th>
-                          <th className="p-3 text-center">Aksi</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200 bg-white">
-                        {unpaidInvoices.map((inv) => {
-                          const balance = inv.balanceDue !== undefined ? inv.balanceDue : (inv.totalAmount - (inv.paidAmount || 0));
-                          const overdue = isOverdue(inv);
-                          const agingDays = getAgingDays(inv.dueDate);
-
-                          return (
-                            <tr key={inv.id} className="hover:bg-rose-50/30 transition-colors">
-                              <td className="p-3">
-                                <div className="font-bold text-slate-900">{inv.invoiceNumber}</div>
-                                <div className="text-slate-600 font-semibold">{inv.clientName}</div>
-                                {inv.projectTitle && (
-                                  <div className="text-[10px] text-slate-400 italic">{inv.projectTitle}</div>
-                                )}
-                              </td>
-                              <td className="p-3 text-slate-600 font-medium">{formatIndonesianDate(inv.issueDate)}</td>
-                              <td className="p-3 font-medium">
-                                <div className={overdue ? 'text-rose-600 font-bold' : 'text-slate-700'}>
-                                  {formatIndonesianDate(inv.dueDate)}
-                                </div>
-                              </td>
-                              <td className="p-3 text-right font-medium text-slate-800">{formatCurrency(inv.totalAmount)}</td>
-                              <td className="p-3 text-right font-semibold text-emerald-600">{formatCurrency(inv.paidAmount)}</td>
-                              <td className="p-3 text-right font-black text-rose-600 text-sm">
-                                {formatCurrency(balance)}
-                              </td>
-                              <td className="p-3 text-center">
-                                {overdue ? (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-200">
-                                    Terlambat {agingDays} Hari
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                                    Akan Jatuh Tempo
-                                  </span>
-                                )}
-                              </td>
-                              <td className="p-3 text-center">
-                                <div className="flex items-center justify-center gap-1.5">
-                                  <button
-                                    onClick={() => openPaymentModal(inv)}
-                                    className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[11px] flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
-                                    title="Catat Pembayaran"
-                                  >
-                                    <CreditCard className="w-3 h-3" />
-                                    <span>Bayar</span>
-                                  </button>
-
-                                  {inv.clientPhone && (
-                                    <a
-                                      href={getWhatsAppReminderUrl(inv)}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors border border-emerald-200"
-                                      title="Kirim WA Pengingat Pembayaran"
-                                    >
-                                      <MessageSquare className="w-3.5 h-3.5" />
-                                    </a>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* UNPAID SUBVIEW 2: PER BULAN */}
-            {unpaidSubView === 'monthly' && (
-              <div className="space-y-4">
-                {monthlyDataMatrix.map((m) => {
-                  if (m.unpaidInvoices.length === 0) return null;
-                  const isExp = expandedMonths[`unpaid_${m.monthIndex}`];
-
-                  return (
-                    <div key={m.monthIndex} className="bg-white rounded-xl border border-rose-200 shadow-xs overflow-hidden">
-                      <div 
-                        onClick={() => toggleMonthExpansion(`unpaid_${m.monthIndex}`)}
-                        className="p-4 bg-rose-50/40 hover:bg-rose-50/80 cursor-pointer flex items-center justify-between transition-colors select-none"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center font-extrabold text-xs">
-                            {m.monthIndex + 1}
-                          </div>
-                          <div>
-                            <h4 className="font-extrabold text-slate-900 text-sm">{m.monthName}</h4>
-                            <p className="text-xs text-rose-700 font-semibold">
-                              {m.unpaidInvoices.length} Invoice Belum Lunas | Sisa Piutang: <b>{formatCurrency(m.totalUnpaid)}</b>
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-rose-600 bg-white px-2.5 py-1 rounded-md border border-rose-200">
-                            {formatCurrency(m.totalUnpaid)}
-                          </span>
-                          {isExp ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
-                        </div>
-                      </div>
-
-                      {/* Expanded Item List */}
-                      {isExp && (
-                        <div className="p-4 border-t border-rose-100 bg-white">
-                          <div className="space-y-2">
-                            {m.unpaidInvoices.map((inv) => {
-                              const balance = inv.balanceDue !== undefined ? inv.balanceDue : (inv.totalAmount - (inv.paidAmount || 0));
-                              return (
-                                <div key={inv.id} className="p-3 rounded-lg border border-slate-200/80 hover:border-rose-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2 transition-all">
-                                  <div>
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-bold text-slate-900 text-xs">{inv.invoiceNumber}</span>
-                                      <span className="text-xs text-slate-600 font-semibold">{inv.clientName}</span>
-                                    </div>
-                                    <div className="text-[11px] text-slate-500 mt-0.5">
-                                      Jatuh Tempo: <b>{formatIndonesianDate(inv.dueDate)}</b> | Total: {formatCurrency(inv.totalAmount)} | Terbayar: {formatCurrency(inv.paidAmount)}
-                                    </div>
-                                  </div>
-
-                                  <div className="flex items-center gap-3 self-end sm:self-auto">
-                                    <div className="text-right">
-                                      <span className="text-[10px] text-slate-400 block font-bold uppercase">Sisa Tagihan</span>
-                                      <span className="text-xs font-black text-rose-600">{formatCurrency(balance)}</span>
-                                    </div>
-
-                                    <button
-                                      onClick={() => openPaymentModal(inv)}
-                                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
-                                    >
-                                      <CreditCard className="w-3.5 h-3.5" />
-                                      <span>Bayar</span>
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {monthlyDataMatrix.every(m => m.unpaidInvoices.length === 0) && (
-                  <div className="p-8 text-center text-slate-500 bg-slate-50 rounded-xl border border-slate-200">
-                    Tidak ada tunggakan invoice per bulan pada filter tahun ini.
-                  </div>
-                )}
-              </div>
-            )}
-
-          </div>
-        )}
-
-        {/* TAB 3: LAPORAN SUDAH DIBAYAR (PAID INVOICES & PAYMENTS) */}
-        {activeTab === 'paid' && (
-          <div className="p-4 sm:p-6 space-y-5">
-            
-            {/* Sub View Toggle */}
-            <div className="flex items-center gap-2 bg-emerald-50/50 p-3.5 rounded-xl border border-emerald-100 overflow-x-auto">
-              <button
-                onClick={() => setPaidSubView('all')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  paidSubView === 'all'
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'bg-white text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
-                }`}
-              >
-                Semua Invoice Lunas ({paidInvoices.length})
-              </button>
-              <button
-                onClick={() => setPaidSubView('monthly')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  paidSubView === 'monthly'
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'bg-white text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
-                }`}
-              >
-                Per Bulan
-              </button>
-              <button
-                onClick={() => setPaidSubView('history')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  paidSubView === 'history'
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'bg-white text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
-                }`}
-              >
-                Log Transaksi Pembayaran ({allPaymentHistoryRecords.length})
-              </button>
-            </div>
-
-            {/* PAID SUBVIEW 1: ALL PAID INVOICES */}
-            {paidSubView === 'all' && (
-              <div>
-                {paidInvoices.length === 0 ? (
-                  <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-200 text-slate-500">
-                    Belum ada invoice yang telah dilunasi untuk filter ini.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto rounded-xl border border-slate-200/80">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
-                        <tr>
-                          <th className="p-3">No. Invoice & Klien</th>
-                          <th className="p-3">Tanggal Issue</th>
-                          <th className="p-3 text-right">Total Tagihan</th>
-                          <th className="p-3 text-right">Sudah Dibayar</th>
-                          <th className="p-3 text-center">Status</th>
-                          <th className="p-3 text-center">Jumlah Angsuran</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-200 bg-white">
-                        {paidInvoices.map((inv) => {
-                          const historyCount = inv.paymentHistory?.length || 0;
-                          return (
-                            <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
-                              <td className="p-3">
-                                <div className="font-bold text-slate-900">{inv.invoiceNumber}</div>
-                                <div className="text-slate-600 font-semibold">{inv.clientName}</div>
-                              </td>
-                              <td className="p-3 text-slate-600 font-medium">{formatIndonesianDate(inv.issueDate)}</td>
-                              <td className="p-3 text-right font-medium text-slate-800">{formatCurrency(inv.totalAmount)}</td>
-                              <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(inv.paidAmount)}</td>
-                              <td className="p-3 text-center">
-                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                  LUNAS
-                                </span>
-                              </td>
-                              <td className="p-3 text-center text-slate-600 font-semibold">
-                                {historyCount}x Pembayaran
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* PAID SUBVIEW 2: PER BULAN */}
-            {paidSubView === 'monthly' && (
-              <div className="space-y-4">
-                {monthlyDataMatrix.map((m) => {
-                  if (m.paidInvoices.length === 0) return null;
-                  const isExp = expandedMonths[`paid_${m.monthIndex}`];
-
-                  return (
-                    <div key={m.monthIndex} className="bg-white rounded-xl border border-emerald-200 shadow-xs overflow-hidden">
-                      <div 
-                        onClick={() => toggleMonthExpansion(`paid_${m.monthIndex}`)}
-                        className="p-4 bg-emerald-50/40 hover:bg-emerald-50/80 cursor-pointer flex items-center justify-between transition-colors select-none"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-extrabold text-xs">
-                            {m.monthIndex + 1}
-                          </div>
-                          <div>
-                            <h4 className="font-extrabold text-slate-900 text-sm">{m.monthName}</h4>
-                            <p className="text-xs text-emerald-700 font-semibold">
-                              {m.paidInvoices.length} Invoice Masuk | Total Diterima: <b>{formatCurrency(m.totalPaid)}</b>
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-emerald-700 bg-white px-2.5 py-1 rounded-md border border-emerald-200">
-                            {formatCurrency(m.totalPaid)}
-                          </span>
-                          {isExp ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
-                        </div>
-                      </div>
-
-                      {/* Expanded list */}
-                      {isExp && (
-                        <div className="p-4 border-t border-emerald-100 bg-white">
-                          <div className="space-y-2">
-                            {m.paidInvoices.map((inv) => (
-                              <div key={inv.id} className="p-3 rounded-lg border border-slate-200/80 hover:border-emerald-300 flex items-center justify-between gap-2">
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-bold text-slate-900 text-xs">{inv.invoiceNumber}</span>
-                                    <span className="text-xs text-slate-600 font-semibold">{inv.clientName}</span>
-                                  </div>
-                                  <div className="text-[11px] text-slate-500 mt-0.5">
-                                    Issue: {formatIndonesianDate(inv.issueDate)} | Total: {formatCurrency(inv.totalAmount)}
-                                  </div>
-                                </div>
-                                <div className="text-right">
-                                  <span className="text-[10px] text-slate-400 block font-bold uppercase">Terbayar</span>
-                                  <span className="text-xs font-bold text-emerald-600">{formatCurrency(inv.paidAmount)}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {monthlyDataMatrix.every(m => m.paidInvoices.length === 0) && (
-                  <div className="p-8 text-center text-slate-500 bg-slate-50 rounded-xl border border-slate-200">
-                    Belum ada realisasi pembayaran masuk per bulan pada filter ini.
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* PAID SUBVIEW 3: PAYMENT HISTORY LOG */}
-            {paidSubView === 'history' && (
-              <div className="overflow-x-auto rounded-xl border border-slate-200/80">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
-                    <tr>
-                      <th className="p-3">Tanggal Bayar</th>
-                      <th className="p-3">No. Invoice & Klien</th>
-                      <th className="p-3">Metode Pembayaran</th>
-                      <th className="p-3">No. Referensi</th>
-                      <th className="p-3">Catatan</th>
-                      <th className="p-3 text-right">Jumlah Dibayar</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 bg-white">
-                    {allPaymentHistoryRecords.map((item, idx) => (
-                      <tr key={item.record.id || idx} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-3 font-semibold text-slate-800">{formatIndonesianDate(item.record.date)}</td>
-                        <td className="p-3">
-                          <div className="font-bold text-slate-900">{item.invoice.invoiceNumber}</div>
-                          <div className="text-slate-600">{item.invoice.clientName}</div>
-                        </td>
-                        <td className="p-3">
-                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-[10px]">
-                            {item.record.method || 'Transfer Bank'}
-                          </span>
-                        </td>
-                        <td className="p-3 text-slate-600 font-mono">{item.record.refNumber || '-'}</td>
-                        <td className="p-3 text-slate-500 italic">{item.record.notes || '-'}</td>
-                        <td className="p-3 text-right font-black text-emerald-600 text-sm">
-                          {formatCurrency(item.record.amount)}
-                        </td>
-                      </tr>
-                    ))}
-                    {allPaymentHistoryRecords.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="p-8 text-center text-slate-400 italic">
-                          Belum ada riwayat angsuran / transaksi pembayaran tercatat.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-          </div>
-        )}
-
-        {/* TAB 4: PERBANDINGAN & MATRIX BULANAN */}
-        {activeTab === 'monthly_matrix' && (
+        {/* TAB 2: REKAP INVOICE */}
+        {activeTab === 'rekap_invoice' && (
           <div className="p-4 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-blue-600" />
-                Matriks Perbandingan Per Bulan ({selectedYear === 'all' ? 'Semua Tahun' : selectedYear})
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <FileText className="w-4 h-4 text-blue-600" />
+                Daftar Rekapitulasi Invoice ({filteredInvoices.length} Dokumen)
               </h3>
             </div>
 
@@ -1481,31 +1551,347 @@ export const FinancialReport: React.FC = () => {
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
                   <tr>
-                    <th className="p-3">Bulan</th>
-                    <th className="p-3 text-center">Inv Count</th>
-                    <th className="p-3 text-right">Tagihan Kotor</th>
-                    <th className="p-3 text-right">Terbayar (Masuk)</th>
+                    <th className="p-3">No. Invoice</th>
+                    <th className="p-3">Klien</th>
+                    <th className="p-3">Proyek / Layanan</th>
+                    <th className="p-3">Tgl Issue</th>
+                    <th className="p-3">Jatuh Tempo</th>
+                    <th className="p-3 text-right">Total Tagihan</th>
+                    <th className="p-3 text-right">Kas Diterima</th>
                     <th className="p-3 text-right">Sisa Piutang</th>
-                    <th className="p-3 text-center">Rasio Lunas</th>
+                    <th className="p-3 text-center">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 bg-white">
-                  {monthlyDataMatrix.map((m) => {
-                    const rate = m.totalInvoiced > 0 ? (m.totalPaid / m.totalInvoiced) * 100 : 0;
+                  {filteredInvoices.map((inv) => {
+                    const balance = inv.balanceDue !== undefined ? inv.balanceDue : ((inv.totalAmount || 0) - (inv.paidAmount || 0));
+                    const isP = balance <= 0;
+                    const isPart = (inv.paidAmount || 0) > 0 && balance > 0;
                     return (
-                      <tr key={m.monthIndex} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="p-3 font-bold text-slate-900">{m.monthName}</td>
-                        <td className="p-3 text-center font-semibold text-slate-600">{m.invoiceCount}</td>
-                        <td className="p-3 text-right font-medium text-slate-800">{formatCurrency(m.totalInvoiced)}</td>
-                        <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(m.totalPaid)}</td>
-                        <td className="p-3 text-right font-bold text-rose-600">
-                          {m.totalUnpaid > 0 ? formatCurrency(m.totalUnpaid) : '-'}
+                      <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3 font-bold text-slate-900">{inv.invoiceNumber}</td>
+                        <td className="p-3 font-semibold text-slate-800">{inv.clientName}</td>
+                        <td className="p-3 text-slate-600">{inv.projectTitle || '-'}</td>
+                        <td className="p-3 text-slate-600">{formatIndonesianDate(inv.issueDate)}</td>
+                        <td className="p-3 text-slate-600">{formatIndonesianDate(inv.dueDate)}</td>
+                        <td className="p-3 text-right font-medium text-slate-900">{formatCurrency(inv.totalAmount)}</td>
+                        <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(inv.paidAmount)}</td>
+                        <td className="p-3 text-right font-bold text-rose-600">{formatCurrency(balance)}</td>
+                        <td className="p-3 text-center">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                            isP ? 'bg-emerald-100 text-emerald-800' : isPart ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'
+                          }`}>
+                            {isP ? 'LUNAS' : isPart ? 'SEBAGIAN' : 'BELUM BAYAR'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filteredInvoices.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="p-8 text-center text-slate-400 italic">Tidak ada invoice sesuai filter.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: LAPORAN PEMBAYARAN */}
+        {activeTab === 'laporan_pembayaran' && (
+          <div className="p-4 sm:p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                Laporan Kas Pembayaran Diterima ({paymentRecordsLog.length} Transaksi)
+              </h3>
+              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-200">
+                Total Realisasi Kas: {formatCurrency(totalActualPaymentsReceived)}
+              </span>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th className="p-3">Tgl Pembayaran</th>
+                    <th className="p-3">No. Invoice</th>
+                    <th className="p-3">Nama Klien</th>
+                    <th className="p-3">Metode Bayar</th>
+                    <th className="p-3">No. Referensi / Bukti</th>
+                    <th className="p-3">Catatan</th>
+                    <th className="p-3 text-right">Jumlah Diterima (Rp)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {paymentRecordsLog.map((item, idx) => (
+                    <tr key={item.record.id || idx} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-3 font-semibold text-slate-800">{formatIndonesianDate(item.record.date)}</td>
+                      <td className="p-3 font-bold text-slate-900">{item.invoice.invoiceNumber}</td>
+                      <td className="p-3 font-semibold text-slate-800">{item.invoice.clientName}</td>
+                      <td className="p-3">
+                        <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 font-bold text-[10px] border border-emerald-200">
+                          {item.record.method || 'Transfer Bank'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-slate-600 font-mono">{item.record.refNumber || '-'}</td>
+                      <td className="p-3 text-slate-500 italic">{item.record.notes || '-'}</td>
+                      <td className="p-3 text-right font-black text-emerald-600 text-sm">
+                        {formatCurrency(item.record.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                  {paymentRecordsLog.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-slate-400 italic">Belum ada riwayat transaksi pembayaran masuk.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: LAPORAN PIUTANG */}
+        {activeTab === 'laporan_piutang' && (
+          <div className="p-4 sm:p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-rose-800 uppercase tracking-wider flex items-center gap-2">
+                <Clock className="w-4 h-4 text-rose-600" />
+                Laporan Piutang Invoice Belum Lunas ({unpaidInvoices.length} Dokumen)
+              </h3>
+              <span className="text-xs font-bold text-rose-700 bg-rose-50 px-3 py-1 rounded-lg border border-rose-200">
+                Total Sisa Piutang: {formatCurrency(metrics.totalUnpaid)}
+              </span>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th className="p-3">No. Invoice & Klien</th>
+                    <th className="p-3">Tgl Issue</th>
+                    <th className="p-3">Jatuh Tempo</th>
+                    <th className="p-3 text-right">Total Tagihan</th>
+                    <th className="p-3 text-right">Sudah Dibayar</th>
+                    <th className="p-3 text-right">Sisa Piutang</th>
+                    <th className="p-3 text-center">Aging Status</th>
+                    <th className="p-3 text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {unpaidInvoices.map((inv) => {
+                    const balance = inv.balanceDue !== undefined ? inv.balanceDue : ((inv.totalAmount || 0) - (inv.paidAmount || 0));
+                    const overdue = isOverdue(inv);
+                    const agingDays = getAgingDays(inv.dueDate);
+
+                    return (
+                      <tr key={inv.id} className="hover:bg-rose-50/30 transition-colors">
+                        <td className="p-3">
+                          <div className="font-bold text-slate-900">{inv.invoiceNumber}</div>
+                          <div className="text-slate-600 font-semibold">{inv.clientName}</div>
+                        </td>
+                        <td className="p-3 text-slate-600">{formatIndonesianDate(inv.issueDate)}</td>
+                        <td className="p-3 font-medium">
+                          <div className={overdue ? 'text-rose-600 font-bold' : 'text-slate-700'}>
+                            {formatIndonesianDate(inv.dueDate)}
+                          </div>
+                        </td>
+                        <td className="p-3 text-right font-medium text-slate-800">{formatCurrency(inv.totalAmount)}</td>
+                        <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(inv.paidAmount)}</td>
+                        <td className="p-3 text-right font-black text-rose-600 text-sm">{formatCurrency(balance)}</td>
+                        <td className="p-3 text-center">
+                          {overdue ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-200">
+                              Terlambat {agingDays} Hari
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                              Akan Jatuh Tempo
+                            </span>
+                          )}
                         </td>
                         <td className="p-3 text-center">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            rate >= 100 ? 'bg-emerald-100 text-emerald-800' : rate > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
+                          <button
+                            onClick={() => openPaymentModal(inv)}
+                            className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[11px] flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                          >
+                            <CreditCard className="w-3 h-3" />
+                            <span>Bayar</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {unpaidInvoices.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="p-8 text-center text-emerald-700 font-bold bg-emerald-50">
+                        Tidak ada tunggakan piutang! Semua invoice telah dilunasi.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: REKAP PENDAPATAN JASA */}
+        {activeTab === 'rekap_pendapatan' && (
+          <div className="p-4 sm:p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <PieChart className="w-4 h-4 text-indigo-600" />
+                Rekapitulasi Omset & Kas Diterima Per Kategori Layanan
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th className="p-3 text-center w-12">No</th>
+                    <th className="p-3">Kategori / Deskripsi Layanan</th>
+                    <th className="p-3 text-center">Frekuensi (Item)</th>
+                    <th className="p-3 text-right">Nilai Tagihan (Omset)</th>
+                    <th className="p-3 text-right">Estimasi Kas Diterima</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {revenueByServices.map((srv, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-3 text-center text-slate-500">{idx + 1}</td>
+                      <td className="p-3 font-bold text-slate-800">{srv.serviceName}</td>
+                      <td className="p-3 text-center font-semibold text-slate-600">{srv.count}x</td>
+                      <td className="p-3 text-right font-medium text-slate-900">{formatCurrency(srv.totalInvoiced)}</td>
+                      <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(srv.totalPaid)}</td>
+                    </tr>
+                  ))}
+                  {revenueByServices.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="p-8 text-center text-slate-400 italic">Tidak ada data klasifikasi layanan.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 6: LAPORAN BULANAN & TAHUNAN */}
+        {activeTab === 'laporan_bulanan' && (
+          <div className="p-4 sm:p-6 space-y-6">
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-amber-600" />
+                Laporan Per Bulan ({selectedYear === 'all' ? 'Semua Tahun' : selectedYear})
+              </h3>
+
+              <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
+                    <tr>
+                      <th className="p-3">Bulan</th>
+                      <th className="p-3 text-center">Total Inv</th>
+                      <th className="p-3 text-right">Nilai Tagihan</th>
+                      <th className="p-3 text-right">Kas Diterima</th>
+                      <th className="p-3 text-right">Sisa Piutang</th>
+                      <th className="p-3 text-center">Rasio Lunas</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {monthlyDataMatrix.map((m) => {
+                      const rate = m.totalInvoiced > 0 ? (m.totalPaid / m.totalInvoiced) * 100 : 0;
+                      return (
+                        <tr key={m.monthIndex} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-3 font-bold text-slate-800">{m.monthName}</td>
+                          <td className="p-3 text-center font-semibold text-slate-600">{m.invoiceCount}</td>
+                          <td className="p-3 text-right font-medium text-slate-800">{formatCurrency(m.totalInvoiced)}</td>
+                          <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(m.totalPaid)}</td>
+                          <td className="p-3 text-right font-bold text-rose-600">{m.totalUnpaid > 0 ? formatCurrency(m.totalUnpaid) : '-'}</td>
+                          <td className="p-3 text-center font-bold text-slate-700">{rate.toFixed(0)}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-blue-600" />
+                Laporan Tahunan (Multi-Tahun)
+              </h3>
+
+              <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
+                    <tr>
+                      <th className="p-3">Tahun</th>
+                      <th className="p-3 text-center">Total Invoice</th>
+                      <th className="p-3 text-right">Total Omset Tagihan</th>
+                      <th className="p-3 text-right">Total Kas Diterima</th>
+                      <th className="p-3 text-right">Total Sisa Piutang</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 bg-white">
+                    {yearlyDataMatrix.map((yItem) => (
+                      <tr key={yItem.year} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3 font-extrabold text-slate-900 text-sm">Tahun {yItem.year}</td>
+                        <td className="p-3 text-center font-bold text-slate-700">{yItem.invoiceCount}</td>
+                        <td className="p-3 text-right font-medium text-slate-900">{formatCurrency(yItem.totalInvoiced)}</td>
+                        <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(yItem.totalPaid)}</td>
+                        <td className="p-3 text-right font-bold text-rose-600">{formatCurrency(yItem.totalUnpaid)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 7: LAPORAN KLIEN */}
+        {activeTab === 'laporan_klien' && (
+          <div className="p-4 sm:p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <Users className="w-4 h-4 text-purple-600" />
+                Laporan Keuangan & Piutang Per Klien ({clientFinancialSummaries.length} Klien)
+              </h3>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th className="p-3 text-center w-12">No</th>
+                    <th className="p-3">Nama Klien</th>
+                    <th className="p-3 text-center">Jumlah Invoice</th>
+                    <th className="p-3 text-right">Total Tagihan</th>
+                    <th className="p-3 text-right">Total Sudah Dibayar</th>
+                    <th className="p-3 text-right">Sisa Piutang</th>
+                    <th className="p-3 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 bg-white">
+                  {clientFinancialSummaries.map((cli, idx) => {
+                    const isAllPaid = cli.totalUnpaid <= 0;
+                    return (
+                      <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3 text-center text-slate-500">{idx + 1}</td>
+                        <td className="p-3 font-bold text-slate-900">{cli.clientName}</td>
+                        <td className="p-3 text-center font-semibold text-slate-600">{cli.invoiceCount} Inv</td>
+                        <td className="p-3 text-right font-medium text-slate-900">{formatCurrency(cli.totalInvoiced)}</td>
+                        <td className="p-3 text-right font-bold text-emerald-600">{formatCurrency(cli.totalPaid)}</td>
+                        <td className="p-3 text-right font-bold text-rose-600">{cli.totalUnpaid > 0 ? formatCurrency(cli.totalUnpaid) : '-'}</td>
+                        <td className="p-3 text-center">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            isAllPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
                           }`}>
-                            {rate.toFixed(0)}%
+                            {isAllPaid ? 'LUNAS SEMUA' : 'MEMILIKI PIUTANG'}
                           </span>
                         </td>
                       </tr>
@@ -1517,165 +1903,178 @@ export const FinancialReport: React.FC = () => {
           </div>
         )}
 
-      </div>
+        {/* TAB 8: RIWAYAT TRANSAKSI */}
+        {activeTab === 'riwayat_transaksi' && (
+          <div className="p-4 sm:p-6 space-y-4">
+            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <History className="w-4 h-4 text-slate-700" />
+              Riwayat Transaksi Detail Invoice & Angsuran Pembayaran
+            </h3>
 
-      {/* MODAL: OPSI CETAK PDF / PRINT */}
-      {isPrintModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[150] flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            
-            {/* Modal Header */}
-            <div className="bg-emerald-700 text-white p-5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center font-bold">
-                  <Printer className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-base leading-tight">Opsi Cetak Laporan Keuangan</h3>
-                  <p className="text-xs text-emerald-100 mt-0.5">
-                    Pilih format cetak ringkasan atau detail seluruh invoice
-                  </p>
-                </div>
+            <div className="space-y-4">
+              {filteredInvoices.map((inv) => {
+                const balance = inv.balanceDue !== undefined ? inv.balanceDue : ((inv.totalAmount || 0) - (inv.paidAmount || 0));
+                const items = Array.isArray(inv.items) ? inv.items : [];
+                const history = Array.isArray(inv.paymentHistory) ? inv.paymentHistory : [];
+
+                return (
+                  <div key={inv.id} className="p-4 rounded-xl border border-slate-200/80 bg-white space-y-3 shadow-2xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-extrabold text-sm text-slate-900">#{inv.invoiceNumber}</span>
+                          <span className="font-semibold text-xs text-slate-700">— {inv.clientName}</span>
+                        </div>
+                        {inv.projectTitle && <p className="text-xs text-slate-500">{inv.projectTitle}</p>}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-500">Issue: <b>{formatIndonesianDate(inv.issueDate)}</b></span>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                          balance <= 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                        }`}>
+                          {balance <= 0 ? 'LUNAS' : 'SISA PIUTANG'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Itemized list */}
+                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-xs">
+                      <span className="font-bold text-slate-700 block mb-1.5 uppercase text-[10px]">Rincian Item Invoice:</span>
+                      <div className="space-y-1">
+                        {items.map((it, iIdx) => (
+                          <div key={iIdx} className="flex justify-between text-slate-700">
+                            <span>• {it.description || (it as any).name} (x{it.quantity || 1})</span>
+                            <span className="font-medium">{formatCurrency(it.amount || ((it.quantity || 1) * (it.unitPrice || 0)))}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Payments Log */}
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-xs pt-1">
+                      <div>
+                        <span className="font-bold text-slate-700 text-[11px] block">Angsuran Pembayaran ({history.length}x):</span>
+                        {history.map((h, hIdx) => (
+                          <span key={hIdx} className="text-slate-600 text-[11px] mr-3">
+                            [{formatIndonesianDate(h.date)}: <b>{formatCurrency(h.amount)}</b> via {h.method || 'Transfer'}]
+                          </span>
+                        ))}
+                        {history.length === 0 && <span className="text-slate-400 italic text-[11px]">Belum ada angsuran.</span>}
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <span className="text-slate-500 text-[11px]">Total: {formatCurrency(inv.totalAmount)} | </span>
+                        <span className="text-emerald-600 font-bold text-[11px]">Terbayar: {formatCurrency(inv.paidAmount)} | </span>
+                        <span className="text-rose-600 font-black text-xs">Sisa: {formatCurrency(balance)}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 9: CETAK PDF & MERGER MULTI-REPORT */}
+        {activeTab === 'pdf_merger' && (
+          <div className="p-4 sm:p-6 space-y-6">
+            <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base font-extrabold text-emerald-900 flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-emerald-600" />
+                  Pusat Cetak & Penggabungan Laporan PDF
+                </h3>
+                <p className="text-xs text-emerald-800 mt-0.5">
+                  Pilih beberapa jenis laporan untuk digabungkan menjadi satu dokumen PDF siap cetak berukuran A4.
+                </p>
               </div>
-              <button
-                onClick={() => setIsPrintModalOpen(false)}
-                className="text-emerald-200 hover:text-white p-1 rounded-lg transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPdfOrientation(pdfOrientation === 'portrait' ? 'landscape' : 'portrait')}
+                  className="px-3.5 py-2 bg-white text-slate-800 font-bold border border-slate-300 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <span>Orientasi: <b>{pdfOrientation === 'portrait' ? 'Portrait' : 'Landscape'}</b></span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDirectPrintPDF}
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Cetak / Ekspor PDF sekarang</span>
+                </button>
+              </div>
             </div>
 
-            {/* Modal Body */}
-            <div className="p-6 space-y-5">
-              
-              {/* Format Tipe Laporan */}
-              <div className="space-y-2">
-                <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider">
-                  1. Format Format Cetak Laporan PDF:
-                </label>
-                <div className="grid grid-cols-1 gap-2.5">
+            {/* Checkbox Multi-Report Selector */}
+            <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+              <label className="block text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+                Pilih Jenis Laporan yang Digabungkan:
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { id: 'rekap_invoice', label: '1. Rekap Invoice' },
+                  { id: 'laporan_pembayaran', label: '2. Laporan Pembayaran' },
+                  { id: 'laporan_piutang', label: '3. Laporan Piutang' },
+                  { id: 'rekap_pendapatan', label: '4. Rekap Pendapatan' },
+                  { id: 'laporan_bulanan', label: '5. Laporan Bulanan' },
+                  { id: 'laporan_klien', label: '6. Laporan Klien' },
+                  { id: 'riwayat_transaksi', label: '7. Riwayat Transaksi Item' },
+                ].map(rep => (
                   <label 
-                    onClick={() => setPrintType('summary')}
-                    className={`p-3.5 rounded-xl border-2 flex items-start gap-3 cursor-pointer transition-all ${
-                      printType === 'summary' 
-                        ? 'border-emerald-600 bg-emerald-50/50 shadow-xs' 
-                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    key={rep.id}
+                    className={`p-3 rounded-xl border flex items-center gap-2.5 cursor-pointer transition-all ${
+                      selectedReportsForPDF[rep.id] 
+                        ? 'border-emerald-500 bg-emerald-50/40 text-emerald-950 font-bold' 
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                     }`}
                   >
                     <input
-                      type="radio"
-                      name="printType"
-                      checked={printType === 'summary'}
-                      onChange={() => setPrintType('summary')}
-                      className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
+                      type="checkbox"
+                      checked={!!selectedReportsForPDF[rep.id]}
+                      onChange={(e) => setSelectedReportsForPDF(prev => ({ ...prev, [rep.id]: e.target.checked }))}
+                      className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
                     />
-                    <div>
-                      <div className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
-                        <FileText className="w-4 h-4 text-emerald-600" />
-                        Laporan Ringkasan (Summary)
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                        Menampilkan tabel rekapitulasi ringkas, total KPI keuangan, dan status pelunasan invoice.
-                      </p>
-                    </div>
+                    <span className="text-xs">{rep.label}</span>
                   </label>
-
-                  <label 
-                    onClick={() => setPrintType('detailed')}
-                    className={`p-3.5 rounded-xl border-2 flex items-start gap-3 cursor-pointer transition-all ${
-                      printType === 'detailed' 
-                        ? 'border-emerald-600 bg-emerald-50/50 shadow-xs' 
-                        : 'border-slate-200 hover:border-slate-300 bg-white'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="printType"
-                      checked={printType === 'detailed'}
-                      onChange={() => setPrintType('detailed')}
-                      className="mt-0.5 text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <div>
-                      <div className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
-                        <ListFilter className="w-4 h-4 text-emerald-600" />
-                        Laporan Detail Seluruh Invoice
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                        Menampilkan rincian item layanan/produk, harga per item, pajak/diskon, serta riwayat angsuran pembayaran per invoice.
-                      </p>
-                    </div>
-                  </label>
-                </div>
+                ))}
               </div>
-
-              {/* Scope Scope Filter */}
-              <div className="space-y-2">
-                <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider">
-                  2. Cakupan Invoice Yang Dicetak:
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPrintScope('all')}
-                    className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
-                      printScope === 'all'
-                        ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    Semua ({filteredInvoices.length})
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setPrintScope('unpaid')}
-                    className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
-                      printScope === 'unpaid'
-                        ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
-                        : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
-                    }`}
-                  >
-                    Belum Lunas ({unpaidInvoices.length})
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setPrintScope('paid')}
-                    className={`py-2 px-2.5 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer ${
-                      printScope === 'paid'
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                        : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-                    }`}
-                  >
-                    Lunas ({paidInvoices.length})
-                  </button>
-                </div>
-              </div>
-
             </div>
 
-            {/* Modal Footer */}
-            <div className="bg-slate-50 p-4 border-t border-slate-200 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setIsPrintModalOpen(false)}
-                className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 font-bold border border-slate-200 rounded-xl text-xs transition-colors cursor-pointer"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                onClick={executePrintReport}
-                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs transition-all flex items-center gap-2 cursor-pointer shadow-xs"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>Cetak PDF Sekarang</span>
-              </button>
+            {/* Live In-App Document Preview Sheet */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Eye className="w-4 h-4 text-emerald-600" />
+                  Pratinjau Dokumen PDF (Live Preview)
+                </span>
+                <span className="text-xs text-slate-500">
+                  Ukuran Kertas: <b>A4 ({pdfOrientation.toUpperCase()})</b>
+                </span>
+              </div>
+
+              <div className="bg-slate-100 p-4 sm:p-8 rounded-2xl border border-slate-300 overflow-x-auto flex justify-center">
+                <div 
+                  className="bg-white text-slate-900 shadow-2xl p-6 sm:p-10 rounded-sm border border-slate-200"
+                  style={{
+                    width: pdfOrientation === 'portrait' ? '210mm' : '297mm',
+                    minHeight: '297mm',
+                    fontSize: '11px'
+                  }}
+                  dangerouslySetInnerHTML={{ __html: buildCombinedReportHTML() }}
+                />
+              </div>
             </div>
 
           </div>
-        </div>
-      )}
+        )}
+
+      </div>
 
       {/* MODAL: CATAT PEMBAYARAN INVOICE */}
       {paymentModalInvoice && (
@@ -1718,7 +2117,7 @@ export const FinancialReport: React.FC = () => {
                 </div>
                 <div className="flex justify-between text-rose-600 font-bold pt-1.5 border-t border-slate-200">
                   <span>Sisa Tagihan (Sisa Piutang):</span>
-                  <span className="text-sm font-black">{formatCurrency(paymentModalInvoice.balanceDue !== undefined ? paymentModalInvoice.balanceDue : (paymentModalInvoice.totalAmount - (paymentModalInvoice.paidAmount || 0)))}</span>
+                  <span className="text-sm font-black">{formatCurrency(paymentModalInvoice.balanceDue !== undefined ? paymentModalInvoice.balanceDue : ((paymentModalInvoice.totalAmount || 0) - (paymentModalInvoice.paidAmount || 0)))}</span>
                 </div>
               </div>
 
@@ -1751,12 +2150,12 @@ export const FinancialReport: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      const remaining = paymentModalInvoice.balanceDue !== undefined ? paymentModalInvoice.balanceDue : (paymentModalInvoice.totalAmount - (paymentModalInvoice.paidAmount || 0));
+                      const remaining = paymentModalInvoice.balanceDue !== undefined ? paymentModalInvoice.balanceDue : ((paymentModalInvoice.totalAmount || 0) - (paymentModalInvoice.paidAmount || 0));
                       setPaymentAmount(remaining.toString());
                     }}
                     className="text-[11px] font-bold text-emerald-700 hover:bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 transition-colors cursor-pointer"
                   >
-                    Pelunasan Penuh ({formatCurrency(paymentModalInvoice.balanceDue !== undefined ? paymentModalInvoice.balanceDue : (paymentModalInvoice.totalAmount - (paymentModalInvoice.paidAmount || 0)))})
+                    Pelunasan Penuh ({formatCurrency(paymentModalInvoice.balanceDue !== undefined ? paymentModalInvoice.balanceDue : ((paymentModalInvoice.totalAmount || 0) - (paymentModalInvoice.paidAmount || 0)))})
                   </button>
                 </div>
               </div>
