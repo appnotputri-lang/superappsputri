@@ -19,6 +19,7 @@ import {
   Package,
   FileCheck,
   Banknote,
+  TrendingUp,
   FileSpreadsheet,
   BookCheck,
   Scale,
@@ -102,7 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       return ['ppat_deeds', 'laporan_ppat', 'kalkulator_ppat', 'ppat'].includes(activeTab);
     }
     if (sectionId === 'keuangan') {
-      return ['invoice', 'products', 'quotation', 'delivery', 'receipt', 'deposit_note'].includes(activeTab);
+      return ['invoice', 'financial_report', 'products', 'quotation', 'delivery', 'receipt', 'deposit_note'].includes(activeTab);
     }
     if (sectionId === 'referensi_dan_alat') {
       return ['kbli_mapping', 'saran_kbli', 'perbaikan', 'panduan', 'surat_bo'].includes(activeTab);
@@ -230,6 +231,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badgeTextColor: 'text-emerald-600',
       items: [
         { label: 'Invoice', id: 'invoice', icon: CreditCard, requiresAuth: true },
+        { label: 'Laporan Keuangan', id: 'financial_report', icon: TrendingUp, requiresAuth: true },
         { label: 'Produk & Layanan', id: 'products', icon: Package, requiresAuth: true },
         { label: 'Penawaran', id: 'quotation', icon: FileText, requiresAuth: true },
         { label: 'Surat Jalan', id: 'delivery', icon: Package, requiresAuth: true },

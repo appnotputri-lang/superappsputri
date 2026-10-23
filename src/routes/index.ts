@@ -62,8 +62,8 @@ export const renderAppRoute = (currentTab: string, props: any) => {
     return renderPpatCalculatorRoute(props);
   }
 
-  if (currentTab === 'invoice') {
-    return renderInvoiceRoute(props?.isPublic || false);
+  if (currentTab === 'invoice' || currentTab === 'financial_report') {
+    return renderInvoiceRoute(currentTab, props?.isPublic || false);
   }
 
   if (currentTab === 'products') {

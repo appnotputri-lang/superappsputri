@@ -189,6 +189,13 @@ export const TAB_ACCENTS: Record<SidebarTabId, {
     hoverBg: 'hover:bg-emerald-50/40 hover:text-emerald-950',
     indicatorBg: 'bg-emerald-600'
   },
+  financial_report: {
+    iconColor: 'text-emerald-600',
+    textColor: 'text-emerald-900',
+    bgColor: 'bg-emerald-50/70',
+    hoverBg: 'hover:bg-emerald-50/40 hover:text-emerald-950',
+    indicatorBg: 'bg-emerald-600'
+  },
   products: {
     iconColor: 'text-indigo-600',
     textColor: 'text-indigo-900',
@@ -313,6 +320,7 @@ export const TAB_TO_PATH: Record<string, string> = {
   'user_management': '/user-management',
   'notary_reports': '/notary-reports',
   'invoice': '/invoice',
+  'financial_report': '/laporan-keuangan',
   'products': '/products',
   'quotation': '/quotation',
   'deeds': '/deeds',
@@ -362,6 +370,8 @@ export const PATH_TO_TAB: Record<string, SidebarTabId> = {
   '/profile-cv': 'company_profile',
   '/invoices': 'invoice',
   '/invoice': 'invoice',
+  '/laporan-keuangan': 'financial_report',
+  '/financial-report': 'financial_report',
   '/quotations': 'quotation',
   '/quotation': 'quotation',
   '/incoming-mails': 'incoming_mail',
