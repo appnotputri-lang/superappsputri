@@ -5,10 +5,10 @@ import { formatDateIndo } from '../../../utils/formatters';
 export const AhuSection = ({ title, children, isOpen = true }: { title: string, children: React.ReactNode, isOpen?: boolean }) => {
   const [open, setOpen] = useState(isOpen);
   return (
-    <div className="bg-white border border-slate-200/90 rounded-xl mb-4 shadow-xs overflow-hidden transition-all">
+    <div className={`bg-white border border-slate-200/90 rounded-xl mb-4 shadow-xs transition-all ${open ? 'overflow-visible' : 'overflow-hidden'}`}>
       <div 
         onClick={() => setOpen(!open)}
-        className="bg-slate-50/90 hover:bg-slate-100/80 px-4 py-2.5 min-h-[42px] flex justify-between items-center cursor-pointer border-b border-slate-200 group transition-colors select-none"
+        className="bg-slate-50/90 hover:bg-slate-100/80 px-4 py-2.5 min-h-[42px] flex justify-between items-center cursor-pointer border-b border-slate-200 group transition-colors select-none rounded-t-xl"
       >
         <h3 className="text-[13px] font-bold text-slate-800 uppercase tracking-tight flex items-center gap-2.5">
           <span className="w-1.5 h-4.5 bg-[#1b449c] rounded-xs shrink-0"></span>
@@ -16,7 +16,7 @@ export const AhuSection = ({ title, children, isOpen = true }: { title: string, 
         </h3>
         {open ? <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-transform duration-150" /> : <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-600 transition-transform duration-150" />}
       </div>
-      {open && <div className="p-5 sm:p-6 bg-white">{children}</div>}
+      {open && <div className="p-5 sm:p-6 bg-white rounded-b-xl">{children}</div>}
     </div>
   );
 };

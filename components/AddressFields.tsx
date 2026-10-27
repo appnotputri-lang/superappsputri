@@ -1,10 +1,11 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Loader2, Search, ChevronDown, X } from 'lucide-react';
 import { Address } from '../types';
 import { toTitleCase } from '../utils/formatters';
 
-// Searchable dropdown component with custom color support
+// Searchable dropdown component with custom color support and viewport-aware portal
 export const SearchableSelect: React.FC<{
   label: string;
   value: string;
@@ -17,7 +18,10 @@ export const SearchableSelect: React.FC<{
 }> = ({ label, value, options, onChange, loading, disabled, placeholder, accentColor = 'indigo' }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
+  const [placement, setPlacement] = useState<'top' | 'bottom'>('bottom');
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Map colors for Tailwind JIT safety
   const colors = {
@@ -68,30 +72,157 @@ export const SearchableSelect: React.FC<{
     }
   };
 
-  const activeColor = colors[accentColor];
+  const activeColor = colors[accentColor] || colors.indigo;
 
+  // Calculate and update dropdown positioning with auto-flip when bottom space is tight
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0) return;
+
+    const gap = 6;
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+
+    const spaceBelow = viewportHeight - rect.bottom - gap;
+    const spaceAbove = rect.top - gap;
+
+    const PREFERRED_MAX_HEIGHT = 280;
+    const MIN_DROPDOWN_HEIGHT = 140;
+
+    // Flip upwards if space below is limited (< 240px and spaceAbove > spaceBelow) or below minimum height
+    const shouldOpenUp = (spaceBelow < 240 && spaceAbove > spaceBelow) || (spaceBelow < MIN_DROPDOWN_HEIGHT);
+
+    let maxHeight = PREFERRED_MAX_HEIGHT;
+    let top: number | undefined;
+    let bottom: number | undefined;
+
+    if (shouldOpenUp) {
+      maxHeight = Math.min(PREFERRED_MAX_HEIGHT, Math.max(MIN_DROPDOWN_HEIGHT, spaceAbove - 16));
+      bottom = viewportHeight - rect.top + gap;
+      setPlacement('top');
+    } else {
+      maxHeight = Math.min(PREFERRED_MAX_HEIGHT, Math.max(MIN_DROPDOWN_HEIGHT, spaceBelow - 16));
+      top = rect.bottom + gap;
+      setPlacement('bottom');
+    }
+
+    let width = rect.width;
+    let left = rect.left;
+
+    if (left + width > viewportWidth - 8) {
+      left = Math.max(8, viewportWidth - width - 8);
+    }
+    if (left < 8) {
+      left = 8;
+    }
+    if (width > viewportWidth - 16) {
+      width = viewportWidth - 16;
+    }
+
+    setDropdownStyle({
+      position: 'fixed',
+      top: top !== undefined ? `${top}px` : undefined,
+      bottom: bottom !== undefined ? `${bottom}px` : undefined,
+      left: `${left}px`,
+      width: `${width}px`,
+      maxHeight: `${maxHeight}px`,
+      zIndex: 999999
+    });
+  }, []);
+
+  const handleToggle = () => {
+    if (disabled) return;
+    if (!isOpen) {
+      updatePosition();
+      setSearch('');
+    }
+    setIsOpen(prev => !prev);
+  };
+
+  // Keep position accurate during scroll or window resize
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+    if (!isOpen) return;
+    updatePosition();
+
+    const handleScroll = (e: Event) => {
+      if (dropdownRef.current && dropdownRef.current.contains(e.target as Node)) {
+        return;
+      }
+      if (triggerRef.current) {
+        const rect = triggerRef.current.getBoundingClientRect();
+        if (rect.bottom < 0 || rect.top > window.innerHeight) {
+          setIsOpen(false);
+          return;
+        }
+      }
+      updatePosition();
+    };
+
+    const handleResize = () => {
+      updatePosition();
+    };
+
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [isOpen, updatePosition]);
+
+  // Close when clicking/tapping outside or pressing Escape
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  // Recalculate dimensions when search or options count changes
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition();
+    }
+  }, [isOpen, options.length, search, updatePosition]);
 
   const filteredOptions = options.filter(opt => 
     opt.name.toLowerCase().includes(search.toLowerCase())
   ).slice(0, 500);
 
   return (
-    <div className="relative" ref={wrapperRef}>
+    <div className="relative">
       <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5 flex justify-between items-center px-1">
         {label} {loading && <Loader2 className={`w-3 h-3 animate-spin ${activeColor.loader}`} />}
       </label>
       
       <div 
-        onClick={() => !disabled && setIsOpen(!isOpen)}
+        ref={triggerRef}
+        onClick={handleToggle}
         className={`w-full px-4 py-3 border rounded-xl flex items-center justify-between cursor-pointer transition-all bg-white shadow-sm ${
           disabled ? 'bg-slate-50 cursor-not-allowed border-slate-200' : `border-slate-300 ${activeColor.hover}`
         } ${isOpen ? `ring-2 ${activeColor.ring} ${activeColor.border}` : ''}`}
@@ -102,15 +233,21 @@ export const SearchableSelect: React.FC<{
         <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </div>
 
-      {isOpen && !disabled && (
-        <div className="absolute z-[100] w-full mt-2 bg-white/95 backdrop-blur-md border border-slate-200 rounded-3xl shadow-2xl animate-in fade-in zoom-in duration-150 overflow-hidden ring-1 ring-slate-900/5">
-          <div className="p-3 border-b border-slate-100 sticky top-0 bg-white/80 backdrop-blur-sm z-10">
+      {isOpen && !disabled && typeof document !== 'undefined' && createPortal(
+        <div 
+          ref={dropdownRef}
+          style={dropdownStyle}
+          className={`bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-100 flex flex-col overflow-hidden ring-1 ring-slate-900/10 ${
+            placement === 'top' ? 'origin-bottom' : 'origin-top'
+          }`}
+        >
+          <div className="p-2.5 border-b border-slate-100 bg-white/90 backdrop-blur-sm shrink-0">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
               <input 
                 autoFocus
                 type="text"
-                className={`w-full pl-10 pr-10 py-3 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 ${activeColor.ring} ${activeColor.focusBorder} bg-slate-50/50`}
+                className={`w-full pl-9 pr-8 py-2 text-sm border border-slate-200 rounded-xl outline-none focus:ring-2 ${activeColor.ring} ${activeColor.focusBorder} bg-slate-50/50`}
                 placeholder="Cari..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -118,15 +255,16 @@ export const SearchableSelect: React.FC<{
               />
               {search && (
                 <button 
+                  type="button"
                   onClick={(e) => { e.stopPropagation(); setSearch(''); }}
-                  className="absolute right-3 top-2.5 p-0.5 hover:bg-slate-200 rounded-full transition-colors"
+                  className="absolute right-2.5 top-2 p-1 hover:bg-slate-200 rounded-full transition-colors text-slate-400 hover:text-slate-600 cursor-pointer"
                 >
-                  <X className="w-3.5 h-3.5 text-slate-400" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
           </div>
-          <div className="max-h-72 overflow-y-auto p-1.5 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-1.5 custom-scrollbar min-h-0">
             {filteredOptions.length > 0 ? (
               filteredOptions.map(opt => (
                 <div 
@@ -136,8 +274,8 @@ export const SearchableSelect: React.FC<{
                     setIsOpen(false);
                     setSearch('');
                   }}
-                  className={`px-4 py-3 text-sm rounded-xl cursor-pointer transition-all ${
-                    value === opt.name ? `${activeColor.bg} ${activeColor.text} font-bold shadow-inner` : 'text-slate-600 hover:bg-indigo-50 hover:text-indigo-600'
+                  className={`px-3.5 py-2.5 text-sm rounded-xl cursor-pointer transition-all break-words leading-snug ${
+                    value === opt.name ? `${activeColor.bg} ${activeColor.text} font-bold shadow-inner` : 'text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
                   }`}
                 >
                   {opt.name}
@@ -150,7 +288,8 @@ export const SearchableSelect: React.FC<{
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -263,11 +402,25 @@ export const IndoRegionSelector: React.FC<{
   }, [ids.p]);
 
   useEffect(() => {
+    if (address.city && !ids.r && regencies.length > 0) {
+      const r = regencies.find(x => x.name.toUpperCase() === address.city?.toUpperCase());
+      if (r) setIds(prev => ({ ...prev, r: r.id }));
+    }
+  }, [address.city, regencies, ids.r]);
+
+  useEffect(() => {
     if (!ids.r) { setDistricts([]); return; }
     fetch(`https://ibnux.github.io/data-indonesia/kecamatan/${ids.r}.json`)
       .then(res => res.json())
       .then(data => setDistricts(data.map((item: any) => ({ ...item, name: toTitleCase(item.nama) }))));
   }, [ids.r]);
+
+  useEffect(() => {
+    if (address.kecamatan && !ids.d && districts.length > 0) {
+      const d = districts.find(x => x.name.toUpperCase() === address.kecamatan?.toUpperCase());
+      if (d) setIds(prev => ({ ...prev, d: d.id }));
+    }
+  }, [address.kecamatan, districts, ids.d]);
 
   useEffect(() => {
     if (!ids.d) { setVillages([]); return; }
