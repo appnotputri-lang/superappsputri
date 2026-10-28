@@ -12,26 +12,29 @@ export async function requireAuth(request: Request, env: any): Promise<{ user: a
     return createErrorResponse('Missing or invalid Authorization header', 401);
   }
 
+  // In isolated test environments (NODE_ENV === 'test'), permit test user injection
+  if (process.env.NODE_ENV === 'test' && env?.TEST_AUTH_USER) {
+    return { user: env.TEST_AUTH_USER };
+  }
+
   try {
     const verifiedUser = await verifyIdToken(token, env);
     return { user: verifiedUser };
   } catch (error: any) {
-    console.error('[AuthGuard] Verification failed:', error);
-    return createErrorResponse(
-      `Invalid or expired Firebase ID token: ${error.message || String(error)}`,
-      401,
-      error.message || String(error)
-    );
+    // Sanitize log: do not log token or sensitive headers
+    console.error('[AuthGuard] Verification failed:', error?.name || 'AuthenticationError');
+    // Sanitize client error: never leak stack traces, tokens, or raw library error strings
+    return createErrorResponse('Unauthorized: Invalid or expired authentication token', 401);
   }
 }
 
 export function checkRole(user: any, allowedRoles: string[]): Response | null {
-  const role = user?.role || 'Staff';
+  const role = user?.role;
+  if (!role) {
+    return createErrorResponse('FORBIDDEN: Pengguna tidak memiliki peran (role) yang terdaftar.', 403);
+  }
   if (!allowedRoles.includes(role)) {
-    return createErrorResponse(
-      `FORBIDDEN: Peran '${role}' tidak diizinkan mengakses resource ini. Diperlukan: ${allowedRoles.join(', ')}`,
-      403
-    );
+    return createErrorResponse('FORBIDDEN: Akses ditolak. Kewenangan peran tidak memadai.', 403);
   }
   return null;
 }

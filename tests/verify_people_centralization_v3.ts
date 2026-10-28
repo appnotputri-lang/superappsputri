@@ -1,10 +1,10 @@
 /**
- * Comprehensive Hardened Acceptance & Integration Test Suite V3
+ * Test Suite: SQLite In-Memory / Simulasi Cloudflare D1
  * Notaris Putri Office System (Superapps Putri)
  *
- * Verifies all 18 critical scenarios against real D1 database adapter,
- * transactional batching, cross-person passport collision protection,
- * RBAC enforcement, backup abort, and rollback non-destructiveness.
+ * KATEGORI PENGUJIAN: SIMULASI SQLITE IN-MEMORY (Bukan Cloudflare D1 Remote Staging).
+ * Menguji logika bisnis, DDL skema D1, partial unique index, transaksi atomik .batch(),
+ * penanganan balapan paspor WNA, normalisasi nama, dan perlindungan akta final.
  */
 
 import { DatabaseSync } from 'node:sqlite';
@@ -104,7 +104,7 @@ function createIsolatedTestD1() {
 
 async function runTestSuite() {
   console.log('================================================================');
-  console.log(' PENGUJIAN PENERIMAAN KOMPREHENSIF V3 — HARDENING D1 PEOPLE ');
+  console.log(' PENGUJIAN SIMULASI SQLITE IN-MEMORY (SIMULASI D1 LOKAL) ');
   console.log('================================================================\n');
 
   const { d1Wrapper } = createIsolatedTestD1();

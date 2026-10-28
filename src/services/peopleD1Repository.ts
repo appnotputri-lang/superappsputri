@@ -27,6 +27,20 @@ export function cleanPassportInput(passport?: any): string | null {
   return str.length > 0 ? str : null;
 }
 
+export function maskNik(nik?: any): string {
+  if (!nik) return '';
+  const str = String(nik).trim();
+  if (str.length <= 6) return '******';
+  return `${str.slice(0, 4)}********${str.slice(-4)}`;
+}
+
+export function maskPassportNumber(passport?: any): string {
+  if (!passport) return '';
+  const str = String(passport).trim();
+  if (str.length <= 4) return '***';
+  return `${str.slice(0, 2)}***${str.slice(-2)}`;
+}
+
 export class PeopleD1Repository {
   /**
    * Helper to fetch identity documents for a person
@@ -290,6 +304,15 @@ export class PeopleD1Repository {
         const comp = evaluateNameCompatibility(nikRow.name, rawName);
         if (comp.spellingMismatch || (nikRow.birth_date && body.birthDate && nikRow.birth_date !== body.birthDate)) {
           const conflictId = crypto.randomUUID();
+          const sanitizedNikConflictPayload = {
+            targetPersonId: personId,
+            incomingName: rawName,
+            existingName: nikRow.name,
+            nikMasked: maskNik(cleanNik),
+            submittedBy: user.uid,
+            submittedRole: user.role,
+            timestamp: now
+          };
           await db.prepare(`
             INSERT INTO people_migration_conflicts (
               conflict_id, doc_type, doc_number, conflict_type,
@@ -297,7 +320,7 @@ export class PeopleD1Repository {
               resolution_status, created_at
             ) VALUES (?, 'NIK', ?, 'NIK_NAME_MISMATCH', ?, ?, ?, 'PENDING', ?)
           `).bind(
-            conflictId, cleanNik, nikRow.person_id, JSON.stringify(body),
+            conflictId, cleanNik, nikRow.person_id, JSON.stringify(sanitizedNikConflictPayload),
             `API_${user.role}_${user.uid}`, now
           ).run();
 
@@ -396,6 +419,14 @@ export class PeopleD1Repository {
 
       if (collisionDoc) {
         const conflictId = crypto.randomUUID();
+        const sanitizedPassportCollisionPayload = {
+          targetPersonId: personId,
+          passportNumberMasked: maskPassportNumber(cleanPassport),
+          issuingCountry: body.issuingCountry || nationality || 'WNA',
+          submittedBy: user.uid,
+          submittedRole: user.role,
+          timestamp: now
+        };
         await db.prepare(`
           INSERT INTO people_migration_conflicts (
             conflict_id, doc_type, doc_number, conflict_type,
@@ -404,7 +435,7 @@ export class PeopleD1Repository {
           ) VALUES (?, 'PASSPORT', ?, 'CROSS_PERSON_PASSPORT_COLLISION', ?, ?, ?, 'PENDING', ?)
         `).bind(
           conflictId, cleanPassport, collisionDoc.person_id,
-          JSON.stringify(body), `API_${user.role}_${user.uid}`, now
+          JSON.stringify(sanitizedPassportCollisionPayload), `API_${user.role}_${user.uid}`, now
         ).run();
 
         const err: any = new Error(`PASSPORT_COLLISION: Nomor paspor ${cleanPassport} telah aktif untuk individu lain (${collisionDoc.person_id}). Perubahan paspor ditolak dan masuk karantina peninjauan Notaris.`);
@@ -420,19 +451,50 @@ export class PeopleD1Repository {
 
       if (!existingDoc) {
         const docId = crypto.randomUUID();
-        await db.prepare(`
-          INSERT INTO person_identity_documents (
-            id, person_id, doc_type, doc_number, issuing_country,
-            issue_date, expiry_date, is_active, verified_status,
-            verified_by_uid, verified_at, notes, created_at, updated_at
-          ) VALUES (?, ?, 'PASSPORT', ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
-        `).bind(
-          docId, personId, cleanPassport, body.issuingCountry || nationality || 'WNA',
-          body.issueDate || null, body.expiryDate || null, identityStatus,
-          identityStatus === 'VERIFIED' ? user.uid : null,
-          identityStatus === 'VERIFIED' ? now : null,
-          'Initial passport registration', now, now
-        ).run();
+        try {
+          await db.prepare(`
+            INSERT INTO person_identity_documents (
+              id, person_id, doc_type, doc_number, issuing_country,
+              issue_date, expiry_date, is_active, verified_status,
+              verified_by_uid, verified_at, notes, created_at, updated_at
+            ) VALUES (?, ?, 'PASSPORT', ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
+          `).bind(
+            docId, personId, cleanPassport, body.issuingCountry || nationality || 'WNA',
+            body.issueDate || null, body.expiryDate || null, identityStatus,
+            identityStatus === 'VERIFIED' ? user.uid : null,
+            identityStatus === 'VERIFIED' ? now : null,
+            'Initial passport registration', now, now
+          ).run();
+        } catch (insertErr: any) {
+          const insertMsg = String(insertErr?.message || insertErr);
+          if (insertMsg.includes('UNIQUE constraint') || insertMsg.includes('idx_docs_active_passport_unique')) {
+            const conflictId = crypto.randomUUID();
+            const racePayload = {
+              targetPersonId: personId,
+              passportNumberMasked: maskPassportNumber(cleanPassport),
+              issuingCountry: body.issuingCountry || nationality || 'WNA',
+              submittedBy: user.uid,
+              timestamp: now,
+              errorType: 'DATABASE_UNIQUE_CONSTRAINT_VIOLATION'
+            };
+            await db.prepare(`
+              INSERT INTO people_migration_conflicts (
+                conflict_id, doc_type, doc_number, conflict_type,
+                existing_person_id, incoming_payload, incoming_source,
+                resolution_status, created_at
+              ) VALUES (?, 'PASSPORT', ?, 'CONCURRENT_PASSPORT_COLLISION', ?, ?, ?, 'PENDING', ?)
+            `).bind(
+              conflictId, cleanPassport, 'UNKNOWN_CONCURRENT_TRANSACTION',
+              JSON.stringify(racePayload), `API_CONCURRENT_${user.role}_${user.uid}`, now
+            ).run().catch(() => {});
+
+            const raceErr: any = new Error(`PASSPORT_COLLISION: Kondisi balapan (race condition) terdeteksi. Nomor paspor ${cleanPassport} baru saja didaftarkan oleh transaksi konkuren lain.`);
+            raceErr.statusCode = 409;
+            raceErr.conflictId = conflictId;
+            throw raceErr;
+          }
+          throw insertErr;
+        }
       }
     }
 
@@ -488,6 +550,15 @@ export class PeopleD1Repository {
 
     if (conflictDoc) {
       const conflictId = crypto.randomUUID();
+      const sanitizedRenewalConflictPayload = {
+        personId,
+        passportNumberMasked: maskPassportNumber(cleanNewPassport),
+        issuingCountry: payload.issuingCountry || personRow.nationality || 'WNA',
+        submittedBy: user.uid,
+        submittedRole: user.role,
+        timestamp: now
+      };
+
       await db.prepare(`
         INSERT INTO people_migration_conflicts (
           conflict_id, doc_type, doc_number, conflict_type,
@@ -496,7 +567,7 @@ export class PeopleD1Repository {
         ) VALUES (?, 'PASSPORT', ?, 'CROSS_PERSON_PASSPORT_COLLISION', ?, ?, ?, 'PENDING', ?)
       `).bind(
         conflictId, cleanNewPassport, conflictDoc.person_id,
-        JSON.stringify({ personId, ...payload }), `RENEWAL_${user.role}_${user.uid}`, now
+        JSON.stringify(sanitizedRenewalConflictPayload), `RENEWAL_${user.role}_${user.uid}`, now
       ).run();
 
       const err: any = new Error(`PASSPORT_COLLISION: Nomor paspor ${cleanNewPassport} telah terdaftar dan aktif untuk individu lain (${conflictDoc.person_id}). Pembaruan dibatalkan dan kasus diarahkan ke antrean peninjauan Notaris.`);
@@ -538,8 +609,48 @@ export class PeopleD1Repository {
       UPDATE people SET updated_at = ? WHERE person_id = ?
     `).bind(now, personId);
 
-    // 3. Execute atomically via db.batch()
-    await db.batch([stmtDeactivate, stmtInsertNew, stmtTouchPerson]);
+    // 3. Execute atomically via db.batch() with race-condition constraint handling
+    try {
+      await db.batch([stmtDeactivate, stmtInsertNew, stmtTouchPerson]);
+    } catch (batchErr: any) {
+      const errMsg = String(batchErr?.message || batchErr);
+      const isConstraint = errMsg.includes('UNIQUE constraint') || 
+                           errMsg.includes('idx_docs_active_passport_unique') ||
+                           errMsg.includes('SQLITE_CONSTRAINT');
+
+      if (isConstraint) {
+        const conflictId = crypto.randomUUID();
+        const sanitizedRacePayload = {
+          personId,
+          passportNumberMasked: maskPassportNumber(cleanNewPassport),
+          issuingCountry: payload.issuingCountry || personRow.nationality || 'WNA',
+          submittedBy: user.uid,
+          timestamp: now,
+          errorType: 'DATABASE_UNIQUE_CONSTRAINT_VIOLATION'
+        };
+
+        await db.prepare(`
+          INSERT INTO people_migration_conflicts (
+            conflict_id, doc_type, doc_number, conflict_type,
+            existing_person_id, incoming_payload, incoming_source,
+            resolution_status, created_at
+          ) VALUES (?, 'PASSPORT', ?, 'CONCURRENT_PASSPORT_COLLISION', ?, ?, ?, 'PENDING', ?)
+        `).bind(
+          conflictId, cleanNewPassport, 'UNKNOWN_CONCURRENT_TRANSACTION',
+          JSON.stringify(sanitizedRacePayload), `RACE_CONDITION_${user.role}_${user.uid}`, now
+        ).run().catch(() => {});
+
+        const conflictErr: any = new Error(
+          `PASSPORT_COLLISION: Kondisi balapan konkuren (race condition) terdeteksi. Nomor paspor ${cleanNewPassport} baru saja didaftarkan oleh transaksi aktif lain. Transaksi pembaruan dibatalkan secara atomik oleh constraint database.`
+        );
+        conflictErr.statusCode = 409;
+        conflictErr.conflictId = conflictId;
+        throw conflictErr;
+      }
+
+      // Re-throw if it's another non-constraint failure
+      throw batchErr;
+    }
 
     const allDocs = await this.getPersonDocuments(db, personId);
     const roles = await this.getPersonRoles(db, personId);
@@ -581,6 +692,8 @@ export class PeopleD1Repository {
 
     return {
       message: `Status identitas personId ${personId} berhasil diverifikasi oleh ${user.role}.`,
+      personId,
+      identityStatus: 'VERIFIED',
       verifiedAt: now,
       verifiedByUid: user.uid
     };
@@ -604,7 +717,20 @@ export class PeopleD1Repository {
       ORDER BY created_at DESC
     `).all();
 
-    return queryRes.results || [];
+    return (queryRes.results || []).map((row: any) => ({
+      conflictId: row.conflict_id,
+      docType: row.doc_type,
+      docNumber: row.doc_number,
+      conflictType: row.conflict_type,
+      existingPersonId: row.existing_person_id,
+      incomingPayload: row.incoming_payload,
+      incomingSource: row.incoming_source,
+      resolutionStatus: row.resolution_status,
+      createdAt: row.created_at,
+      resolvedAt: row.resolved_at,
+      resolvedByUid: row.resolved_by_uid,
+      resolutionNotes: row.resolution_notes
+    }));
   }
 
   /**

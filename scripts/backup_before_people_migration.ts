@@ -65,6 +65,10 @@ export async function runVerifiedBackup(outputDir?: string): Promise<{
 
   console.log('Memulai pemindaian koleksi wajib Firestore...');
 
+  const successfulRequiredCollections: string[] = [];
+  const successfulOptionalCollections: string[] = [];
+  const skippedOrFailedOptionalCollections: Array<{ collection: string; reason: string }> = [];
+
   // 1. Scan REQUIRED collections (Must NOT fail)
   for (const colName of REQUIRED_COLLECTIONS) {
     try {
@@ -76,6 +80,7 @@ export async function runVerifiedBackup(outputDir?: string): Promise<{
       backupData[colName] = docs;
       collectionCounts[colName] = docs.length;
       totalDocs += docs.length;
+      successfulRequiredCollections.push(colName);
       console.log(` [WAJIB] Koleksi '${colName}': Berhasil dibaca (${docs.length} dokumen)`);
     } catch (err: any) {
       console.error(`\n❌ FATAL: Gagal membaca koleksi wajib '${colName}': ${err.message}`);
@@ -84,7 +89,7 @@ export async function runVerifiedBackup(outputDir?: string): Promise<{
     }
   }
 
-  // 2. Scan OPTIONAL/LEGACY collections (Tolerate permission restriction or missing)
+  // 2. Scan OPTIONAL/LEGACY collections (Explicitly track failed/skipped collections in manifest)
   console.log('\nMemeriksa koleksi opsional & historis...');
   for (const colName of OPTIONAL_LEGACY_COLLECTIONS) {
     try {
@@ -96,9 +101,14 @@ export async function runVerifiedBackup(outputDir?: string): Promise<{
       backupData[colName] = docs;
       collectionCounts[colName] = docs.length;
       totalDocs += docs.length;
-      console.log(` [OPSIONAL] Koleksi '${colName}': ${docs.length} dokumen`);
+      successfulOptionalCollections.push(colName);
+      console.log(` [OPSIONAL] Koleksi '${colName}': Berhasil (${docs.length} dokumen)`);
     } catch (err: any) {
-      console.log(` [OPSIONAL] Koleksi '${colName}': Dilewati (${err.message})`);
+      console.log(` [OPSIONAL] Koleksi '${colName}': Dilewati / Gagal dibaca (${err.message})`);
+      skippedOrFailedOptionalCollections.push({
+        collection: colName,
+        reason: err.message || String(err)
+      });
       // Do NOT set backupData for failed optional collections so it's not confused with empty array
     }
   }
@@ -122,6 +132,10 @@ export async function runVerifiedBackup(outputDir?: string): Promise<{
     timestamp: new Date().toISOString(),
     totalDocuments: totalDocs,
     collectionCounts,
+    successfulRequiredCollections,
+    successfulOptionalCollections,
+    skippedOrFailedOptionalCollections,
+    isCompleteForMigration: successfulRequiredCollections.length === REQUIRED_COLLECTIONS.length,
     sha256,
     fileSizeBytes: Buffer.byteLength(jsonContent, 'utf8'),
     schemaVersion: '2.0.0-d1',
@@ -175,6 +189,11 @@ export async function runVerifiedBackup(outputDir?: string): Promise<{
 }
 
 if (process.argv[1] && process.argv[1].endsWith('backup_before_people_migration.ts')) {
+  if (process.env.ALLOW_PRODUCTION_BACKUP !== 'true') {
+    console.error('⛔ AKSES DITOLAK: Backup data langsung ke Firestore memerlukan otorisasi eksplisit.');
+    console.error('Jalankan dengan environment variable ALLOW_PRODUCTION_BACKUP=true setelah mendapat persetujuan Notaris.');
+    process.exit(1);
+  }
   runVerifiedBackup().then(() => process.exit(0)).catch(err => {
     console.error('Eksekusi Backup Gagal:', err.message);
     process.exit(1);

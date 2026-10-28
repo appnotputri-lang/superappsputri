@@ -19,11 +19,17 @@ peopleV2Router.use(authMiddleware);
  */
 export function requireRoles(...allowedRoles: string[]) {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
-    const userRole = req.user?.role || 'Staff';
+    const userRole = req.user?.role;
+    if (!userRole) {
+      return res.status(403).json({
+        success: false,
+        error: 'FORBIDDEN: Pengguna tidak memiliki peran (role) yang terdaftar.'
+      });
+    }
     if (!allowedRoles.includes(userRole)) {
       return res.status(403).json({
         success: false,
-        error: `FORBIDDEN: Peran '${userRole}' tidak diizinkan mengakses resource ini. Diperlukan peran: ${allowedRoles.join(', ')}`
+        error: `FORBIDDEN: Akses ditolak. Kewenangan peran tidak memadai.`
       });
     }
     next();
