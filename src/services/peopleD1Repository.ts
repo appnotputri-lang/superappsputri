@@ -5,9 +5,19 @@
  * strict server-side RBAC, and detailed audit trails.
  */
 
-import crypto from 'crypto';
 import { ensureD1TablesExist } from './d1MigrationService';
 import { parsePersonName, evaluateNameCompatibility } from '../utils/nameResolution';
+
+function generateUUID(): string {
+  if (typeof globalThis !== 'undefined' && globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 export interface UserContext {
   uid: string;
@@ -292,7 +302,7 @@ export class PeopleD1Repository {
       throw new Error(`NIK harus tepat 16 digit angka (diterima: ${cleanNik.length} digit)`);
     }
 
-    const personId = body.personId || crypto.randomUUID();
+    const personId = body.personId || generateUUID();
     const now = new Date().toISOString();
 
     const existingRow = await db.prepare(`SELECT * FROM people WHERE person_id = ?`).bind(personId).get();
@@ -303,7 +313,7 @@ export class PeopleD1Repository {
       if (nikRow && nikRow.person_id !== personId) {
         const comp = evaluateNameCompatibility(nikRow.name, rawName);
         if (comp.spellingMismatch || (nikRow.birth_date && body.birthDate && nikRow.birth_date !== body.birthDate)) {
-          const conflictId = crypto.randomUUID();
+          const conflictId = generateUUID();
           const sanitizedNikConflictPayload = {
             targetPersonId: personId,
             incomingName: rawName,
@@ -418,7 +428,7 @@ export class PeopleD1Repository {
       `).bind(cleanPassport, personId).get();
 
       if (collisionDoc) {
-        const conflictId = crypto.randomUUID();
+        const conflictId = generateUUID();
         const sanitizedPassportCollisionPayload = {
           targetPersonId: personId,
           passportNumberMasked: maskPassportNumber(cleanPassport),
@@ -450,7 +460,7 @@ export class PeopleD1Repository {
       `).bind(personId).get();
 
       if (!existingDoc) {
-        const docId = crypto.randomUUID();
+        const docId = generateUUID();
         try {
           await db.prepare(`
             INSERT INTO person_identity_documents (
@@ -468,7 +478,7 @@ export class PeopleD1Repository {
         } catch (insertErr: any) {
           const insertMsg = String(insertErr?.message || insertErr);
           if (insertMsg.includes('UNIQUE constraint') || insertMsg.includes('idx_docs_active_passport_unique')) {
-            const conflictId = crypto.randomUUID();
+            const conflictId = generateUUID();
             const racePayload = {
               targetPersonId: personId,
               passportNumberMasked: maskPassportNumber(cleanPassport),
@@ -549,7 +559,7 @@ export class PeopleD1Repository {
     `).bind(cleanNewPassport, personId).get();
 
     if (conflictDoc) {
-      const conflictId = crypto.randomUUID();
+      const conflictId = generateUUID();
       const sanitizedRenewalConflictPayload = {
         personId,
         passportNumberMasked: maskPassportNumber(cleanNewPassport),
@@ -577,7 +587,7 @@ export class PeopleD1Repository {
     }
 
     // 2. Prepare atomic batch statements
-    const newDocId = crypto.randomUUID();
+    const newDocId = generateUUID();
     const verifiedStatus = (user.role === 'Super Admin' || user.role === 'Admin') ? 'VERIFIED' : 'PROVISIONAL';
     const auditNote = payload.notes || `Passport renewal submitted by ${user.role} (${user.uid})`;
 
@@ -619,7 +629,7 @@ export class PeopleD1Repository {
                            errMsg.includes('SQLITE_CONSTRAINT');
 
       if (isConstraint) {
-        const conflictId = crypto.randomUUID();
+        const conflictId = generateUUID();
         const sanitizedRacePayload = {
           personId,
           passportNumberMasked: maskPassportNumber(cleanNewPassport),

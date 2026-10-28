@@ -12,8 +12,6 @@
  *    Any unconfigured environment fails fast with D1ConfigurationError.
  */
 
-import { getLocalD1Database } from './sqlite-d1';
-
 export class D1BindingError extends Error {
   statusCode: number;
   constructor(message = 'Cloudflare D1 binding (env.DB) is not configured.') {
@@ -50,6 +48,61 @@ export function detectRuntime(contextOrReq?: any, explicitEnv?: any): 'cloudflar
   }
 
   return 'node';
+}
+
+/**
+ * Lazily loads the local SQLite adapter ONLY when executing in a Node development or test environment.
+ * Evaluates dynamically to prevent Cloudflare Pages / Workers bundlers (esbuild/wrangler)
+ * from statically tracing Node built-ins (node:sqlite, path, fs).
+ */
+function getLocalD1Database(): any {
+  try {
+    let nodeRequire: any = null;
+
+    if (typeof process !== 'undefined' && typeof (process as any).getBuiltinModule === 'function') {
+      try {
+        const mod = (process as any).getBuiltinModule('module');
+        if (mod && typeof mod.createRequire === 'function') {
+          nodeRequire = mod.createRequire((process.cwd ? process.cwd() : '.') + '/package.json');
+        }
+      } catch {}
+    }
+
+    if (!nodeRequire) {
+      try {
+        nodeRequire = (0, eval)('typeof require !== "undefined" ? require : null');
+      } catch {}
+    }
+
+    if (!nodeRequire && typeof module !== 'undefined' && (module as any).require) {
+      nodeRequire = (module as any).require.bind(module);
+    }
+
+    if (nodeRequire) {
+      const candidates = [
+        './src/lib/sqlite-d1',
+        './sqlite-d1',
+        typeof __dirname !== 'undefined' ? `${__dirname}/sqlite-d1` : null,
+        typeof __dirname !== 'undefined' ? `${__dirname}/src/lib/sqlite-d1` : null,
+        typeof process !== 'undefined' && process.cwd ? `${process.cwd()}/src/lib/sqlite-d1` : null
+      ].filter(Boolean) as string[];
+
+      for (const candidate of candidates) {
+        try {
+          const mod = nodeRequire(candidate);
+          if (mod && typeof mod.getLocalD1Database === 'function') {
+            return mod.getLocalD1Database();
+          }
+        } catch {}
+      }
+    }
+  } catch (err: any) {
+    throw new D1ConfigurationError(`Failed to load local SQLite adapter: ${err?.message || err}`);
+  }
+
+  throw new D1ConfigurationError(
+    'Local SQLite adapter could not be loaded. Please ensure "sqlite-d1.ts" is present and node:sqlite is supported.'
+  );
 }
 
 /**
