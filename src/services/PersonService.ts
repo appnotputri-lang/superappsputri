@@ -1,23 +1,21 @@
-import { 
-  collection, 
-  doc, 
-  getDoc, 
-  getDocs, 
-  query, 
-  where, 
-  limit, 
-  runTransaction, 
-  writeBatch 
-} from 'firebase/firestore';
+/**
+ * PersonService - Centralized People Database Service
+ * Single Source of Truth: Cloudflare D1 via /api/v2/people Gateway API.
+ * Cloud Firestore remains the single source of truth for company profiles & legal documents.
+ */
+
+import { collection, doc, getDoc, getDocs, runTransaction } from 'firebase/firestore';
 import { db, searchShareholderByNIKClient } from '../lib/firebase';
+import { getApiUrl, getAuthHeaders } from '../lib/api';
 import { Person, Address, Shareholder, ManagementItem, Pesero, CompanyProfile } from '../../types';
 import { sanitizeForFirestore } from '../utils/sanitize';
-
-export const PEOPLE_COLLECTION = 'people';
-export const PEOPLE_NIK_KEYS_COLLECTION = 'people_nik_keys';
+import { evaluateNameCompatibility, parsePersonName } from '../utils/nameResolution';
+import { isProjectFinal } from './ClientProjectSyncService';
 
 export interface MigrationConflict {
-  nik: string;
+  nik?: string;
+  passportNumber?: string;
+  conflictType: string;
   names: string[];
   birthDates: string[];
   birthCities: string[];
@@ -26,9 +24,11 @@ export interface MigrationConflict {
 
 export interface PersonMigrationReport {
   isDryRun: boolean;
+  batchId?: string;
   totalDocsScanned: number;
   totalIndividualRecords: number;
   uniqueValidNiks: number;
+  uniqueWnaPassports: number;
   recordsLinked: number;
   recordsWithoutNik: number;
   recordsWithInvalidNik: number;
@@ -36,6 +36,7 @@ export interface PersonMigrationReport {
   conflicts: MigrationConflict[];
   migratedPeopleCount: number;
   updatedCompaniesCount: number;
+  skippedFinalDocumentsCount: number;
   errors: string[];
 }
 
@@ -53,6 +54,14 @@ export function normalizeNik(nik?: string | null): string {
 export function isValidNik(nik?: string | null): boolean {
   const norm = normalizeNik(nik);
   return norm.length === 16;
+}
+
+/**
+ * Normalizes passport number (trimmed, uppercase, alphanumeric).
+ */
+export function normalizePassport(passport?: string | null): string {
+  if (!passport) return '';
+  return String(passport).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
 /**
@@ -95,22 +104,30 @@ export function normalizePersonAddress(addr: any): Address {
     rw: addr.rw || '',
     kelurahan: addr.kelurahan || addr.village || addr.desa || '',
     kecamatan: addr.kecamatan || addr.district || '',
-    postalCode: addr.postalCode || '',
+    postalCode: addr.postalCode || addr.postal_code || '',
     phoneNumber: addr.phoneNumber || addr.phone || ''
   };
 }
 
 export class PersonService {
   /**
-   * Retrieves a person by their permanent personId.
+   * Retrieves a person by their permanent personId from D1 via /api/v2/people.
    */
   static async getPersonById(personId: string): Promise<Person | null> {
     if (!personId) return null;
     try {
-      const docRef = doc(db, PEOPLE_COLLECTION, personId);
-      const snap = await getDoc(docRef);
-      if (!snap.exists()) return null;
-      return snap.data() as Person;
+      const headers = await getAuthHeaders();
+      const res = await fetch(getApiUrl(`/api/v2/people/${encodeURIComponent(personId)}`), {
+        headers
+      });
+
+      if (res.status === 404) return null;
+      if (!res.ok) {
+        throw new Error(`API error ${res.status}: ${res.statusText}`);
+      }
+
+      const json = await res.json();
+      return json.success && json.person ? (json.person as Person) : null;
     } catch (err) {
       console.error(`[PersonService] Failed to get person by id ${personId}:`, err);
       return null;
@@ -118,161 +135,167 @@ export class PersonService {
   }
 
   /**
-   * Retrieves a person by their 16-digit NIK.
-   * Utilizes the atomic reservation key index `people_nik_keys` for fast, accurate lookup.
+   * Retrieves a person by their 16-digit NIK from D1 via /api/v2/people.
    */
   static async getPersonByNik(nik: string): Promise<Person | null> {
     const cleanNik = normalizeNik(nik);
     if (!cleanNik || cleanNik.length !== 16) return null;
 
     try {
-      // 1. Try atomic key index first
-      const keyRef = doc(db, PEOPLE_NIK_KEYS_COLLECTION, cleanNik);
-      const keySnap = await getDoc(keyRef);
-      if (keySnap.exists()) {
-        const keyData = keySnap.data();
-        if (keyData.personId) {
-          const person = await this.getPersonById(keyData.personId);
-          if (person) return person;
-        }
+      const headers = await getAuthHeaders();
+      const res = await fetch(getApiUrl(`/api/v2/people/nik/${encodeURIComponent(cleanNik)}`), {
+        headers
+      });
+
+      if (res.status === 404) return null;
+      if (!res.ok) {
+        throw new Error(`API error ${res.status}: ${res.statusText}`);
       }
 
-      // 2. Fallback query on people collection where nik == cleanNik
-      const q = query(collection(db, PEOPLE_COLLECTION), where('nik', '==', cleanNik), limit(1));
-      const qSnap = await getDocs(q);
-      if (!qSnap.empty) {
-        return qSnap.docs[0].data() as Person;
-      }
+      const json = await res.json();
+      return json.success && json.person ? (json.person as Person) : null;
     } catch (err) {
       console.error(`[PersonService] Failed to lookup person by NIK ${cleanNik}:`, err);
+      return null;
     }
-
-    return null;
   }
 
   /**
-   * Creates or updates a Person record in the master `people` collection.
-   * Enforces atomic uniqueness for NIK using the `people_nik_keys` reservation document.
+   * Retrieves a person by their passport number (both current and historical) from D1.
+   */
+  static async getPersonByPassport(passportNumber: string): Promise<Person | null> {
+    const cleanPassport = normalizePassport(passportNumber);
+    if (!cleanPassport) return null;
+
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(getApiUrl(`/api/v2/people/passport/${encodeURIComponent(cleanPassport)}`), {
+        headers
+      });
+
+      if (res.status === 404) return null;
+      if (!res.ok) {
+        throw new Error(`API error ${res.status}: ${res.statusText}`);
+      }
+
+      const json = await res.json();
+      return json.success && json.person ? (json.person as Person) : null;
+    } catch (err) {
+      console.error(`[PersonService] Failed to lookup person by passport ${cleanPassport}:`, err);
+      return null;
+    }
+  }
+
+  /**
+   * Creates or updates a Person record in Cloudflare D1 via /api/v2/people.
    */
   static async savePerson(personData: Partial<Person>): Promise<{ person: Person; isNew: boolean }> {
     const rawNik = personData.nik;
     const cleanNik = normalizeNik(rawNik);
+    const isWna = personData.nationalityType === 'WNA' || (personData.nationality && personData.nationality.toUpperCase() !== 'INDONESIA');
 
-    if (rawNik && !isValidNik(rawNik)) {
+    if (!isWna && rawNik && !isValidNik(rawNik)) {
       throw new Error(`Format NIK tidak valid: "${rawNik}". NIK harus terdiri dari 16 digit angka.`);
     }
 
-    const personId = personData.personId || crypto.randomUUID();
-    let isNew = false;
-    let savedPerson: Person;
-
-    const personDocRef = doc(db, PEOPLE_COLLECTION, personId);
-
-    await runTransaction(db, async (transaction) => {
-      const existingPersonSnap = await transaction.get(personDocRef);
-      const oldPersonData = existingPersonSnap.exists() ? (existingPersonSnap.data() as Person) : null;
-      isNew = !existingPersonSnap.exists();
-
-      const oldNik = oldPersonData?.nik ? normalizeNik(oldPersonData.nik) : '';
-
-      // Atomic NIK Uniqueness Reservation
-      if (cleanNik) {
-        const keyDocRef = doc(db, PEOPLE_NIK_KEYS_COLLECTION, cleanNik);
-        const keyDocSnap = await transaction.get(keyDocRef);
-
-        if (keyDocSnap.exists()) {
-          const keyData = keyDocSnap.data();
-          if (keyData.personId && keyData.personId !== personId) {
-            throw new Error(`NIK_EXISTS: NIK ${cleanNik} sudah terdaftar untuk individu lain (ID: ${keyData.personId})`);
-          }
-        }
-
-        // Claim the NIK key atomically
-        transaction.set(keyDocRef, {
-          personId,
-          nik: cleanNik,
-          updatedAt: new Date().toISOString(),
-          createdAt: keyDocSnap.exists() ? keyDocSnap.data().createdAt : new Date().toISOString()
-        });
-
-        // If NIK changed, release the old NIK key
-        if (oldNik && oldNik !== cleanNik) {
-          const oldKeyDocRef = doc(db, PEOPLE_NIK_KEYS_COLLECTION, oldNik);
-          transaction.delete(oldKeyDocRef);
-        }
-      }
-
-      // Merge and sanitize data
-      const normAddr = normalizePersonAddress(personData.address || oldPersonData?.address);
-      const now = new Date().toISOString();
-
-      const prepared: Person = {
-        personId,
-        nik: cleanNik || oldPersonData?.nik || '',
-        salutation: personData.salutation || personData.sapaan || oldPersonData?.salutation || 'Tuan',
-        sapaan: personData.salutation || personData.sapaan || oldPersonData?.salutation || 'Tuan',
-        name: (personData.name || oldPersonData?.name || '').trim().toUpperCase(),
-        birthCity: (personData.birthCity || personData.birthPlace || oldPersonData?.birthCity || '').trim().toUpperCase(),
-        birthPlace: (personData.birthCity || personData.birthPlace || oldPersonData?.birthCity || '').trim().toUpperCase(),
-        birthDate: personData.birthDate || oldPersonData?.birthDate || '',
-        nationalityType: personData.nationalityType || oldPersonData?.nationalityType || 'WNI',
-        nationality: personData.nationality || oldPersonData?.nationality || 'WNI',
-        occupation: (personData.occupation || oldPersonData?.occupation || '').trim().toUpperCase(),
-        address: normAddr,
-        rt: normAddr.rt,
-        rw: normAddr.rw,
-        province: normAddr.province,
-        regency: normAddr.city,
-        district: normAddr.kecamatan,
-        village: normAddr.kelurahan,
-        npwp: personData.npwp || oldPersonData?.npwp || '',
-        passportNumber: personData.passportNumber || oldPersonData?.passportNumber || '',
-        hasKitas: personData.hasKitas ?? oldPersonData?.hasKitas ?? false,
-        kitasType: personData.kitasType || oldPersonData?.kitasType || 'NONE',
-        kitasNumber: personData.kitasNumber || oldPersonData?.kitasNumber || '',
-        phoneNumber: personData.phoneNumber || normAddr.phoneNumber || oldPersonData?.phoneNumber || '',
-        email: personData.email || oldPersonData?.email || '',
-        createdAt: oldPersonData?.createdAt || now,
-        updatedAt: now,
-        companyReferences: personData.companyReferences || oldPersonData?.companyReferences || []
-      };
-
-      transaction.set(personDocRef, sanitizeForFirestore(prepared), { merge: true });
-      savedPerson = prepared;
+    const headers = await getAuthHeaders();
+    const res = await fetch(getApiUrl('/api/v2/people'), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(personData)
     });
 
-    return { person: savedPerson!, isNew };
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.error || `Failed to save person (HTTP ${res.status})`);
+    }
+
+    return {
+      person: json.person as Person,
+      isNew: Boolean(json.isNew)
+    };
   }
 
   /**
-   * Links a person to a company record without duplicating company entries.
+   * Submits a passport renewal for a WNA individual.
+   * Deactivates previous active passport, registers new one, and preserves permanent personId.
+   */
+  static async renewPassport(
+    personId: string,
+    payload: {
+      newPassportNumber: string;
+      issuingCountry?: string;
+      issueDate?: string;
+      expiryDate?: string;
+      notes?: string;
+    }
+  ): Promise<any> {
+    const headers = await getAuthHeaders();
+    const res = await fetch(getApiUrl(`/api/v2/people/${encodeURIComponent(personId)}/passport/renew`), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload)
+    });
+
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.error || `Failed to renew passport (HTTP ${res.status})`);
+    }
+
+    return json;
+  }
+
+  /**
+   * Verifies identity status (KTP / Passport) by an authorized Admin / Super Admin.
+   */
+  static async verifyIdentity(personId: string, notes?: string): Promise<any> {
+    const headers = await getAuthHeaders();
+    const res = await fetch(getApiUrl('/api/v2/people/verify-identity'), {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ personId, notes })
+    });
+
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.error || `Failed to verify identity (HTTP ${res.status})`);
+    }
+
+    return json;
+  }
+
+  /**
+   * Links a person to a company in the derived relation index `company_person_roles`.
    */
   static async linkPersonToCompany(
-    personId: string, 
-    companyRef: { companyId: string; companyName: string; clientType: string; role: string; sharesOwned?: number }
+    personId: string,
+    roleData: {
+      companyId: string;
+      clientType?: string;
+      companyName: string;
+      roleCategory?: string;
+      positionTitle?: string;
+      role?: string;
+      sourceRecordId?: string;
+      sharesOwned?: number;
+    }
   ): Promise<void> {
-    if (!personId || !companyRef.companyId) return;
-
     try {
-      const person = await this.getPersonById(personId);
-      if (!person) return;
-
-      const existingRefs = person.companyReferences || [];
-      const matchIndex = existingRefs.findIndex(r => r.companyId === companyRef.companyId && r.role === companyRef.role);
-
-      let updatedRefs: typeof existingRefs;
-      if (matchIndex >= 0) {
-        updatedRefs = existingRefs.map((r, i) => i === matchIndex ? { ...r, ...companyRef } : r);
-      } else {
-        updatedRefs = [...existingRefs, companyRef];
-      }
-
-      const docRef = doc(db, PEOPLE_COLLECTION, personId);
-      await runTransaction(db, async (transaction) => {
-        transaction.update(docRef, {
-          companyReferences: sanitizeForFirestore(updatedRefs),
-          updatedAt: new Date().toISOString()
-        });
+      const headers = await getAuthHeaders();
+      const roleCategory = roleData.roleCategory || roleData.role || 'MEMBER';
+      const positionTitle = roleData.positionTitle || roleData.role || roleCategory;
+      await fetch(getApiUrl('/api/v2/people/link-company'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          personId,
+          companyId: roleData.companyId,
+          clientType: roleData.clientType,
+          companyName: roleData.companyName,
+          roleCategory,
+          positionTitle,
+          sourceRecordId: roleData.sourceRecordId
+        })
       });
     } catch (err) {
       console.warn(`[PersonService] Failed to link person ${personId} to company:`, err);
@@ -280,38 +303,36 @@ export class PersonService {
   }
 
   /**
-   * Search for people by name or NIK query.
+   * Search people across name, NIK, or passport number from D1.
    */
-  static async searchPeople(queryStr: string, limitCount = 15): Promise<Person[]> {
+  static async searchPeople(
+    queryStr: string,
+    limitCount = 15,
+    nationalityType?: 'WNI' | 'WNA'
+  ): Promise<Person[]> {
     if (!queryStr || queryStr.trim().length === 0) return [];
     const trimmed = queryStr.trim();
-    const cleanNik = normalizeNik(trimmed);
-
-    // If query is an exact 16-digit NIK, fetch directly
-    if (cleanNik.length === 16) {
-      const p = await this.getPersonByNik(cleanNik);
-      return p ? [p] : [];
-    }
 
     try {
-      // General name search on people collection
-      const q = query(
-        collection(db, PEOPLE_COLLECTION),
-        limit(100)
-      );
-      const snap = await getDocs(q);
-      const qUpper = trimmed.toUpperCase();
+      const headers = await getAuthHeaders();
+      const params = new URLSearchParams({
+        q: trimmed,
+        limit: String(limitCount)
+      });
+      if (nationalityType) {
+        params.append('nationalityType', nationalityType);
+      }
 
-      const matches = snap.docs
-        .map(d => d.data() as Person)
-        .filter(p => {
-          const nameMatch = (p.name || '').toUpperCase().includes(qUpper);
-          const nikMatch = (p.nik || '').includes(trimmed);
-          return nameMatch || nikMatch;
-        })
-        .slice(0, limitCount);
+      const res = await fetch(getApiUrl(`/api/v2/people/search?${params.toString()}`), {
+        headers
+      });
 
-      return matches;
+      if (!res.ok) {
+        throw new Error(`API error ${res.status}`);
+      }
+
+      const json = await res.json();
+      return json.success && Array.isArray(json.people) ? (json.people as Person[]) : [];
     } catch (err) {
       console.error('[PersonService] searchPeople error:', err);
       return [];
@@ -319,15 +340,15 @@ export class PersonService {
   }
 
   /**
-   * Unified search: queries the centralized `people` database first.
-   * If not found, falls back seamlessly to scanning legacy client collections,
-   * guaranteeing 100% backward compatibility.
+   * Unified shareholder search:
+   * 1. Checks centralized Cloudflare D1 via /api/v2/people first (Single Source of Truth).
+   * 2. If not found in D1, falls back to scanning Firestore client collections.
    */
   static async searchShareholderByNik(nik: string): Promise<any | null> {
     if (!nik || nik.trim().length !== 16) return null;
     const cleanNik = normalizeNik(nik);
 
-    // 1. Check centralized People Database
+    // 1. Check centralized People Database in D1
     const person = await this.getPersonByNik(cleanNik);
     if (person) {
       return {
@@ -362,28 +383,24 @@ export class PersonService {
   }
 
   /**
-   * Comprehensive Migration Engine:
-   * Migrates all individual identities from PT, CV, Yayasan, and related projects
-   * into the centralized `people` collection.
-   *
-   * Features:
-   * - Dry-run mode for safety
-   * - Intelligent candidate merging (preserves the most complete fields)
-   * - Conflict detection (identifies divergent identities sharing the same NIK)
-   * - Preserves local IDs, shares, and roles
-   * - Backfills `personId` into company records idempotently
+   * Comprehensive Migration & Ingestion Engine
+   * Implements strict conservative rules (PILIHAN A), WNA passport support,
+   * non-destructive backfill with _migrationMeta, and legal lock (isProjectFinal).
    */
   static async runPeopleMigration(
     isDryRun: boolean = true,
     addLog: (msg: string) => void = console.log
   ): Promise<PersonMigrationReport> {
-    addLog(`=== MEMULAI MIGRASI DATABASE ORANG (${isDryRun ? 'MODE DRY-RUN' : 'MODE EKSEKUSI'}) ===`);
+    const batchId = `batch_${new Date().toISOString().replace(/[:.]/g, '-')}_${Math.random().toString(36).slice(2, 7)}`;
+    addLog(`=== MEMULAI MIGRASI DATABASE ORANG (${isDryRun ? 'MODE DRY-RUN' : `EKSEKUSI BATCH ${batchId}`}) ===`);
 
     const report: PersonMigrationReport = {
       isDryRun,
+      batchId,
       totalDocsScanned: 0,
       totalIndividualRecords: 0,
       uniqueValidNiks: 0,
+      uniqueWnaPassports: 0,
       recordsLinked: 0,
       recordsWithoutNik: 0,
       recordsWithInvalidNik: 0,
@@ -391,20 +408,14 @@ export class PersonService {
       conflicts: [],
       migratedPeopleCount: 0,
       updatedCompaniesCount: 0,
+      skippedFinalDocumentsCount: 0,
       errors: []
     };
 
     const collectionsToAudit = ['profiles', 'cv_profiles', 'projects', 'rupst_projects', 'pendirian_projects'];
-    const candidatesByNik = new Map<string, Array<{
-      sourceCol: string;
-      sourceDocId: string;
-      companyName: string;
-      clientType: string;
-      recordType: string;
-      rawItem: any;
-    }>>();
-
-    const unlinkedRecords: Array<{ sourceCol: string; sourceDocId: string; companyName: string; rawItem: any }> = [];
+    const candidatesByNik = new Map<string, Array<any>>();
+    const candidatesByPassport = new Map<string, Array<any>>();
+    const unlinkedRecords: Array<any> = [];
 
     // Step 1: Scan all collections
     for (const colName of collectionsToAudit) {
@@ -419,6 +430,7 @@ export class PersonService {
           const docId = docSnap.id;
           const companyName = d.companyName || d.namaPt || d.namaCV || d.title || 'Unknown';
           const clientType = d.clientType || (colName === 'cv_profiles' ? 'CV' : 'PT');
+          const isDocFinal = isProjectFinal(d);
 
           const listsToInspect = [
             { list: d.shareholders, type: 'shareholders' },
@@ -438,20 +450,51 @@ export class PersonService {
           for (const { list, type } of listsToInspect) {
             if (!Array.isArray(list)) continue;
             for (const item of list) {
-              if (!item || (!item.name && !item.nik)) continue;
+              if (!item || (!item.name && !item.nik && !item.passportNumber)) continue;
               if (item.shareholderType === 'BADAN_HUKUM' || item.isBadanHukum) continue;
 
               report.totalIndividualRecords++;
               const rawNik = item.nik;
               const cleanNik = normalizeNik(rawNik);
+              const isWna = item.nationalityType === 'WNA' || (item.nationality && item.nationality.toUpperCase() !== 'INDONESIA') || Boolean(item.passportNumber);
+              const cleanPass = normalizePassport(item.passportNumber);
 
-              if (!rawNik || rawNik.trim() === '') {
+              if (isWna && cleanPass) {
+                // WNA with Passport
+                if (!candidatesByPassport.has(cleanPass)) {
+                  candidatesByPassport.set(cleanPass, []);
+                }
+                candidatesByPassport.get(cleanPass)!.push({
+                  sourceCol: colName,
+                  sourceDocId: docId,
+                  companyName,
+                  clientType,
+                  recordType: type,
+                  rawItem: item,
+                  isDocFinal
+                });
+              } else if (!rawNik || rawNik.trim() === '') {
+                // Individual without NIK (Provisional candidate, keep separate, no auto-merge)
                 report.recordsWithoutNik++;
-                unlinkedRecords.push({ sourceCol: colName, sourceDocId: docId, companyName, rawItem: item });
+                unlinkedRecords.push({
+                  sourceCol: colName,
+                  sourceDocId: docId,
+                  companyName,
+                  rawItem: item,
+                  isDocFinal
+                });
               } else if (!isValidNik(rawNik)) {
+                // Invalid NIK
                 report.recordsWithInvalidNik++;
-                unlinkedRecords.push({ sourceCol: colName, sourceDocId: docId, companyName, rawItem: item });
+                unlinkedRecords.push({
+                  sourceCol: colName,
+                  sourceDocId: docId,
+                  companyName,
+                  rawItem: item,
+                  isDocFinal
+                });
               } else {
+                // WNI with valid 16-digit NIK
                 if (!candidatesByNik.has(cleanNik)) {
                   candidatesByNik.set(cleanNik, []);
                 }
@@ -461,7 +504,8 @@ export class PersonService {
                   companyName,
                   clientType,
                   recordType: type,
-                  rawItem: item
+                  rawItem: item,
+                  isDocFinal
                 });
               }
             }
@@ -475,14 +519,17 @@ export class PersonService {
     }
 
     report.uniqueValidNiks = candidatesByNik.size;
+    report.uniqueWnaPassports = candidatesByPassport.size;
+
     addLog(`\n[ANALISIS DATA SELESAI]`);
     addLog(`Total Dokumen Diperiksa: ${report.totalDocsScanned}`);
     addLog(`Total Record Individu Ditemukan: ${report.totalIndividualRecords}`);
-    addLog(`Total NIK Unik Valid: ${report.uniqueValidNiks}`);
-    addLog(`Record Tanpa NIK: ${report.recordsWithoutNik} (dipertahankan mandiri, tidak digabung)`);
-    addLog(`Record dengan NIK Tidak Valid (< 16 digit): ${report.recordsWithInvalidNik}`);
+    addLog(`Total NIK Unik Valid (WNI): ${report.uniqueValidNiks}`);
+    addLog(`Total Paspor Unik (WNA): ${report.uniqueWnaPassports}`);
+    addLog(`Record Tanpa NIK: ${report.recordsWithoutNik} (diberi identitas provisional terpisah, tanpa auto-merger)`);
+    addLog(`Record dengan NIK Tidak Valid: ${report.recordsWithInvalidNik}`);
 
-    // Step 2: Merge candidates per NIK and check conflicts
+    // Step 2: Evaluate WNI Candidates with Conservative Matching (PILIHAN A)
     const masterPeopleToPersist: Array<{ person: Person; candidateRecords: any[] }> = [];
 
     for (const [nik, candidates] of candidatesByNik.entries()) {
@@ -493,22 +540,36 @@ export class PersonService {
         report.multiCompanyPeopleCount++;
       }
 
-      // Check conflict
-      const names = Array.from(new Set(candidates.map(c => (c.rawItem.name || '').trim().toUpperCase()).filter(Boolean)));
+      // Check conflict across candidate records sharing the same NIK
+      const rawNames = Array.from(new Set(candidates.map(c => (c.rawItem.name || '').trim()).filter(Boolean)));
       const birthDates = Array.from(new Set(candidates.map(c => (c.rawItem.birthDate || '').trim()).filter(Boolean)));
       const birthCities = Array.from(new Set(candidates.map(c => (c.rawItem.birthCity || c.rawItem.birthPlace || '').trim().toUpperCase()).filter(Boolean)));
 
-      if (names.length > 1 || birthDates.length > 1) {
+      // Conservative name compatibility check
+      let hasSpellingConflict = false;
+      if (rawNames.length > 1) {
+        for (let i = 0; i < rawNames.length; i++) {
+          for (let j = i + 1; j < rawNames.length; j++) {
+            const comp = evaluateNameCompatibility(rawNames[i], rawNames[j]);
+            if (comp.spellingMismatch) {
+              hasSpellingConflict = true;
+            }
+          }
+        }
+      }
+
+      if (hasSpellingConflict || birthDates.length > 1) {
         report.conflicts.push({
           nik,
-          names,
+          conflictType: hasSpellingConflict ? 'NAME_SPELLING_VARIATION' : 'NIK_BIRTHDATE_MISMATCH',
+          names: rawNames,
           birthDates,
           birthCities,
           sources: candidates.map(c => ({ collection: c.sourceCol, docId: c.sourceDocId, companyName: c.companyName }))
         });
       }
 
-      // Merge candidates intelligently: pick the one with most complete information
+      // Merge candidates intelligently by picking most complete item
       let bestItem = candidates[0].rawItem;
       let highestScore = -1;
 
@@ -531,12 +592,10 @@ export class PersonService {
         }
       }
 
-      // Derive or preserve existing personId
       const existingPersonId = candidates.find(c => c.rawItem.personId)?.rawItem.personId || crypto.randomUUID();
-
       const mergedAddress = normalizePersonAddress(bestItem.address);
-      const companyRefs: Person['companyReferences'] = [];
 
+      const companyRefs: Person['companyReferences'] = [];
       for (const cand of candidates) {
         const role = cand.rawItem.position || cand.rawItem.managementPosition || cand.rawItem.role || (cand.recordType.includes('shareholder') ? 'PEMEGANG_SAHAM' : 'PENGURUS');
         if (!companyRefs.some(cr => cr.companyId === cand.sourceDocId && cr.role === role)) {
@@ -553,14 +612,15 @@ export class PersonService {
       const masterPerson: Person = {
         personId: existingPersonId,
         nik,
+        identityStatus: 'PROVISIONAL',
         salutation: bestItem.salutation || 'Tuan',
         sapaan: bestItem.salutation || 'Tuan',
         name: (bestItem.name || '').trim().toUpperCase(),
         birthCity: (bestItem.birthCity || bestItem.birthPlace || '').trim().toUpperCase(),
         birthPlace: (bestItem.birthCity || bestItem.birthPlace || '').trim().toUpperCase(),
         birthDate: bestItem.birthDate || '',
-        nationalityType: bestItem.nationalityType || 'WNI',
-        nationality: bestItem.nationality || 'WNI',
+        nationalityType: 'WNI',
+        nationality: 'INDONESIA',
         occupation: (bestItem.occupation || '').trim().toUpperCase(),
         address: mergedAddress,
         rt: mergedAddress.rt,
@@ -571,9 +631,9 @@ export class PersonService {
         village: mergedAddress.kelurahan,
         npwp: bestItem.npwp || '',
         passportNumber: bestItem.passportNumber || '',
-        hasKitas: bestItem.hasKitas || false,
-        kitasType: bestItem.kitasType || 'NONE',
-        kitasNumber: bestItem.kitasNumber || '',
+        hasKitas: false,
+        kitasType: 'NONE',
+        kitasNumber: '',
         phoneNumber: bestItem.phoneNumber || mergedAddress.phoneNumber || '',
         email: bestItem.email || '',
         createdAt: new Date().toISOString(),
@@ -584,54 +644,96 @@ export class PersonService {
       masterPeopleToPersist.push({ person: masterPerson, candidateRecords: candidates });
     }
 
-    addLog(`Individu Terhubung Lintas Perusahaan: ${report.multiCompanyPeopleCount}`);
-    addLog(`Konflik Data Identitas Ditemukan: ${report.conflicts.length}`);
+    // Step 3: Evaluate WNA Candidates with Passport
+    for (const [passport, candidates] of candidatesByPassport.entries()) {
+      report.recordsLinked += candidates.length;
 
-    if (report.conflicts.length > 0) {
-      addLog(`⚠️ Daftar NIK dengan Konflik (diselesaikan dengan aturan resolusi aman):`);
-      report.conflicts.slice(0, 5).forEach((c, idx) => {
-        addLog(`   ${idx + 1}. NIK: ${c.nik} | Nama: [${c.names.join(' vs ')}] | Perusahaan: [${c.sources.map(s => s.companyName).join(', ')}]`);
-      });
-      if (report.conflicts.length > 5) {
-        addLog(`   ...dan ${report.conflicts.length - 5} konflik lainnya tercatat di laporan.`);
+      let bestItem = candidates[0].rawItem;
+      const existingPersonId = candidates.find(c => c.rawItem.personId)?.rawItem.personId || crypto.randomUUID();
+      const mergedAddress = normalizePersonAddress(bestItem.address);
+
+      const companyRefs: Person['companyReferences'] = [];
+      for (const cand of candidates) {
+        const role = cand.rawItem.position || cand.rawItem.managementPosition || cand.rawItem.role || 'PENGURUS';
+        if (!companyRefs.some(cr => cr.companyId === cand.sourceDocId && cr.role === role)) {
+          companyRefs.push({
+            companyId: cand.sourceDocId,
+            companyName: cand.companyName,
+            clientType: cand.clientType,
+            role
+          });
+        }
       }
+
+      const masterPerson: Person = {
+        personId: existingPersonId,
+        nik: null,
+        identityStatus: 'PROVISIONAL',
+        salutation: bestItem.salutation || 'Tuan',
+        name: (bestItem.name || '').trim().toUpperCase(),
+        birthCity: (bestItem.birthCity || bestItem.birthPlace || '').trim().toUpperCase(),
+        birthDate: bestItem.birthDate || '',
+        nationalityType: 'WNA',
+        nationality: bestItem.nationality || 'WNA',
+        occupation: (bestItem.occupation || '').trim().toUpperCase(),
+        address: mergedAddress,
+        passportNumber: passport,
+        hasKitas: Boolean(bestItem.hasKitas),
+        kitasType: bestItem.kitasType || 'NONE',
+        kitasNumber: bestItem.kitasNumber || '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        companyReferences: companyRefs
+      };
+
+      masterPeopleToPersist.push({ person: masterPerson, candidateRecords: candidates });
     }
 
-    // Step 3: Write to Database if not Dry Run
-    if (!isDryRun) {
-      addLog(`\n[MEMULAI PENULISAN DATABASE MASTER ORANG]`);
-      let savedCount = 0;
+    addLog(`Individu Terhubung Lintas Perusahaan: ${report.multiCompanyPeopleCount}`);
+    addLog(`Konflik Identitas & Variasi Ejaan Ditemukan: ${report.conflicts.length}`);
 
-      // Map of (colName + ':' + docId) -> updates to apply
-      const docUpdatesMap = new Map<string, { colName: string; docId: string; updates: Record<string, any> }>();
+    // Step 4: Write to Cloudflare D1 and perform non-destructive backfill
+    if (!isDryRun) {
+      addLog(`\n[MEMULAI PENULISAN CLOUDFLARE D1 & BACKFILL TERKONTROL]`);
+      let savedCount = 0;
+      const docUpdatesMap = new Map<string, { colName: string; docId: string; candidates: any[] }>();
 
       for (const item of masterPeopleToPersist) {
         try {
           await this.savePerson(item.person);
           savedCount++;
 
-          // Prepare backfill of personId to source documents
           for (const cand of item.candidateRecords) {
+            // Check if document is final / sealed
+            if (cand.isDocFinal) {
+              report.skippedFinalDocumentsCount++;
+              continue; // STRICT LEGAL LOCK: Do not backfill sealed deeds
+            }
+
             const docKey = `${cand.sourceCol}:${cand.sourceDocId}`;
             if (!docUpdatesMap.has(docKey)) {
               docUpdatesMap.set(docKey, {
                 colName: cand.sourceCol,
                 docId: cand.sourceDocId,
-                updates: {}
+                candidates: []
               });
             }
+            docUpdatesMap.get(docKey)!.candidates.push({
+              item: cand.rawItem,
+              personId: item.person.personId
+            });
           }
         } catch (err: any) {
-          addLog(`Error saat menyimpan master person NIK ${item.person.nik}: ${err.message}`);
-          report.errors.push(`Person NIK ${item.person.nik}: ${err.message}`);
+          addLog(`Error saat menyimpan master person: ${err.message}`);
+          report.errors.push(`Person ${item.person.personId}: ${err.message}`);
         }
       }
 
       report.migratedPeopleCount = savedCount;
-      addLog(`Berhasil menyimpan ${savedCount} data individu ke koleksi 'people' & indeks unik 'people_nik_keys'.`);
+      addLog(`Berhasil menyimpan ${savedCount} record ke Cloudflare D1 via API Gateway.`);
 
-      // Backfill personId into company profiles
-      addLog(`Melakukan backfill relasi personId ke dokumen perusahaan...`);
+      // Controlled Non-Destructive Backfill
+      addLog(`Melakukan backfill personId ke dokumen Firestore non-final...`);
       let updatedDocsCount = 0;
 
       for (const [docKey, entry] of docUpdatesMap.entries()) {
@@ -641,7 +743,14 @@ export class PersonService {
           if (!snap.exists()) continue;
 
           const docData = snap.data();
+          if (isProjectFinal(docData)) {
+            report.skippedFinalDocumentsCount++;
+            continue; // Sealed deed protection
+          }
+
           let modified = false;
+          const modifiedItemIds: string[] = [];
+          const updatedDocPayload: Record<string, any> = {};
 
           const arrayFields = [
             'shareholders',
@@ -654,20 +763,28 @@ export class PersonService {
             'peseros'
           ];
 
-          const updatedDocPayload: Record<string, any> = {};
-
           for (const field of arrayFields) {
             const arr = docData[field];
             if (Array.isArray(arr)) {
               const updatedArr = arr.map((rec: any) => {
                 if (!rec) return rec;
                 const recNik = normalizeNik(rec.nik);
-                if (recNik && isValidNik(recNik)) {
-                  const master = masterPeopleToPersist.find(p => p.person.nik === recNik);
-                  if (master && rec.personId !== master.person.personId) {
-                    modified = true;
-                    return { ...rec, personId: master.person.personId };
-                  }
+                const recPass = normalizePassport(rec.passportNumber);
+
+                // Match with master person
+                const match = masterPeopleToPersist.find(p => 
+                  (recNik && isValidNik(recNik) && p.person.nik === recNik) ||
+                  (recPass && p.person.passportNumber === recPass)
+                );
+
+                if (match && rec.personId !== match.person.personId) {
+                  modified = true;
+                  const itemId = rec.id || rec.personId || `${field}_${Math.random().toString(36).slice(2, 6)}`;
+                  modifiedItemIds.push(itemId);
+                  return {
+                    ...rec,
+                    personId: match.person.personId
+                  };
                 }
                 return rec;
               });
@@ -679,10 +796,16 @@ export class PersonService {
           }
 
           if (modified) {
+            // NON-DESTRUCTIVE: Do NOT touch root updatedAt!
+            // Only set array elements and isolate metadata in _migrationMeta
             await runTransaction(db, async (transaction) => {
               transaction.update(docRef, sanitizeForFirestore({
                 ...updatedDocPayload,
-                updatedAt: new Date().toISOString()
+                _migrationMeta: {
+                  batchId,
+                  appliedAt: new Date().toISOString(),
+                  modifiedItemIds
+                }
               }));
             });
             updatedDocsCount++;
@@ -694,14 +817,16 @@ export class PersonService {
       }
 
       report.updatedCompaniesCount = updatedDocsCount;
-      addLog(`Berhasil memperbarui relasi personId pada ${updatedDocsCount} dokumen profil/proyek.`);
+      addLog(`Berhasil backfill personId pada ${updatedDocsCount} dokumen aktif.`);
+      addLog(`Dokumen final/selesai yang dilindungi (Legal Lock): ${report.skippedFinalDocumentsCount}`);
     } else {
-      addLog(`\n[DRY-RUN BERHASIL] Tidak ada data yang diubah di database.`);
-      addLog(`Rencana eksekusi:`);
-      addLog(`- Akan membuat/memperbarui: ${masterPeopleToPersist.length} record di koleksi 'people'`);
-      addLog(`- Akan mendaftarkan: ${masterPeopleToPersist.length} NIK di 'people_nik_keys'`);
-      addLog(`- Akan menghubungkan: ${report.recordsLinked} peran pemegang saham/pengurus/pesero`);
-      addLog(`- Menjaga terpisah: ${report.recordsWithoutNik} record tanpa NIK`);
+      addLog(`\n[DRY-RUN BERHASIL DITINJAU] Tidak ada data yang diubah di D1 maupun Firestore.`);
+      addLog(`Rencana eksekusi batch ${batchId}:`);
+      addLog(`- Master Person WNI (D1): ${candidatesByNik.size}`);
+      addLog(`- Master Person WNA (D1): ${candidatesByPassport.size}`);
+      addLog(`- Total Relasi yang akan Dihubungkan: ${report.recordsLinked}`);
+      addLog(`- Record Mandiri Tanpa NIK: ${report.recordsWithoutNik}`);
+      addLog(`- Dokumen Final Terlindungi dari Backfill: ${report.skippedFinalDocumentsCount}`);
     }
 
     addLog(`=== SELESAI ===`);

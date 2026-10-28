@@ -533,8 +533,11 @@ export async function ensureD1TablesExist(db: any) {
     CREATE TABLE IF NOT EXISTS people (
       person_id TEXT PRIMARY KEY,
       nik TEXT,
-      name TEXT NOT NULL,
+      identity_status TEXT NOT NULL DEFAULT 'PROVISIONAL',
+      nationality_type TEXT NOT NULL DEFAULT 'WNI',
+      nationality TEXT DEFAULT 'INDONESIA',
       salutation TEXT,
+      name TEXT NOT NULL,
       birth_city TEXT,
       birth_date TEXT,
       occupation TEXT,
@@ -545,15 +548,107 @@ export async function ensureD1TablesExist(db: any) {
       kecamatan TEXT,
       city TEXT,
       province TEXT,
+      postal_code TEXT,
+      npwp TEXT,
       raw_data TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
   `).run();
 
+  // Defensively add any columns if people table was created in an earlier migration
+  try {
+    const tableInfo = await db.prepare(`PRAGMA table_info(people)`).all();
+    const existingCols = (tableInfo.results || []).map((r: any) => r.name);
+    if (!existingCols.includes('identity_status')) {
+      await db.prepare(`ALTER TABLE people ADD COLUMN identity_status TEXT NOT NULL DEFAULT 'PROVISIONAL'`).run();
+    }
+    if (!existingCols.includes('nationality_type')) {
+      await db.prepare(`ALTER TABLE people ADD COLUMN nationality_type TEXT NOT NULL DEFAULT 'WNI'`).run();
+    }
+    if (!existingCols.includes('nationality')) {
+      await db.prepare(`ALTER TABLE people ADD COLUMN nationality TEXT DEFAULT 'INDONESIA'`).run();
+    }
+    if (!existingCols.includes('postal_code')) {
+      await db.prepare(`ALTER TABLE people ADD COLUMN postal_code TEXT`).run();
+    }
+    if (!existingCols.includes('npwp')) {
+      await db.prepare(`ALTER TABLE people ADD COLUMN npwp TEXT`).run();
+    }
+  } catch (e) {
+    // Ignore PRAGMA / ALTER TABLE errors
+  }
+
   await db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_people_nik ON people(nik) WHERE nik IS NOT NULL AND nik != '';`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_people_name ON people(name);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_people_nationality_type ON people(nationality_type);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_people_identity_status ON people(identity_status);`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_people_created_at ON people(created_at);`).run();
+
+  // 18. Person Identity Documents table (WNA Passports & Identity History)
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS person_identity_documents (
+      id TEXT PRIMARY KEY,
+      person_id TEXT NOT NULL REFERENCES people(person_id),
+      doc_type TEXT NOT NULL,
+      doc_number TEXT NOT NULL,
+      issuing_country TEXT DEFAULT 'IDN',
+      issue_date TEXT,
+      expiry_date TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      verified_status TEXT NOT NULL DEFAULT 'PROVISIONAL',
+      verified_by_uid TEXT,
+      verified_at TEXT,
+      notes TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `).run();
+
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_docs_person_id ON person_identity_documents(person_id);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_docs_number ON person_identity_documents(doc_number);`).run();
+  await db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_docs_active_person_type ON person_identity_documents(person_id, doc_type) WHERE is_active = 1;`).run();
+
+  // 19. Company Person Roles table (Proyeksi Indeks Relasi Terpusat)
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS company_person_roles (
+      id TEXT PRIMARY KEY,
+      person_id TEXT NOT NULL REFERENCES people(person_id),
+      company_id TEXT NOT NULL,
+      client_type TEXT,
+      company_name TEXT NOT NULL,
+      role_category TEXT NOT NULL,
+      position_title TEXT,
+      source_record_id TEXT,
+      updated_at TEXT NOT NULL
+    );
+  `).run();
+
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_roles_person_id ON company_person_roles(person_id);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_roles_company_id ON company_person_roles(company_id);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_roles_composite ON company_person_roles(company_id, person_id);`).run();
+
+  // 20. People Migration Conflicts table (Log Karantina Peninjauan Manual)
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS people_migration_conflicts (
+      conflict_id TEXT PRIMARY KEY,
+      doc_type TEXT NOT NULL,
+      doc_number TEXT,
+      conflict_type TEXT NOT NULL,
+      existing_person_id TEXT,
+      incoming_payload TEXT NOT NULL,
+      incoming_source TEXT,
+      resolution_status TEXT NOT NULL DEFAULT 'PENDING',
+      resolved_by_uid TEXT,
+      resolved_by_role TEXT,
+      resolution_notes TEXT,
+      created_at TEXT NOT NULL,
+      resolved_at TEXT
+    );
+  `).run();
+
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_conflicts_status ON people_migration_conflicts(resolution_status);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_conflicts_doc_number ON people_migration_conflicts(doc_number);`).run();
 
   d1TablesEnsuredCache = true;
 }

@@ -30,9 +30,10 @@ export interface Address {
 
 export interface Person {
   personId: string;
-  nik: string;
-  salutation: 'Tuan' | 'Nyonya' | 'Nona';
-  sapaan?: 'Tuan' | 'Nyonya' | 'Nona';
+  nik?: string | null;
+  identityStatus?: 'PROVISIONAL' | 'VERIFIED';
+  salutation: 'Tuan' | 'Nyonya' | 'Nona' | string;
+  sapaan?: 'Tuan' | 'Nyonya' | 'Nona' | string;
   name: string;
   birthCity: string;
   birthPlace?: string;
@@ -56,6 +57,7 @@ export interface Person {
   email?: string;
   createdAt?: string;
   updatedAt?: string;
+  documents?: PersonIdentityDocument[];
   companyReferences?: Array<{
     companyId: string;
     companyName: string;
@@ -63,6 +65,51 @@ export interface Person {
     role: string;
     sharesOwned?: number;
   }>;
+}
+
+export interface PersonIdentityDocument {
+  id: string;
+  personId: string;
+  docType: 'PASSPORT' | 'KTP' | 'KITAS' | 'KITAP' | string;
+  docNumber: string;
+  issuingCountry?: string;
+  issueDate?: string;
+  expiryDate?: string;
+  isActive: boolean;
+  verifiedStatus: 'PROVISIONAL' | 'VERIFIED';
+  verifiedByUid?: string;
+  verifiedAt?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CompanyPersonRole {
+  id: string;
+  personId: string;
+  companyId: string;
+  clientType?: string;
+  companyName: string;
+  roleCategory: 'SHAREHOLDER' | 'DIRECTOR' | 'COMMISSIONER' | 'PARTNER' | 'FOUNDER' | 'MANAGEMENT';
+  positionTitle?: string;
+  sourceRecordId?: string;
+  updatedAt: string;
+}
+
+export interface PeopleMigrationConflict {
+  conflictId: string;
+  docType: string;
+  docNumber?: string;
+  conflictType: 'NIK_NAME_MISMATCH' | 'NAME_SPELLING_VARIATION' | 'DUPLICATE_PASSPORT' | 'PROVISIONAL_NEEDS_REVIEW' | string;
+  existingPersonId?: string;
+  incomingPayload: string;
+  incomingSource?: string;
+  resolutionStatus: 'PENDING' | 'RESOLVED' | 'REJECTED' | 'IGNORED';
+  resolvedByUid?: string;
+  resolvedByRole?: string;
+  resolutionNotes?: string;
+  createdAt: string;
+  resolvedAt?: string;
 }
 
 export interface Shareholder {
