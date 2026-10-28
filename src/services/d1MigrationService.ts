@@ -608,6 +608,7 @@ export async function ensureD1TablesExist(db: any) {
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_docs_person_id ON person_identity_documents(person_id);`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_docs_number ON person_identity_documents(doc_number);`).run();
   await db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_docs_active_person_type ON person_identity_documents(person_id, doc_type) WHERE is_active = 1;`).run();
+  await db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_docs_active_passport_unique ON person_identity_documents(doc_type, doc_number) WHERE is_active = 1 AND doc_type = 'PASSPORT';`).run();
 
   // 19. Company Person Roles table (Proyeksi Indeks Relasi Terpusat)
   await db.prepare(`

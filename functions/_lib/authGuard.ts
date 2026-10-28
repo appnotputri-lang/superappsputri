@@ -24,3 +24,14 @@ export async function requireAuth(request: Request, env: any): Promise<{ user: a
     );
   }
 }
+
+export function checkRole(user: any, allowedRoles: string[]): Response | null {
+  const role = user?.role || 'Staff';
+  if (!allowedRoles.includes(role)) {
+    return createErrorResponse(
+      `FORBIDDEN: Peran '${role}' tidak diizinkan mengakses resource ini. Diperlukan: ${allowedRoles.join(', ')}`,
+      403
+    );
+  }
+  return null;
+}

@@ -102,6 +102,22 @@ export async function runSelectiveRollback(targetBatchId: string, removeD1Record
     }
   }
 
+  // Optional: Clean up D1 records created specifically by this batch
+  let totalD1RecordsRemoved = 0;
+  if (removeD1Records) {
+    try {
+      const { resolvePeopleD1 } = await import('../src/lib/d1Client');
+      const d1 = resolvePeopleD1();
+      const res = await d1.prepare(`
+        DELETE FROM people WHERE raw_data LIKE ?
+      `).bind(`%"batchId":"${targetBatchId}"%`).run();
+      totalD1RecordsRemoved = res?.meta?.changes || 0;
+      console.log(` - Removed ${totalD1RecordsRemoved} master people records from D1 for batch ${targetBatchId}`);
+    } catch (d1Err: any) {
+      console.warn('D1 rollback step skipped or failed:', d1Err.message);
+    }
+  }
+
   console.log('\n================================================================');
   console.log(' REKAPITULASI ROLLBACK SELEKTIF:');
   console.log(` Total Dokumen Diperiksa   : ${totalDocsScanned}`);
