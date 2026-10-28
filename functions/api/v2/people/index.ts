@@ -20,8 +20,21 @@ export const onRequestGet = async (context: any) => {
     const limit = parseInt(url.searchParams.get('limit') || '20', 10);
     const offset = parseInt(url.searchParams.get('offset') || '0', 10);
     const nationalityType = url.searchParams.get('nationalityType') || undefined;
+    const identityStatus = url.searchParams.get('identityStatus') || undefined;
+    const hasCompany = url.searchParams.get('hasCompany') || undefined;
+    const roleCategory = url.searchParams.get('roleCategory') || undefined;
+    const includeSummary = url.searchParams.get('includeSummary') !== 'false';
 
-    const result = await PeopleD1Repository.searchPeople(db, { search, limit, offset, nationalityType });
+    const result = await PeopleD1Repository.searchPeople(db, {
+      search,
+      limit,
+      offset,
+      nationalityType,
+      identityStatus,
+      hasCompany,
+      roleCategory,
+      includeSummary
+    });
     return createJsonResponse({ success: true, ...result });
   } catch (err: any) {
     return createErrorResponse(err.message || 'Failed to list people', err.statusCode || 500);

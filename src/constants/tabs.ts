@@ -70,6 +70,13 @@ export const TAB_ACCENTS: Record<SidebarTabId, {
     hoverBg: 'hover:bg-indigo-50/40 hover:text-indigo-950',
     indicatorBg: 'bg-indigo-600'
   },
+  data_terpusat: {
+    iconColor: 'text-blue-700',
+    textColor: 'text-blue-950',
+    bgColor: 'bg-blue-50/80',
+    hoverBg: 'hover:bg-blue-50/50 hover:text-blue-950',
+    indicatorBg: 'bg-blue-700'
+  },
   cv_profile: {
     iconColor: 'text-teal-600',
     textColor: 'text-teal-900',
@@ -300,6 +307,7 @@ export const TAB_TO_PATH: Record<string, string> = {
   'beranda': '/',
   'agenda': '/agenda',
   'company_profile': '/profile',
+  'data_terpusat': '/data-terpusat',
   'cv_profile': '/profile-cv',
   'notulen': '/rupslb',
   'pendirian': '/pendirian',
@@ -368,6 +376,9 @@ export const PATH_TO_TAB: Record<string, SidebarTabId> = {
   '/clients': 'company_profile',
   '/profile': 'company_profile',
   '/profile-cv': 'company_profile',
+  '/data-terpusat': 'data_terpusat',
+  '/data_terpusat': 'data_terpusat',
+  '/people': 'data_terpusat',
   '/invoices': 'invoice',
   '/invoice': 'invoice',
   '/laporan-keuangan': 'financial_report',

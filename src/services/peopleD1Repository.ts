@@ -99,6 +99,12 @@ export class PeopleD1Repository {
       roleCategory: row.role_category,
       positionTitle: row.position_title,
       sourceRecordId: row.source_record_id,
+      shareCount: row.share_count != null ? Number(row.share_count) : null,
+      shareValue: row.share_value != null ? Number(row.share_value) : null,
+      ownershipPercentage: row.ownership_percentage != null ? Number(row.ownership_percentage) : null,
+      relationStatus: row.relation_status || 'ACTIVE',
+      lastSyncedAt: row.last_synced_at || null,
+      syncStatus: row.sync_status || 'PENDING',
       updatedAt: row.updated_at
     }));
   }
@@ -220,21 +226,29 @@ export class PeopleD1Repository {
   }
 
   /**
-   * Search people with pagination and filter
+   * Search people with server-side pagination, multi-criteria filtering,
+   * and consolidated company relation / share projections.
+   * Single-query aggregation on Cloudflare D1 with zero N+1 overhead.
    */
   static async searchPeople(db: any, options: {
     search?: string;
     limit?: number;
     offset?: number;
     nationalityType?: string;
+    identityStatus?: string;
+    hasCompany?: string;
+    roleCategory?: string;
+    includeSummary?: boolean;
   }) {
     await ensureD1TablesExist(db);
     const limitVal = Math.min(Math.max(1, options.limit || 20), 100);
     const offsetVal = Math.max(0, options.offset || 0);
     const searchVal = options.search ? options.search.trim() : '';
     const nationalityType = options.nationalityType ? options.nationalityType.toUpperCase() : null;
+    const identityStatus = options.identityStatus ? options.identityStatus.toUpperCase() : null;
+    const hasCompany = options.hasCompany ? options.hasCompany.toUpperCase() : null;
+    const roleCategory = options.roleCategory ? options.roleCategory.trim() : null;
 
-    let sql = `SELECT * FROM people`;
     const conditions: string[] = [];
     const params: any[] = [];
 
@@ -242,44 +256,184 @@ export class PeopleD1Repository {
       const words = searchVal.toLowerCase().split(/\s+/).filter(Boolean);
       for (const word of words) {
         conditions.push(`(
-          LOWER(name) LIKE ? OR
-          nik LIKE ? OR
-          LOWER(birth_city) LIKE ? OR
-          LOWER(occupation) LIKE ? OR
-          person_id IN (
+          LOWER(p.name) LIKE ? OR
+          p.nik LIKE ? OR
+          LOWER(p.birth_city) LIKE ? OR
+          LOWER(p.occupation) LIKE ? OR
+          p.person_id IN (
             SELECT person_id FROM person_identity_documents
             WHERE LOWER(doc_number) LIKE ?
+          ) OR
+          p.person_id IN (
+            SELECT person_id FROM company_person_roles
+            WHERE LOWER(company_name) LIKE ?
           )
         )`);
-        params.push(`%${word}%`, `%${word}%`, `%${word}%`, `%${word}%`, `%${word}%`);
+        params.push(`%${word}%`, `%${word}%`, `%${word}%`, `%${word}%`, `%${word}%`, `%${word}%`);
       }
     }
 
     if (nationalityType && (nationalityType === 'WNI' || nationalityType === 'WNA')) {
-      conditions.push(`nationality_type = ?`);
+      conditions.push(`p.nationality_type = ?`);
       params.push(nationalityType);
     }
 
-    if (conditions.length > 0) {
-      sql += ` WHERE ` + conditions.join(' AND ');
+    if (identityStatus && (identityStatus === 'VERIFIED' || identityStatus === 'PROVISIONAL')) {
+      conditions.push(`p.identity_status = ?`);
+      params.push(identityStatus);
     }
 
-    sql += ` ORDER BY name ASC LIMIT ? OFFSET ?`;
-    params.push(limitVal, offsetVal);
+    if (hasCompany === 'YES') {
+      conditions.push(`p.person_id IN (SELECT person_id FROM company_person_roles)`);
+    } else if (hasCompany === 'NO') {
+      conditions.push(`p.person_id NOT IN (SELECT person_id FROM company_person_roles)`);
+    }
 
-    const queryRes = await db.prepare(sql).bind(...params).all();
+    if (roleCategory) {
+      conditions.push(`p.person_id IN (SELECT person_id FROM company_person_roles WHERE role_category = ? OR LOWER(position_title) LIKE ?)`);
+      params.push(roleCategory, `%${roleCategory.toLowerCase()}%`);
+    }
+
+    const whereClause = conditions.length > 0 ? ` WHERE ` + conditions.join(' AND ') : '';
+
+    // 1. Total matching rows query for server-side pagination
+    const countSql = `
+      SELECT COUNT(DISTINCT p.person_id) as total_count
+      FROM people p
+      ${whereClause}
+    `;
+    const countRes = await db.prepare(countSql).bind(...params).first();
+    const totalCount = Number(countRes?.total_count || 0);
+
+    // 2. Main paginated projection query (Server-side JOIN & Aggregation)
+    const sql = `
+      SELECT 
+        p.person_id,
+        p.nik,
+        p.identity_status,
+        p.nationality_type,
+        p.nationality,
+        p.salutation,
+        p.name,
+        p.birth_city,
+        p.birth_date,
+        p.occupation,
+        p.full_address,
+        p.rt, p.rw, p.kelurahan, p.kecamatan, p.city, p.province, p.postal_code,
+        p.npwp,
+        p.raw_data,
+        p.created_at,
+        p.updated_at,
+        pass.doc_number AS passport_number,
+        pass.issuing_country AS passport_issuing_country,
+        pass.expiry_date AS passport_expiry_date,
+        COUNT(DISTINCT r.company_id) AS company_count,
+        COUNT(r.id) AS role_count,
+        MIN(r.company_name) AS primary_company_name,
+        MIN(r.position_title) AS primary_position_title,
+        MIN(r.role_category) AS primary_role_category,
+        SUM(r.share_count) AS total_shares,
+        SUM(r.share_value) AS total_share_value,
+        COUNT(r.share_count) AS shares_recorded_count
+      FROM people p
+      LEFT JOIN person_identity_documents pass 
+        ON pass.person_id = p.person_id AND pass.doc_type = 'PASSPORT' AND pass.is_active = 1
+      LEFT JOIN company_person_roles r 
+        ON r.person_id = p.person_id
+      ${whereClause}
+      GROUP BY p.person_id
+      ORDER BY p.name ASC
+      LIMIT ? OFFSET ?
+    `;
+
+    const queryParams = [...params, limitVal, offsetVal];
+    const queryRes = await db.prepare(sql).bind(...queryParams).all();
     const rows = queryRes.results || [];
 
-    const people = await Promise.all(rows.map(async (row: any) => {
-      const docs = await this.getPersonDocuments(db, row.person_id);
-      return this.mapPersonRow(row, docs, []);
-    }));
+    const people = rows.map((row: any) => {
+      let rawData: any = {};
+      try { if (row.raw_data) rawData = JSON.parse(row.raw_data); } catch (e) {}
+
+      return {
+        ...rawData,
+        personId: row.person_id,
+        nik: row.nik || '',
+        identityStatus: row.identity_status || 'PROVISIONAL',
+        nationalityType: row.nationality_type || (row.nik ? 'WNI' : 'WNA'),
+        nationality: row.nationality || (row.nationality_type === 'WNA' ? '' : 'INDONESIA'),
+        name: row.name,
+        salutation: row.salutation || 'Tuan',
+        sapaan: row.salutation || 'Tuan',
+        birthCity: row.birth_city || '',
+        birthPlace: row.birth_city || '',
+        birthDate: row.birth_date || '',
+        occupation: row.occupation || '',
+        passportNumber: row.passport_number || '',
+        passportIssuingCountry: row.passport_issuing_country || '',
+        passportExpiryDate: row.passport_expiry_date || '',
+        address: {
+          fullAddress: row.full_address || '',
+          rt: row.rt || '',
+          rw: row.rw || '',
+          kelurahan: row.kelurahan || '',
+          kecamatan: row.kecamatan || '',
+          city: row.city || '',
+          province: row.province || '',
+          postalCode: row.postal_code || ''
+        },
+        rt: row.rt || '',
+        rw: row.rw || '',
+        village: row.kelurahan || '',
+        district: row.kecamatan || '',
+        regency: row.city || '',
+        city: row.city || '',
+        province: row.province || '',
+        postalCode: row.postal_code || '',
+        npwp: row.npwp || '',
+        companyCount: Number(row.company_count || 0),
+        roleCount: Number(row.role_count || 0),
+        primaryCompanyName: row.primary_company_name || null,
+        primaryPositionTitle: row.primary_position_title || row.primary_role_category || null,
+        totalShares: row.total_shares != null ? Number(row.total_shares) : null,
+        totalShareValue: row.total_share_value != null ? Number(row.total_share_value) : null,
+        sharesRecordedCount: Number(row.shares_recorded_count || 0),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      };
+    });
+
+    // 3. Fast summary statistics for dashboard pills
+    let summary: any = undefined;
+    if (options.includeSummary !== false) {
+      try {
+        const summaryRow: any = await db.prepare(`
+          SELECT 
+            (SELECT COUNT(*) FROM people) AS total_people,
+            (SELECT COUNT(*) FROM people WHERE nationality_type = 'WNI') AS total_wni,
+            (SELECT COUNT(*) FROM people WHERE nationality_type = 'WNA') AS total_wna,
+            (SELECT COUNT(*) FROM company_person_roles) AS total_relations,
+            (SELECT COUNT(DISTINCT company_id) FROM company_person_roles) AS total_companies_linked
+        `).first();
+
+        summary = {
+          totalPeople: Number(summaryRow?.total_people || 0),
+          totalWni: Number(summaryRow?.total_wni || 0),
+          totalWna: Number(summaryRow?.total_wna || 0),
+          totalRelations: Number(summaryRow?.total_relations || 0),
+          totalCompaniesLinked: Number(summaryRow?.total_companies_linked || 0)
+        };
+      } catch (e) {
+        // Fallback gracefully if summary query fails
+      }
+    }
 
     return {
       count: people.length,
+      total: totalCount,
       limit: limitVal,
       offset: offsetVal,
-      people
+      people,
+      summary
     };
   }
 
@@ -788,11 +942,24 @@ export class PeopleD1Repository {
   }
 
   /**
-   * Links a person to a company (Proyeksi Indeks Relasi Turunan)
+   * Links a person to a company (Proyeksi Indeks Relasi Turunan & Kepemilikan Saham)
    */
   static async linkCompany(db: any, user: UserContext, payload: any) {
     await ensureD1TablesExist(db);
-    const { personId, companyId, clientType, companyName, roleCategory, positionTitle, sourceRecordId } = payload || {};
+    const {
+      personId,
+      companyId,
+      clientType,
+      companyName,
+      roleCategory,
+      positionTitle,
+      sourceRecordId,
+      shareCount,
+      shareValue,
+      ownershipPercentage,
+      relationStatus,
+      syncStatus
+    } = payload || {};
     if (!personId || !companyId || !companyName || !roleCategory) {
       const err: any = new Error('personId, companyId, companyName, dan roleCategory wajib diisi');
       err.statusCode = 400;
@@ -805,15 +972,30 @@ export class PeopleD1Repository {
     await db.prepare(`
       INSERT INTO company_person_roles (
         id, person_id, company_id, client_type, company_name,
-        role_category, position_title, source_record_id, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        role_category, position_title, source_record_id,
+        share_count, share_value, ownership_percentage,
+        relation_status, last_synced_at, sync_status, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         company_name = excluded.company_name,
         position_title = excluded.position_title,
+        share_count = excluded.share_count,
+        share_value = excluded.share_value,
+        ownership_percentage = excluded.ownership_percentage,
+        relation_status = excluded.relation_status,
+        last_synced_at = excluded.last_synced_at,
+        sync_status = excluded.sync_status,
         updated_at = excluded.updated_at
     `).bind(
       roleId, personId, companyId, clientType || 'PT', companyName,
-      roleCategory, positionTitle || roleCategory, sourceRecordId || null, now
+      roleCategory, positionTitle || roleCategory, sourceRecordId || null,
+      shareCount !== undefined ? shareCount : null,
+      shareValue !== undefined ? shareValue : null,
+      ownershipPercentage !== undefined ? ownershipPercentage : null,
+      relationStatus || 'ACTIVE',
+      now,
+      syncStatus || 'SYNCED',
+      now
     ).run();
 
     return {

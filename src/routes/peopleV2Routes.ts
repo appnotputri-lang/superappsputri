@@ -89,17 +89,21 @@ peopleV2Router.get('/passport/:docNumber', requireRoles('Super Admin', 'Admin', 
 });
 
 // ============================================================================
-// 3. GET /api/v2/people/search
+// 3. GET /api/v2/people and GET /api/v2/people/search
 // Allowed: Staff, Admin, Super Admin
 // ============================================================================
-peopleV2Router.get('/search', requireRoles('Super Admin', 'Admin', 'Staff'), async (req: AuthenticatedRequest, res: Response) => {
+const handlePeopleSearch = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const db = resolvePeopleD1(req);
     const result = await PeopleD1Repository.searchPeople(db, {
       search: (req.query.q || req.query.search) as string,
       limit: parseInt(String(req.query.limit || '20')),
       offset: parseInt(String(req.query.offset || '0')),
-      nationalityType: req.query.nationalityType as string
+      nationalityType: req.query.nationalityType as string,
+      identityStatus: req.query.identityStatus as string,
+      hasCompany: req.query.hasCompany as string,
+      roleCategory: req.query.roleCategory as string,
+      includeSummary: req.query.includeSummary !== 'false'
     });
 
     res.json({ success: true, ...result });
@@ -107,7 +111,10 @@ peopleV2Router.get('/search', requireRoles('Super Admin', 'Admin', 'Staff'), asy
     console.error('[PeopleV2 API] Search failed:', err);
     res.status(err.statusCode || 500).json({ success: false, error: err?.message || 'Search failed' });
   }
-});
+};
+
+peopleV2Router.get('/', requireRoles('Super Admin', 'Admin', 'Staff'), handlePeopleSearch);
+peopleV2Router.get('/search', requireRoles('Super Admin', 'Admin', 'Staff'), handlePeopleSearch);
 
 // ============================================================================
 // 4. GET /api/v2/people/:personId/roles

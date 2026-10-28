@@ -91,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const isSectionActive = (sectionId: string, activeTab: string) => {
     if (sectionId === 'menu_utama') {
-      return ['beranda', 'company_profile', 'projects', 'project_detail', 'laporan'].includes(activeTab);
+      return ['beranda', 'data_terpusat', 'company_profile', 'projects', 'project_detail', 'laporan'].includes(activeTab);
     }
     if (sectionId === 'webinar') {
       return ['webinar_dashboard', 'webinar_participants', 'webinar_settings'].includes(activeTab);
@@ -180,6 +180,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badgeTextColor: 'text-[#1e61c3]',
       items: [
         { label: 'Beranda', id: 'beranda', icon: Home, requiresAuth: false },
+        { label: 'Data Terpusat', id: 'data_terpusat', icon: Users, requiresAuth: true },
         { label: 'Klien', id: 'company_profile', icon: Building2, requiresAuth: true },
         { label: 'Proyek Kerja', id: 'projects', icon: Briefcase, requiresAuth: true },
         { label: 'Laporan Proyek Kerja', id: 'laporan', icon: FileText, requiresAuth: true },

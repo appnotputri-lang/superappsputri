@@ -1072,12 +1072,25 @@ export class CompanyService {
 
           if (person) {
             item.personId = person.personId;
+            const sharesCount = typeof item.sharesOwned === 'number' ? item.sharesOwned : undefined;
+            let shareValue: number | undefined = undefined;
+            if (sharesCount !== undefined && typeof data.originalSharePrice === 'number' && data.originalSharePrice > 0) {
+              shareValue = sharesCount * data.originalSharePrice;
+            }
+            let ownershipPercentage: number | undefined = undefined;
+            if (sharesCount !== undefined && typeof data.originalTotalShares === 'number' && data.originalTotalShares > 0) {
+              ownershipPercentage = (sharesCount / data.originalTotalShares) * 100;
+            }
+
             await PersonService.linkPersonToCompany(person.personId, {
               companyId,
               companyName,
               clientType,
               role: item.role || item.position || item.managementPosition || defaultRole,
-              sharesOwned: item.sharesOwned
+              sharesOwned: sharesCount,
+              shareCount: sharesCount,
+              shareValue,
+              ownershipPercentage
             });
           }
         } catch (err) {

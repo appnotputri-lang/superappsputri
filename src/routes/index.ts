@@ -20,6 +20,7 @@ import { renderDepositNoteRoute } from './depositNote.routes';
 import { renderAgendaRoute } from './agenda.routes';
 import { renderSuratBoRoute } from './suratBo.routes';
 import { renderWebinarRoute } from './webinar.routes';
+import { renderCentralizedDataRoute } from './centralizedData.routes';
 
 export const renderAppRoute = (currentTab: string, props: any) => {
   if (currentTab === 'webinar' || currentTab === 'webinar_dashboard' || currentTab === 'webinar_participants' || currentTab === 'webinar_settings' || currentTab === 'webinar_public') {
@@ -84,6 +85,10 @@ export const renderAppRoute = (currentTab: string, props: any) => {
 
   if (currentTab === 'company_profile') {
     return renderCompanyRoute(props);
+  }
+
+  if (currentTab === 'data_terpusat') {
+    return renderCentralizedDataRoute(props);
   }
 
   if (currentTab === 'cv_profile') {

@@ -621,13 +621,47 @@ export async function ensureD1TablesExist(db: any) {
       role_category TEXT NOT NULL,
       position_title TEXT,
       source_record_id TEXT,
+      share_count REAL,
+      share_value REAL,
+      ownership_percentage REAL,
+      relation_status TEXT DEFAULT 'ACTIVE',
+      last_synced_at TEXT,
+      sync_status TEXT DEFAULT 'PENDING',
       updated_at TEXT NOT NULL
     );
   `).run();
 
+  // Defensively add any new share projection columns if company_person_roles was created earlier
+  try {
+    const rolesTableInfo = await db.prepare(`PRAGMA table_info(company_person_roles)`).all();
+    const existingRoleCols = (rolesTableInfo.results || []).map((r: any) => r.name);
+    if (!existingRoleCols.includes('share_count')) {
+      await db.prepare(`ALTER TABLE company_person_roles ADD COLUMN share_count REAL`).run();
+    }
+    if (!existingRoleCols.includes('share_value')) {
+      await db.prepare(`ALTER TABLE company_person_roles ADD COLUMN share_value REAL`).run();
+    }
+    if (!existingRoleCols.includes('ownership_percentage')) {
+      await db.prepare(`ALTER TABLE company_person_roles ADD COLUMN ownership_percentage REAL`).run();
+    }
+    if (!existingRoleCols.includes('relation_status')) {
+      await db.prepare(`ALTER TABLE company_person_roles ADD COLUMN relation_status TEXT DEFAULT 'ACTIVE'`).run();
+    }
+    if (!existingRoleCols.includes('last_synced_at')) {
+      await db.prepare(`ALTER TABLE company_person_roles ADD COLUMN last_synced_at TEXT`).run();
+    }
+    if (!existingRoleCols.includes('sync_status')) {
+      await db.prepare(`ALTER TABLE company_person_roles ADD COLUMN sync_status TEXT DEFAULT 'PENDING'`).run();
+    }
+  } catch (e) {
+    // Ignore PRAGMA / ALTER TABLE errors
+  }
+
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_roles_person_id ON company_person_roles(person_id);`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_roles_company_id ON company_person_roles(company_id);`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_roles_composite ON company_person_roles(company_id, person_id);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_roles_sync_status ON company_person_roles(sync_status);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_roles_relation_status ON company_person_roles(relation_status);`).run();
 
   // 20. People Migration Conflicts table (Log Karantina Peninjauan Manual)
   await db.prepare(`

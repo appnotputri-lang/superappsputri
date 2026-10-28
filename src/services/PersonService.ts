@@ -278,12 +278,17 @@ export class PersonService {
       role?: string;
       sourceRecordId?: string;
       sharesOwned?: number;
+      shareCount?: number;
+      shareValue?: number;
+      ownershipPercentage?: number;
+      relationStatus?: string;
     }
   ): Promise<void> {
     try {
       const headers = await getAuthHeaders();
       const roleCategory = roleData.roleCategory || roleData.role || 'MEMBER';
       const positionTitle = roleData.positionTitle || roleData.role || roleCategory;
+      const shareCount = roleData.shareCount !== undefined ? roleData.shareCount : roleData.sharesOwned;
       await fetch(getApiUrl('/api/v2/people/link-company'), {
         method: 'POST',
         headers,
@@ -294,11 +299,114 @@ export class PersonService {
           companyName: roleData.companyName,
           roleCategory,
           positionTitle,
-          sourceRecordId: roleData.sourceRecordId
+          sourceRecordId: roleData.sourceRecordId,
+          shareCount,
+          shareValue: roleData.shareValue,
+          ownershipPercentage: roleData.ownershipPercentage,
+          relationStatus: roleData.relationStatus || 'ACTIVE'
         })
       });
     } catch (err) {
       console.warn(`[PersonService] Failed to link person ${personId} to company:`, err);
+    }
+  }
+
+  /**
+   * Retrieves company roles and shareholdings for a person from Cloudflare D1.
+   */
+  static async getPersonRoles(personId: string): Promise<any[]> {
+    if (!personId) return [];
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(getApiUrl(`/api/v2/people/${encodeURIComponent(personId)}/roles`), { headers });
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+      const data = await res.json();
+      return Array.isArray(data.roles) ? data.roles : [];
+    } catch (err) {
+      console.error('[PersonService] getPersonRoles error:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Fetches centralized people data with server-side pagination, multi-criteria filtering,
+   * and consolidated company relation projections for the "Data Terpusat" dashboard.
+   */
+  static async fetchCentralizedData(options: {
+    search?: string;
+    page?: number;
+    limit?: number;
+    nationalityType?: string;
+    identityStatus?: string;
+    hasCompany?: string;
+    roleCategory?: string;
+  }): Promise<{
+    people: any[];
+    total: number;
+    limit: number;
+    offset: number;
+    summary?: {
+      totalPeople: number;
+      totalWni: number;
+      totalWna: number;
+      totalRelations: number;
+      totalCompaniesLinked: number;
+    };
+  }> {
+    const page = Math.max(1, options.page || 1);
+    const limit = Math.max(1, options.limit || 20);
+    const offset = (page - 1) * limit;
+
+    const params = new URLSearchParams({
+      limit: String(limit),
+      offset: String(offset)
+    });
+
+    if (options.search && options.search.trim()) {
+      params.append('q', options.search.trim());
+    }
+    if (options.nationalityType && options.nationalityType !== 'ALL') {
+      params.append('nationalityType', options.nationalityType);
+    }
+    if (options.identityStatus && options.identityStatus !== 'ALL') {
+      params.append('identityStatus', options.identityStatus);
+    }
+    if (options.hasCompany && options.hasCompany !== 'ALL') {
+      params.append('hasCompany', options.hasCompany);
+    }
+    if (options.roleCategory && options.roleCategory !== 'ALL') {
+      params.append('roleCategory', options.roleCategory);
+    }
+
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(getApiUrl(`/api/v2/people?${params.toString()}`), { headers });
+      if (!res.ok) {
+        throw new Error(`API error ${res.status}`);
+      }
+      const data = await res.json();
+      return {
+        people: Array.isArray(data.people) ? data.people : [],
+        total: typeof data.total === 'number' ? data.total : (data.people?.length || 0),
+        limit: data.limit || limit,
+        offset: data.offset || offset,
+        summary: data.summary
+      };
+    } catch (err) {
+      console.error('[PersonService] fetchCentralizedData error:', err);
+      return {
+        people: [],
+        total: 0,
+        limit,
+        offset,
+        summary: {
+          totalPeople: 0,
+          totalWni: 0,
+          totalWna: 0,
+          totalRelations: 0,
+          totalCompaniesLinked: 0
+        }
+      };
     }
   }
 

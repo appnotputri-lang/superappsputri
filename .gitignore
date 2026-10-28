@@ -26,4 +26,6 @@ node_modules
 
 dist
 backups/
+*.sqlite-shm
+*.sqlite-wal
 
