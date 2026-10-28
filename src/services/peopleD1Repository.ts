@@ -1004,4 +1004,88 @@ export class PeopleD1Repository {
       companyId
     };
   }
+
+  /**
+   * Batch links multiple person-company relations in transactions using db.batch()
+   */
+  static async linkCompanyBatch(db: any, user: UserContext, roles: any[]) {
+    await ensureD1TablesExist(db);
+    if (!Array.isArray(roles) || roles.length === 0) {
+      return { count: 0 };
+    }
+
+    const now = new Date().toISOString();
+    const statements: any[] = [];
+    let validCount = 0;
+
+    for (const r of roles) {
+      const {
+        personId,
+        companyId,
+        clientType,
+        companyName,
+        roleCategory,
+        positionTitle,
+        sourceRecordId,
+        shareCount,
+        shareValue,
+        ownershipPercentage,
+        relationStatus,
+        syncStatus
+      } = r || {};
+
+      if (!personId || !companyId || !companyName) continue;
+
+      const cat = roleCategory || 'MEMBER';
+      const roleId = `${companyId}_${personId}_${cat}`.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+
+      statements.push(
+        db.prepare(`
+          INSERT INTO company_person_roles (
+            id, person_id, company_id, client_type, company_name,
+            role_category, position_title, source_record_id,
+            share_count, share_value, ownership_percentage,
+            relation_status, last_synced_at, sync_status, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            company_name = excluded.company_name,
+            position_title = excluded.position_title,
+            share_count = excluded.share_count,
+            share_value = excluded.share_value,
+            ownership_percentage = excluded.ownership_percentage,
+            relation_status = excluded.relation_status,
+            last_synced_at = excluded.last_synced_at,
+            sync_status = excluded.sync_status,
+            updated_at = excluded.updated_at
+        `).bind(
+          roleId, personId, companyId, clientType || 'PT', companyName,
+          cat, positionTitle || cat, sourceRecordId || null,
+          shareCount !== undefined && shareCount !== null ? Number(shareCount) : null,
+          shareValue !== undefined && shareValue !== null ? Number(shareValue) : null,
+          ownershipPercentage !== undefined && ownershipPercentage !== null ? Number(ownershipPercentage) : null,
+          relationStatus || 'ACTIVE',
+          now,
+          syncStatus || 'SYNCED',
+          now
+        )
+      );
+      validCount++;
+    }
+
+    const CHUNK_SIZE = 50;
+    for (let i = 0; i < statements.length; i += CHUNK_SIZE) {
+      const chunk = statements.slice(i, i + CHUNK_SIZE);
+      if (typeof db.batch === 'function') {
+        await db.batch(chunk);
+      } else {
+        for (const stmt of chunk) {
+          await stmt.run();
+        }
+      }
+    }
+
+    return {
+      count: validCount
+    };
+  }
 }

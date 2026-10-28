@@ -18,7 +18,9 @@ import {
   Briefcase,
   Layers,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  Loader2,
+  X
 } from 'lucide-react';
 import { PageContainer, PageHeader, EmptyState } from '../../components/ui/PageLayout';
 import { MobileHeader } from '../../components/ui/MobileHeader';
@@ -66,6 +68,11 @@ export const DataTerpusatPage: React.FC<DataTerpusatPageProps> = ({ setIsSidebar
   // State: Detail Modal
   const [selectedPerson, setSelectedPerson] = useState<any | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
+
+  // State: Relation Syncing
+  const [isSyncingRelations, setIsSyncingRelations] = useState<boolean>(false);
+  const [syncProgressMsg, setSyncProgressMsg] = useState<string>('');
+  const [syncResultBanner, setSyncResultBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Debounce search input (350ms)
   useEffect(() => {
@@ -150,6 +157,40 @@ export const DataTerpusatPage: React.FC<DataTerpusatPageProps> = ({ setIsSidebar
     loadCentralizedData();
   };
 
+  // Handle syncing all company relations from Firestore legal profiles
+  const handleSyncCompanyRelations = async () => {
+    setIsSyncingRelations(true);
+    setSyncProgressMsg('Menyiapkan pemindaian profil perusahaan...');
+    setSyncResultBanner(null);
+
+    try {
+      const res = await PersonService.syncAllCompanyRelationsFromFirestore((current, total, msg) => {
+        setSyncProgressMsg(msg);
+      });
+
+      if (res.success) {
+        setSyncResultBanner({
+          type: 'success',
+          message: `Berhasil menyinkronkan ${res.linkedCount} relasi perusahaan dan kepemilikan saham ke Cloudflare D1!`
+        });
+        await loadCentralizedData();
+      } else {
+        setSyncResultBanner({
+          type: 'error',
+          message: 'Gagal menyinkronkan beberapa relasi perusahaan.'
+        });
+      }
+    } catch (err: any) {
+      setSyncResultBanner({
+        type: 'error',
+        message: `Terjadi kesalahan saat sinkronisasi: ${err?.message || String(err)}`
+      });
+    } finally {
+      setIsSyncingRelations(false);
+      setSyncProgressMsg('');
+    }
+  };
+
   // Pagination calculation
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const startItemIndex = totalCount === 0 ? 0 : (currentPage - 1) * pageSize + 1;
@@ -176,7 +217,20 @@ export const DataTerpusatPage: React.FC<DataTerpusatPageProps> = ({ setIsSidebar
           title="Data Terpusat"
           description="Identitas, relasi perusahaan, jabatan, dan kepemilikan saham dalam satu tempat."
           actions={
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={handleSyncCompanyRelations}
+                disabled={isSyncingRelations}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-colors"
+                title="Sinkronkan relasi perusahaan, jabatan, dan kepemilikan saham dari Firestore ke D1"
+              >
+                {isSyncingRelations ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Building2 className="w-3.5 h-3.5" />
+                )}
+                <span>{isSyncingRelations ? 'Menyinkronkan...' : 'Sinkronkan Relasi'}</span>
+              </button>
               <span className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-50 text-blue-800 border border-blue-200/80 flex items-center gap-1.5 shadow-2xs">
                 <Sparkles className="w-3.5 h-3.5 text-blue-600" />
                 D1 Master Identity Engine
@@ -184,6 +238,64 @@ export const DataTerpusatPage: React.FC<DataTerpusatPageProps> = ({ setIsSidebar
             </div>
           }
         />
+
+        {/* Sync Progress Indicator */}
+        {isSyncingRelations && (
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-3 animate-fadeIn">
+            <Loader2 className="w-5 h-5 text-blue-600 animate-spin shrink-0" />
+            <div className="flex-1">
+              <h4 className="text-xs font-bold text-blue-900">Sedang Memproses Sinkronisasi Relasi</h4>
+              <p className="text-xs text-blue-700 mt-0.5">{syncProgressMsg}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Sync Result Banner */}
+        {syncResultBanner && (
+          <div className={`p-4 rounded-xl border flex items-center justify-between gap-3 animate-fadeIn ${
+            syncResultBanner.type === 'success' ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-rose-50 border-rose-200 text-rose-900'
+          }`}>
+            <div className="flex items-center gap-2.5 text-xs">
+              {syncResultBanner.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              )}
+              <span className="font-medium">{syncResultBanner.message}</span>
+            </div>
+            <button
+              onClick={() => setSyncResultBanner(null)}
+              className="text-slate-400 hover:text-slate-600 p-1"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Informative Callout Banner when totalRelations is 0 */}
+        {summaryStats.totalPeople > 0 && summaryStats.totalRelations === 0 && !isSyncingRelations && !syncResultBanner && (
+          <div className="p-4 bg-amber-50 border border-amber-200/90 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs animate-fadeIn">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-sm font-bold text-amber-900">
+                  Relasi Perusahaan & Kepemilikan Saham Belum Tersinkronisasi ke D1
+                </h4>
+                <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
+                  Database D1 telah memiliki <b>{summaryStats.totalPeople} master individu</b>, namun indeks relasi perusahaan dan saham masih 0. Klik tombol <b>"Sinkronkan Relasi Sekarang"</b> untuk memetakan seluruh relasi perusahaan, jabatan, dan kepemilikan saham dari profil legal ke Cloudflare D1.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleSyncCompanyRelations}
+              disabled={isSyncingRelations}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm shrink-0 disabled:opacity-50 transition-colors"
+            >
+              <Building2 className="w-4 h-4" />
+              Sinkronkan Relasi Sekarang
+            </button>
+          </div>
+        )}
 
         {/* Summary Stat Pills */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

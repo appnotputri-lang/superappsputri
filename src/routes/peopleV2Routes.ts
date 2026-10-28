@@ -283,7 +283,14 @@ peopleV2Router.post('/link-company', requireRoles('Super Admin', 'Admin', 'Staff
       role: req.user?.role || 'Staff'
     };
 
-    const result = await PeopleD1Repository.linkCompany(db, user, req.body || {});
+    const body = req.body || {};
+    if (Array.isArray(body) || (body && Array.isArray(body.roles))) {
+      const rolesList = Array.isArray(body) ? body : body.roles;
+      const result = await PeopleD1Repository.linkCompanyBatch(db, user, rolesList);
+      return res.json({ success: true, ...result });
+    }
+
+    const result = await PeopleD1Repository.linkCompany(db, user, body);
     res.json({ success: true, ...result });
   } catch (err: any) {
     console.error('[PeopleV2 API] Link company failed:', err);

@@ -16,6 +16,13 @@ export const onRequestPost = async (context: any) => {
   try {
     const db = resolvePeopleD1(context);
     const body = await request.json();
+
+    if (Array.isArray(body) || (body && Array.isArray(body.roles))) {
+      const rolesList = Array.isArray(body) ? body : body.roles;
+      const result = await PeopleD1Repository.linkCompanyBatch(db, authRes.user, rolesList);
+      return createJsonResponse({ success: true, ...result });
+    }
+
     const result = await PeopleD1Repository.linkCompany(db, authRes.user, body);
     return createJsonResponse({ success: true, ...result });
   } catch (err: any) {

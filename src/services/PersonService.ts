@@ -312,6 +312,173 @@ export class PersonService {
   }
 
   /**
+   * Batch links multiple person-company relations in transactions.
+   */
+  static async linkCompanyBatch(roles: any[]): Promise<number> {
+    if (!Array.isArray(roles) || roles.length === 0) return 0;
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(getApiUrl('/api/v2/people/link-company'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ roles })
+      });
+      if (!res.ok) throw new Error(`API error ${res.status}`);
+      const json = await res.json();
+      return json.count || roles.length;
+    } catch (err) {
+      console.warn('[PersonService] linkCompanyBatch error:', err);
+      return 0;
+    }
+  }
+
+  /**
+   * Scans legal company profiles from Firestore and projects all company relations,
+   * positions, and shareholdings into Cloudflare D1 `company_person_roles`.
+   */
+  static async syncAllCompanyRelationsFromFirestore(
+    onProgress?: (current: number, total: number, msg: string) => void
+  ): Promise<{ success: boolean; linkedCount: number; errors: string[] }> {
+    const collectionsToScan = ['profiles', 'cv_profiles', 'rupst_projects', 'pendirian_projects'];
+    const rolesToLink: any[] = [];
+    const errors: string[] = [];
+
+    // 1. Fetch current master people from D1 to resolve personIds accurately
+    onProgress?.(0, 0, 'Memuat daftar master identitas dari D1...');
+    const nikToPersonIdMap = new Map<string, string>();
+    const passportToPersonIdMap = new Map<string, string>();
+
+    try {
+      let page = 1;
+      let hasMore = true;
+      while (hasMore) {
+        const res = await this.fetchCentralizedData({ limit: 100, page });
+        for (const p of res.people) {
+          if (p.nik) nikToPersonIdMap.set(normalizeNik(p.nik), p.personId);
+          if (p.passportNumber) passportToPersonIdMap.set(normalizePassport(p.passportNumber), p.personId);
+        }
+        if (res.offset + res.people.length >= res.total || res.people.length === 0) {
+          hasMore = false;
+        } else {
+          page++;
+        }
+      }
+    } catch (e) {
+      console.warn('[PersonService] Could not pre-fetch D1 map:', e);
+    }
+
+    // 2. Scan Firestore collections
+    for (const col of collectionsToScan) {
+      onProgress?.(0, 0, `Memindai koleksi '${col}'...`);
+      try {
+        const snap = await getDocs(collection(db, col));
+        for (const docSnap of snap.docs) {
+          const d = docSnap.data();
+          const companyId = docSnap.id;
+          const companyName = d.companyName || d.namaPt || d.namaCV || d.title;
+          if (!companyName) continue;
+
+          const clientType = d.clientType || (col === 'cv_profiles' ? 'CV' : 'PT');
+          const originalSharePrice = typeof d.originalSharePrice === 'number' ? d.originalSharePrice : undefined;
+          const originalTotalShares = typeof d.originalTotalShares === 'number' ? d.originalTotalShares : undefined;
+
+          const lists = [
+            { arr: d.shareholders, defaultCategory: 'PEMEGANG_SAHAM' },
+            { arr: d.finalShareholders, defaultCategory: 'PEMEGANG_SAHAM' },
+            { arr: d.newManagementItems, defaultCategory: 'PENGURUS' },
+            { arr: d.oldManagementItems, defaultCategory: 'PENGURUS' },
+            { arr: d.managementItems, defaultCategory: 'PENGURUS' },
+            { arr: d.peseros, defaultCategory: 'PESERO' }
+          ];
+
+          for (const { arr, defaultCategory } of lists) {
+            if (!Array.isArray(arr)) continue;
+            for (const item of arr) {
+              if (!item) continue;
+              if (item.shareholderType === 'BADAN_HUKUM' || item.isBadanHukum) continue;
+
+              const cleanNik = normalizeNik(item.nik);
+              const cleanPass = normalizePassport(item.passportNumber);
+              const personId = item.personId || (cleanNik ? nikToPersonIdMap.get(cleanNik) : undefined) || (cleanPass ? passportToPersonIdMap.get(cleanPass) : undefined);
+
+              if (!personId) continue;
+
+              const positionTitle = item.position || item.managementPosition || item.role || defaultCategory;
+              let roleCategory = defaultCategory;
+              const posLower = positionTitle.toLowerCase();
+              if (posLower.includes('direktur') || posLower.includes('direksi')) {
+                roleCategory = 'DIREKSI';
+              } else if (posLower.includes('komisaris')) {
+                roleCategory = 'KOMISARIS';
+              } else if (posLower.includes('saham') || defaultCategory === 'PEMEGANG_SAHAM') {
+                roleCategory = 'PEMEGANG_SAHAM';
+              } else if (defaultCategory === 'PESERO') {
+                roleCategory = 'PESERO';
+              }
+
+              const sharesCount = typeof item.sharesOwned === 'number' ? item.sharesOwned : undefined;
+              let shareValue: number | undefined = undefined;
+              if (sharesCount !== undefined && originalSharePrice !== undefined && originalSharePrice > 0) {
+                shareValue = sharesCount * originalSharePrice;
+              }
+              let ownershipPercentage: number | undefined = undefined;
+              if (sharesCount !== undefined && originalTotalShares !== undefined && originalTotalShares > 0) {
+                ownershipPercentage = (sharesCount / originalTotalShares) * 100;
+              }
+
+              rolesToLink.push({
+                personId,
+                companyId,
+                clientType,
+                companyName,
+                roleCategory,
+                positionTitle,
+                sourceRecordId: `${col}/${companyId}`,
+                shareCount: sharesCount,
+                shareValue,
+                ownershipPercentage,
+                relationStatus: 'ACTIVE',
+                syncStatus: 'SYNCED'
+              });
+            }
+          }
+        }
+      } catch (err: any) {
+        errors.push(`Error reading ${col}: ${err.message}`);
+      }
+    }
+
+    // 3. Deduplicate roles
+    const uniqueRolesMap = new Map<string, any>();
+    for (const r of rolesToLink) {
+      const key = `${r.companyId}_${r.personId}_${r.roleCategory}`.toLowerCase();
+      // If already present, keep the one with share count if available
+      if (!uniqueRolesMap.has(key) || (r.shareCount && !uniqueRolesMap.get(key).shareCount)) {
+        uniqueRolesMap.set(key, r);
+      }
+    }
+
+    const uniqueRoles = Array.from(uniqueRolesMap.values());
+    onProgress?.(0, uniqueRoles.length, `Mengirim ${uniqueRoles.length} relasi perusahaan ke Cloudflare D1...`);
+
+    // 4. Send in chunks of 50
+    const CHUNK_SIZE = 50;
+    let linkedCount = 0;
+    for (let i = 0; i < uniqueRoles.length; i += CHUNK_SIZE) {
+      const chunk = uniqueRoles.slice(i, i + CHUNK_SIZE);
+      const resCount = await this.linkCompanyBatch(chunk);
+      linkedCount += resCount;
+      onProgress?.(Math.min(i + CHUNK_SIZE, uniqueRoles.length), uniqueRoles.length, `Tersinkron ${Math.min(i + CHUNK_SIZE, uniqueRoles.length)} dari ${uniqueRoles.length} relasi...`);
+    }
+
+    return {
+      success: true,
+      linkedCount,
+      errors
+    };
+  }
+
+  /**
    * Retrieves company roles and shareholdings for a person from Cloudflare D1.
    */
   static async getPersonRoles(personId: string): Promise<any[]> {
@@ -839,6 +1006,35 @@ export class PersonService {
 
       report.migratedPeopleCount = savedCount;
       addLog(`Berhasil menyimpan ${savedCount} record ke Cloudflare D1 via API Gateway.`);
+
+      // Step 4b: Batch link all company references to Cloudflare D1
+      const allRolesToLink: any[] = [];
+      for (const item of masterPeopleToPersist) {
+        if (Array.isArray(item.person.companyReferences)) {
+          for (const ref of item.person.companyReferences) {
+            allRolesToLink.push({
+              personId: item.person.personId,
+              companyId: ref.companyId,
+              clientType: ref.clientType || 'PT',
+              companyName: ref.companyName,
+              roleCategory: ref.role || 'MEMBER',
+              positionTitle: ref.role || 'MEMBER',
+              sharesOwned: ref.sharesOwned,
+              shareCount: ref.sharesOwned,
+              sourceRecordId: ref.companyId
+            });
+          }
+        }
+      }
+      if (allRolesToLink.length > 0) {
+        addLog(`Menyinkronkan ${allRolesToLink.length} relasi perusahaan ke Cloudflare D1...`);
+        try {
+          await this.linkCompanyBatch(allRolesToLink);
+          addLog(`Berhasil menghubungkan relasi perusahaan ke Cloudflare D1.`);
+        } catch (e: any) {
+          addLog(`Warning relasi perusahaan: ${e.message}`);
+        }
+      }
 
       // Controlled Non-Destructive Backfill
       addLog(`Melakukan backfill personId ke dokumen Firestore non-final...`);
