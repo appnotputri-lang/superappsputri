@@ -162,7 +162,7 @@ export class PeopleD1Repository {
    */
   static async getPersonById(db: any, personId: string) {
     await ensureD1TablesExist(db);
-    const row = await db.prepare(`SELECT * FROM people WHERE person_id = ? LIMIT 1`).bind(personId).get();
+    const row = await db.prepare(`SELECT * FROM people WHERE person_id = ? LIMIT 1`).bind(personId).first();
     if (!row) return null;
 
     const documents = await this.getPersonDocuments(db, personId);
@@ -178,7 +178,7 @@ export class PeopleD1Repository {
     const cleanNik = cleanNikInput(nik);
     if (!cleanNik) return null;
 
-    const row = await db.prepare(`SELECT * FROM people WHERE nik = ? LIMIT 1`).bind(cleanNik).get();
+    const row = await db.prepare(`SELECT * FROM people WHERE nik = ? LIMIT 1`).bind(cleanNik).first();
     if (!row) return null;
 
     const documents = await this.getPersonDocuments(db, row.person_id);
@@ -199,11 +199,11 @@ export class PeopleD1Repository {
       WHERE doc_type = 'PASSPORT' AND UPPER(doc_number) = ?
       ORDER BY is_active DESC, created_at DESC
       LIMIT 1
-    `).bind(cleanPassport).get();
+    `).bind(cleanPassport).first();
 
     if (!docRow) return null;
 
-    const personRow = await db.prepare(`SELECT * FROM people WHERE person_id = ? LIMIT 1`).bind(docRow.person_id).get();
+    const personRow = await db.prepare(`SELECT * FROM people WHERE person_id = ? LIMIT 1`).bind(docRow.person_id).first();
     if (!personRow) return null;
 
     const documents = await this.getPersonDocuments(db, personRow.person_id);
@@ -305,11 +305,11 @@ export class PeopleD1Repository {
     const personId = body.personId || generateUUID();
     const now = new Date().toISOString();
 
-    const existingRow = await db.prepare(`SELECT * FROM people WHERE person_id = ?`).bind(personId).get();
+    const existingRow = await db.prepare(`SELECT * FROM people WHERE person_id = ?`).bind(personId).first();
 
     // Check NIK uniqueness against different person_id
     if (cleanNik) {
-      const nikRow: any = await db.prepare(`SELECT * FROM people WHERE nik = ?`).bind(cleanNik).get();
+      const nikRow: any = await db.prepare(`SELECT * FROM people WHERE nik = ?`).bind(cleanNik).first();
       if (nikRow && nikRow.person_id !== personId) {
         const comp = evaluateNameCompatibility(nikRow.name, rawName);
         if (comp.spellingMismatch || (nikRow.birth_date && body.birthDate && nikRow.birth_date !== body.birthDate)) {
@@ -425,7 +425,7 @@ export class PeopleD1Repository {
       const collisionDoc: any = await db.prepare(`
         SELECT person_id FROM person_identity_documents
         WHERE doc_type = 'PASSPORT' AND UPPER(doc_number) = ? AND is_active = 1 AND person_id != ?
-      `).bind(cleanPassport, personId).get();
+      `).bind(cleanPassport, personId).first();
 
       if (collisionDoc) {
         const conflictId = generateUUID();
@@ -457,7 +457,7 @@ export class PeopleD1Repository {
       const existingDoc = await db.prepare(`
         SELECT id FROM person_identity_documents
         WHERE person_id = ? AND doc_type = 'PASSPORT' AND is_active = 1
-      `).bind(personId).get();
+      `).bind(personId).first();
 
       if (!existingDoc) {
         const docId = generateUUID();
@@ -510,7 +510,7 @@ export class PeopleD1Repository {
 
     const savedDocs = await this.getPersonDocuments(db, personId);
     const savedRoles = await this.getPersonRoles(db, personId);
-    const savedPersonRow = await db.prepare(`SELECT * FROM people WHERE person_id = ?`).bind(personId).get();
+    const savedPersonRow = await db.prepare(`SELECT * FROM people WHERE person_id = ?`).bind(personId).first();
 
     return {
       personId,
@@ -536,7 +536,7 @@ export class PeopleD1Repository {
     }
   ) {
     await ensureD1TablesExist(db);
-    const personRow = await db.prepare(`SELECT * FROM people WHERE person_id = ?`).bind(personId).get();
+    const personRow = await db.prepare(`SELECT * FROM people WHERE person_id = ?`).bind(personId).first();
     if (!personRow) {
       const err: any = new Error(`Person ${personId} not found`);
       err.statusCode = 404;
@@ -556,7 +556,7 @@ export class PeopleD1Repository {
     const conflictDoc: any = await db.prepare(`
       SELECT person_id FROM person_identity_documents
       WHERE doc_type = 'PASSPORT' AND UPPER(doc_number) = ? AND is_active = 1 AND person_id != ?
-    `).bind(cleanNewPassport, personId).get();
+    `).bind(cleanNewPassport, personId).first();
 
     if (conflictDoc) {
       const conflictId = generateUUID();
