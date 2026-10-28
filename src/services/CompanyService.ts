@@ -25,6 +25,7 @@ import { CompanyProfile } from '../../types';
 import { sanitizeForFirestore, normalizeCompanyName, getUniqueClientKey } from '../utils/sanitize';
 import { FirestoreTracker } from '../lib/firestoreTracker';
 import { formatCompanyName as formatCompanyNameHelper } from '../lib/formatter';
+import { PersonService, normalizeNik, isValidNik } from './PersonService';
 
 export interface ClientDirectoryEntry {
   id: string;
@@ -874,6 +875,13 @@ export class CompanyService {
     let oldCompanyName: string | undefined;
 
     try {
+      // 0. Sinkronisasi identitas individu ke Master Database Orang Terpusat (people)
+      try {
+        await this.syncPeopleFromCompany(companyId, preparedData.companyName || '', clientType, preparedData);
+      } catch (peopleSyncErr) {
+        console.warn('[CompanyService] Warning syncing individuals to master people collection:', peopleSyncErr);
+      }
+
       // 1. Save Firestore transaction
       await runTransaction(db, async (transaction) => {
         const docSnap = await transaction.get(docRef);
@@ -1011,6 +1019,71 @@ export class CompanyService {
       }
     } catch (e) {
       console.warn("[CompanyService] Failed to rename or ensure drive folder:", e);
+    }
+  }
+
+  /**
+   * Helper to register/sync individual identities into the centralized People Database
+   * and backfill personId onto company shareholder and management records.
+   */
+  private static async syncPeopleFromCompany(
+    companyId: string,
+    companyName: string,
+    clientType: string,
+    data: Partial<CompanyProfile>
+  ): Promise<void> {
+    const lists = [
+      { arr: data.shareholders, defaultRole: 'PEMEGANG_SAHAM' },
+      { arr: data.oldManagementItems, defaultRole: 'PENGURUS' },
+      { arr: data.newManagementItems, defaultRole: 'PENGURUS' },
+      { arr: (data as any).managementItems, defaultRole: 'PENGURUS' },
+      { arr: (data as any).peseros, defaultRole: 'PESERO' }
+    ];
+
+    for (const { arr, defaultRole } of lists) {
+      if (!Array.isArray(arr)) continue;
+      for (const item of arr) {
+        if (!item || !item.nik) continue;
+        if (item.shareholderType === 'BADAN_HUKUM' || item.isBadanHukum) continue;
+        
+        const cleanNik = normalizeNik(item.nik);
+        if (!isValidNik(cleanNik)) continue;
+
+        try {
+          let person = await PersonService.getPersonByNik(cleanNik);
+          if (!person) {
+            const saved = await PersonService.savePerson({
+              personId: item.personId,
+              nik: cleanNik,
+              name: item.name,
+              salutation: item.salutation,
+              birthCity: item.birthCity || item.birthPlace,
+              birthDate: item.birthDate,
+              nationalityType: item.nationalityType,
+              nationality: item.nationality,
+              occupation: item.occupation,
+              address: item.address,
+              npwp: item.npwp,
+              passportNumber: item.passportNumber,
+              kitasNumber: item.kitasNumber
+            });
+            person = saved.person;
+          }
+
+          if (person) {
+            item.personId = person.personId;
+            await PersonService.linkPersonToCompany(person.personId, {
+              companyId,
+              companyName,
+              clientType,
+              role: item.role || item.position || item.managementPosition || defaultRole,
+              sharesOwned: item.sharesOwned
+            });
+          }
+        } catch (err) {
+          console.warn(`[CompanyService] Warning syncing person NIK ${cleanNik} to master people:`, err);
+        }
+      }
     }
   }
 

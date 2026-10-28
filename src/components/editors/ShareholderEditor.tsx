@@ -1,6 +1,6 @@
 import React from 'react';
 import { Shareholder, CompanyProfile } from '../../../types';
-import { User, Banknote, Globe, ShieldCheck, MapPin, Coins, History, Zap, Info, Briefcase, UserPlus, ArrowRightLeft, Users, Plus, Trash2, Camera, Loader2 } from 'lucide-react';
+import { User, Banknote, Globe, ShieldCheck, MapPin, Coins, History, Zap, Info, Briefcase, UserPlus, ArrowRightLeft, Users, Plus, Trash2, Camera, Loader2, AlertCircle } from 'lucide-react';
 import { formatCurrency, numberToWords, formatInputNumber, parseFormattedNumber } from '../../../utils/formatters';
 import { IndoRegionSelector } from '../../../components/AddressFields';
 import { searchShareholderByNIKClient } from '../../lib/firebase';
@@ -166,6 +166,7 @@ const ShareholderEditor: React.FC<Props> = ({
 
         onChange({
           ...shareholder,
+          personId: found.personId || shareholder.personId,
           nik: found.nik || nik,
           name: (found.name || shareholder.name || '').toUpperCase(),
           salutation: found.salutation || shareholder.salutation || 'Tuan',
@@ -179,7 +180,7 @@ const ShareholderEditor: React.FC<Props> = ({
           kitasNumber: found.kitasNumber || shareholder.kitasNumber || '',
           npwp: found.npwp || shareholder.npwp || ''
         });
-        setSearchStatus('✅ Data lengkap ditemukan dari database!');
+        setSearchStatus(found.personId ? '✅ Data terhubung dari Master Database Orang!' : '✅ Data lengkap ditemukan dari database!');
       } else {
         setSearchStatus('Data tidak ditemukan di database');
       }
@@ -188,6 +189,19 @@ const ShareholderEditor: React.FC<Props> = ({
       setSearchStatus('');
     }
   };
+
+  const inCompanyDuplicate = React.useMemo(() => {
+    if (!shareholder.nik) return null;
+    const cleanNik = shareholder.nik.trim().replace(/\D/g, '');
+    if (cleanNik.length !== 16) return null;
+    const match = activeAllShareholders.find((s: any) => 
+      s.id !== shareholder.id && (
+        (s.nik && s.nik.trim().replace(/\D/g, '') === cleanNik) ||
+        (shareholder.personId && s.personId && s.personId === shareholder.personId)
+      )
+    );
+    return match;
+  }, [shareholder.id, shareholder.nik, shareholder.personId, activeAllShareholders]);
   
   const currentShares = shareholder.sharesOwned || 0;
   const transferAmount = Math.max(0, currentShares - oldSharesOwned);
@@ -721,7 +735,15 @@ const ShareholderEditor: React.FC<Props> = ({
 
       {!isBadanHukum && !isWna && (
         <div className="mb-4">
-          <label className="block text-xs font-bold text-slate-700 mb-1">NIK <span className="text-red-500">*</span></label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-xs font-bold text-slate-700">NIK <span className="text-red-500">*</span></label>
+            {shareholder.personId && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                Terhubung ke Master Database Orang
+              </span>
+            )}
+          </div>
           <input 
             type="text" 
             value={shareholder.nik || ''} 
@@ -739,6 +761,18 @@ const ShareholderEditor: React.FC<Props> = ({
           />
           {searchStatus && (
             <div className="text-[10px] text-teal-600 font-bold mt-1">{searchStatus}</div>
+          )}
+
+          {inCompanyDuplicate && (
+            <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded text-amber-800 text-xs flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold">Peringatan Duplikasi Internal Perusahaan:</span>
+                <p className="mt-0.5">
+                  Individu dengan NIK ini sudah terdaftar dalam perusahaan ini ({inCompanyDuplicate.name}). Pastikan tidak terjadi pencatatan ganda atau sesuaikan jumlah lembar saham yang dimiliki.
+                </p>
+              </div>
+            </div>
           )}
         </div>
       )}

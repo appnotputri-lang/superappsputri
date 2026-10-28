@@ -299,6 +299,7 @@ export default function DraftAktaPendirianCV({
           addrStr = `${a.fullAddress || ''} RT ${a.rt || '000'} RW ${a.rw || '000'}, Kel. ${a.kelurahan || ''}, Kec. ${a.kecamatan || ''}, ${a.city || ''}, ${a.province || ''}`;
         }
         handleUpdatePesero(peseroId, {
+          personId: found.personId,
           name: (found.name || '').toUpperCase(),
           salutation: found.salutation || 'Tuan',
           birthCity: found.birthCity || '',
@@ -308,7 +309,7 @@ export default function DraftAktaPendirianCV({
           occupation: found.occupation || '',
           address: addrStr
         });
-        alert('✅ Data Pesero berhasil ditemukan dari database!');
+        alert(found.personId ? '✅ Data Pesero terhubung dari Master Database Orang!' : '✅ Data Pesero berhasil ditemukan dari database!');
       } else {
         alert('Data NIK tidak ditemukan di database.');
       }
@@ -826,7 +827,15 @@ export default function DraftAktaPendirianCV({
                         </div>
 
                         <div>
-                          <AhuLabel label="NIK (16 Digit)" />
+                          <div className="flex items-center justify-between mb-1">
+                            <AhuLabel label="NIK (16 Digit)" />
+                            {pesero.personId && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                                Master Orang
+                              </span>
+                            )}
+                          </div>
                           <div className="flex gap-1.5">
                             <AhuInput 
                               value={pesero.nik || ''}
@@ -843,6 +852,18 @@ export default function DraftAktaPendirianCV({
                               <Search className="w-3.5 h-3.5" />
                             </button>
                           </div>
+                          {(() => {
+                            const cleanNik = pesero.nik ? pesero.nik.trim().replace(/\D/g, '') : '';
+                            if (cleanNik.length !== 16) return null;
+                            const duplicate = (data.peseros || []).find(p => p.id !== pesero.id && p.nik && p.nik.trim().replace(/\D/g, '') === cleanNik);
+                            if (!duplicate) return null;
+                            return (
+                              <div className="p-2 bg-amber-50 border border-amber-200 rounded text-amber-800 text-[10px] flex items-center gap-1.5 mt-1.5">
+                                <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <span>Perhatian: Pesero dengan NIK ini sudah terdaftar dalam CV ini ({duplicate.name}).</span>
+                              </div>
+                            );
+                          })()}
                         </div>
 
                         <div>

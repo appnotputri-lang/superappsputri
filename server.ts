@@ -396,6 +396,283 @@ async function startServer() {
     }
   });
 
+  // ==========================================
+  // D1 People Endpoints (Database Orang Terpusat)
+  // ==========================================
+  app.get("/api/people", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      await ensureD1TablesExist(db);
+
+      const limitVal = Math.min(Math.max(1, parseInt(String(req.query.limit || '20'))), 100);
+      const offsetVal = Math.max(0, parseInt(String(req.query.offset || '0')));
+      const searchVal = (req.query.q || req.query.search) ? String(req.query.q || req.query.search).trim() : '';
+
+      let sql = `SELECT * FROM people`;
+      const conditions: string[] = [];
+      const params: any[] = [];
+
+      if (searchVal) {
+        const words = searchVal.toLowerCase().split(/\s+/).filter(Boolean);
+        for (const word of words) {
+          conditions.push(`(LOWER(name) LIKE ? OR nik LIKE ? OR LOWER(birth_city) LIKE ? OR LOWER(occupation) LIKE ?)`);
+          params.push(`%${word}%`, `%${word}%`, `%${word}%`, `%${word}%`);
+        }
+      }
+
+      if (conditions.length > 0) {
+        sql += ` WHERE ` + conditions.join(' AND ');
+      }
+
+      sql += ` ORDER BY name ASC LIMIT ? OFFSET ?`;
+      params.push(limitVal, offsetVal);
+
+      const queryRes = await db.prepare(sql).bind(...params).all();
+      const rows = queryRes.results || [];
+
+      const people = rows.map((row: any) => {
+        let rawData: any = {};
+        try { if (row.raw_data) rawData = JSON.parse(row.raw_data); } catch (e) {}
+
+        return {
+          personId: row.person_id,
+          nik: row.nik,
+          name: row.name,
+          salutation: row.salutation || 'Tuan',
+          sapaan: row.salutation || 'Tuan',
+          birthCity: row.birth_city || '',
+          birthPlace: row.birth_city || '',
+          birthDate: row.birth_date || '',
+          occupation: row.occupation || '',
+          address: {
+            fullAddress: row.full_address || '',
+            rt: row.rt || '',
+            rw: row.rw || '',
+            kelurahan: row.kelurahan || '',
+            kecamatan: row.kecamatan || '',
+            city: row.city || '',
+            province: row.province || ''
+          },
+          rt: row.rt || '',
+          rw: row.rw || '',
+          village: row.kelurahan || '',
+          district: row.kecamatan || '',
+          regency: row.city || '',
+          province: row.province || '',
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+          ...rawData
+        };
+      });
+
+      res.json({
+        success: true,
+        count: people.length,
+        limit: limitVal,
+        offset: offsetVal,
+        people
+      });
+    } catch (err: any) {
+      console.error("[People API] Query failed:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to query people" });
+    }
+  });
+
+  app.get("/api/people/nik/:nik", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      await ensureD1TablesExist(db);
+      const cleanNik = String(req.params.nik || '').replace(/\D/g, '');
+
+      if (!cleanNik) {
+        return res.status(400).json({ success: false, error: "NIK is required" });
+      }
+
+      const row = await db.prepare(`SELECT * FROM people WHERE nik = ? LIMIT 1`).bind(cleanNik).get();
+      if (!row) {
+        return res.status(404).json({ success: false, error: "Person not found for NIK" });
+      }
+
+      let rawData: any = {};
+      try { if (row.raw_data) rawData = JSON.parse(row.raw_data); } catch (e) {}
+
+      res.json({
+        success: true,
+        person: {
+          personId: row.person_id,
+          nik: row.nik,
+          name: row.name,
+          salutation: row.salutation || 'Tuan',
+          sapaan: row.salutation || 'Tuan',
+          birthCity: row.birth_city || '',
+          birthPlace: row.birth_city || '',
+          birthDate: row.birth_date || '',
+          occupation: row.occupation || '',
+          address: {
+            fullAddress: row.full_address || '',
+            rt: row.rt || '',
+            rw: row.rw || '',
+            kelurahan: row.kelurahan || '',
+            kecamatan: row.kecamatan || '',
+            city: row.city || '',
+            province: row.province || ''
+          },
+          rt: row.rt || '',
+          rw: row.rw || '',
+          village: row.kelurahan || '',
+          district: row.kecamatan || '',
+          regency: row.city || '',
+          province: row.province || '',
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+          ...rawData
+        }
+      });
+    } catch (err: any) {
+      console.error("[People NIK API] Lookup failed:", err);
+      res.status(500).json({ success: false, error: err?.message || "Lookup failed" });
+    }
+  });
+
+  app.get("/api/people/:id", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      await ensureD1TablesExist(db);
+      const personId = String(req.params.id);
+
+      const row = await db.prepare(`SELECT * FROM people WHERE person_id = ? LIMIT 1`).bind(personId).get();
+      if (!row) {
+        return res.status(404).json({ success: false, error: "Person not found" });
+      }
+
+      let rawData: any = {};
+      try { if (row.raw_data) rawData = JSON.parse(row.raw_data); } catch (e) {}
+
+      res.json({
+        success: true,
+        person: {
+          personId: row.person_id,
+          nik: row.nik,
+          name: row.name,
+          salutation: row.salutation || 'Tuan',
+          sapaan: row.salutation || 'Tuan',
+          birthCity: row.birth_city || '',
+          birthPlace: row.birth_city || '',
+          birthDate: row.birth_date || '',
+          occupation: row.occupation || '',
+          address: {
+            fullAddress: row.full_address || '',
+            rt: row.rt || '',
+            rw: row.rw || '',
+            kelurahan: row.kelurahan || '',
+            kecamatan: row.kecamatan || '',
+            city: row.city || '',
+            province: row.province || ''
+          },
+          rt: row.rt || '',
+          rw: row.rw || '',
+          village: row.kelurahan || '',
+          district: row.kecamatan || '',
+          regency: row.city || '',
+          province: row.province || '',
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+          ...rawData
+        }
+      });
+    } catch (err: any) {
+      console.error("[People ID API] Lookup failed:", err);
+      res.status(500).json({ success: false, error: err?.message || "Lookup failed" });
+    }
+  });
+
+  app.post("/api/people", async (req, res) => {
+    try {
+      const db = getLocalD1Database();
+      await ensureD1TablesExist(db);
+      const body = req.body || {};
+
+      const cleanNik = body.nik ? String(body.nik).trim().replace(/\D/g, '') : null;
+      if (cleanNik && cleanNik.length !== 16) {
+        return res.status(400).json({ success: false, error: "NIK harus 16 digit angka" });
+      }
+
+      const personId = body.personId || crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      if (cleanNik) {
+        const existing: any = await db.prepare(`SELECT person_id FROM people WHERE nik = ?`).bind(cleanNik).get();
+        if (existing && existing.person_id !== personId) {
+          return res.status(409).json({
+            success: false,
+            error: `NIK_EXISTS: NIK ${cleanNik} sudah terdaftar untuk individu lain (${existing.person_id})`
+          });
+        }
+      }
+
+      const name = (body.name || '').trim().toUpperCase();
+      const salutation = body.salutation || body.sapaan || 'Tuan';
+      const birthCity = (body.birthCity || body.birthPlace || '').trim().toUpperCase();
+      const birthDate = body.birthDate || '';
+      const occupation = (body.occupation || '').trim().toUpperCase();
+      const addr = body.address || {};
+      const fullAddress = addr.fullAddress || body.fullAddress || '';
+      const rt = addr.rt || body.rt || '';
+      const rw = addr.rw || body.rw || '';
+      const kelurahan = addr.kelurahan || body.village || '';
+      const kecamatan = addr.kecamatan || body.district || '';
+      const city = addr.city || body.regency || '';
+      const province = addr.province || body.province || '';
+
+      await db.prepare(`
+        INSERT INTO people (
+          person_id, nik, name, salutation, birth_city, birth_date,
+          occupation, full_address, rt, rw, kelurahan, kecamatan,
+          city, province, raw_data, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(person_id) DO UPDATE SET
+          nik = excluded.nik,
+          name = excluded.name,
+          salutation = excluded.salutation,
+          birth_city = excluded.birth_city,
+          birth_date = excluded.birth_date,
+          occupation = excluded.occupation,
+          full_address = excluded.full_address,
+          rt = excluded.rt,
+          rw = excluded.rw,
+          kelurahan = excluded.kelurahan,
+          kecamatan = excluded.kecamatan,
+          city = excluded.city,
+          province = excluded.province,
+          raw_data = excluded.raw_data,
+          updated_at = excluded.updated_at
+      `).bind(
+        personId, cleanNik, name, salutation, birthCity, birthDate,
+        occupation, fullAddress, rt, rw, kelurahan, kecamatan,
+        city, province, JSON.stringify(body), now, now
+      ).run();
+
+      res.json({
+        success: true,
+        personId,
+        person: {
+          personId,
+          nik: cleanNik,
+          name,
+          salutation,
+          birthCity,
+          birthDate,
+          occupation,
+          address: { fullAddress, rt, rw, kelurahan, kecamatan, city, province },
+          updatedAt: now
+        }
+      });
+    } catch (err: any) {
+      console.error("[People Save API] Failed:", err);
+      res.status(500).json({ success: false, error: err?.message || "Failed to save person" });
+    }
+  });
+
   // D1 Invoices Endpoints
   app.get("/api/invoices", async (req, res) => {
     try {

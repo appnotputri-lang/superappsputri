@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
-import { initializeFirestore, collection, getDocs, persistentLocalCache, persistentMultipleTabManager, getDocsFromCache, getFirestore } from 'firebase/firestore';
+import { initializeFirestore, collection, getDocs, persistentLocalCache, persistentMultipleTabManager, getDocsFromCache, getFirestore, doc, getDoc, query, where, limit } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
@@ -23,6 +23,61 @@ export const auth = getAuth(app);
 export const searchShareholderByNIKClient = async (nik: string): Promise<any | null> => {
   if (!nik || nik.trim().length !== 16) return null;
   const cleanNik = nik.trim();
+
+  // 1. Prioritaskan Database Master Orang Terpusat (people_nik_keys -> people)
+  try {
+    const keySnap = await getDoc(doc(db, 'people_nik_keys', cleanNik));
+    if (keySnap.exists()) {
+      const keyData = keySnap.data();
+      if (keyData.personId) {
+        const pSnap = await getDoc(doc(db, 'people', keyData.personId));
+        if (pSnap.exists()) {
+          const p = pSnap.data();
+          return {
+            personId: p.personId,
+            nik: p.nik || cleanNik,
+            name: p.name,
+            salutation: p.salutation || p.sapaan || 'Tuan',
+            birthCity: p.birthCity || p.birthPlace || '',
+            birthDate: p.birthDate || '',
+            nationalityType: p.nationalityType || 'WNI',
+            nationality: p.nationality || 'WNI',
+            occupation: p.occupation || '',
+            address: p.address,
+            passportNumber: p.passportNumber || '',
+            kitasNumber: p.kitasNumber || '',
+            npwp: p.npwp || ''
+          };
+        }
+      }
+    }
+
+    // Cek query people collection langsung
+    const qPeople = query(collection(db, 'people'), where('nik', '==', cleanNik), limit(1));
+    const peopleSnap = await getDocs(qPeople);
+    if (!peopleSnap.empty) {
+      const p = peopleSnap.docs[0].data();
+      return {
+        personId: p.personId,
+        nik: p.nik || cleanNik,
+        name: p.name,
+        salutation: p.salutation || p.sapaan || 'Tuan',
+        birthCity: p.birthCity || p.birthPlace || '',
+        birthDate: p.birthDate || '',
+        nationalityType: p.nationalityType || 'WNI',
+        nationality: p.nationality || 'WNI',
+        occupation: p.occupation || '',
+        address: p.address,
+        passportNumber: p.passportNumber || '',
+        kitasNumber: p.kitasNumber || '',
+        npwp: p.npwp || ''
+      };
+    }
+  } catch (err) {
+    console.warn('[searchShareholderByNIKClient] Centralized people lookup warning, fallback to legacy scan:', err);
+  }
+
+  // 2. Fallback aman ke pemindaian koleksi legacy
   const collections = ['profiles', 'cv_profiles', 'projects', 'rupst_projects', 'pendirian_projects', 'laporan_projects'];
   let bestCandidate: any = null;
 

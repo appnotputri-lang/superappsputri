@@ -217,6 +217,7 @@ export function mapCompanyProfileToSnapshot(profile: CompanyProfile): ClientSnap
     originalTotalShares: profile.originalTotalShares || 0,
     shareholders: (profile.shareholders || []).map(s => ({
       id: s.id,
+      personId: s.personId,
       salutation: s.salutation || 'Tuan',
       name: s.name || '',
       birthCity: s.birthCity || '',
@@ -246,6 +247,7 @@ export function mapCompanyProfileToSnapshot(profile: CompanyProfile): ClientSnap
     })),
     managementItems: (profile.oldManagementItems || profile.newManagementItems || (profile as any).managementItems || []).map(m => ({
       id: m.id,
+      personId: m.personId,
       salutation: (m as any).salutation || '',
       name: m.name || '',
       birthCity: (m as any).birthCity || '',
@@ -665,9 +667,46 @@ export function syncClientMasterToFormData(
   }
 
   // 5. PEMEGANG SAHAM
-  // Copy full array directly without length fallback. Even if [], Project becomes []
+  // Deduplicate in-company shareholders by personId / 16-digit NIK, preserving roles and total shares
   if (selection.shareholders) {
-    result.shareholders = (client.shareholders || []).map((s: any) => ({ ...s }));
+    const rawShs = (client.shareholders || []).map((s: any) => ({ ...s }));
+    const rawMgmt = client.oldManagementItems || (client as any).managementItems || [];
+
+    const dedupedMap = new Map<string, any>();
+    const listWithoutKey: any[] = [];
+
+    for (const sh of rawShs) {
+      const cleanNik = sh.nik ? String(sh.nik).trim().replace(/\D/g, '') : '';
+      const key = sh.personId ? `pid:${sh.personId}` : (cleanNik.length === 16 ? `nik:${cleanNik}` : '');
+      
+      const mgmtMatch = rawMgmt.find((m: any) => {
+        const mNik = m.nik ? String(m.nik).trim().replace(/\D/g, '') : '';
+        return (sh.personId && m.personId && sh.personId === m.personId) ||
+               (cleanNik.length === 16 && mNik.length === 16 && cleanNik === mNik);
+      });
+
+      const enriched = {
+        ...sh,
+        personId: sh.personId || mgmtMatch?.personId,
+        managementPosition: sh.managementPosition || mgmtMatch?.position || sh.position || '',
+        isManagement: sh.isManagement ?? !!(mgmtMatch || sh.managementPosition || sh.position)
+      };
+
+      if (!key) {
+        listWithoutKey.push(enriched);
+      } else if (!dedupedMap.has(key)) {
+        dedupedMap.set(key, enriched);
+      } else {
+        const existing = dedupedMap.get(key)!;
+        existing.sharesOwned = (Number(existing.sharesOwned) || 0) + (Number(enriched.sharesOwned) || 0);
+        if (!existing.managementPosition && enriched.managementPosition) {
+          existing.managementPosition = enriched.managementPosition;
+          existing.isManagement = true;
+        }
+      }
+    }
+
+    result.shareholders = [...Array.from(dedupedMap.values()), ...listWithoutKey];
   }
 
   // 6. PENGURUS

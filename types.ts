@@ -28,8 +28,46 @@ export interface Address {
   phoneNumber?: string;
 }
 
+export interface Person {
+  personId: string;
+  nik: string;
+  salutation: 'Tuan' | 'Nyonya' | 'Nona';
+  sapaan?: 'Tuan' | 'Nyonya' | 'Nona';
+  name: string;
+  birthCity: string;
+  birthPlace?: string;
+  birthDate: string;
+  nationalityType?: 'WNI' | 'WNA';
+  nationality?: string;
+  occupation: string;
+  address: Address;
+  rt?: string;
+  rw?: string;
+  province?: string;
+  regency?: string;
+  district?: string;
+  village?: string;
+  npwp?: string;
+  passportNumber?: string;
+  hasKitas?: boolean;
+  kitasType?: 'KITAS' | 'KITAP' | 'NONE';
+  kitasNumber?: string;
+  phoneNumber?: string;
+  email?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  companyReferences?: Array<{
+    companyId: string;
+    companyName: string;
+    clientType: string;
+    role: string;
+    sharesOwned?: number;
+  }>;
+}
+
 export interface Shareholder {
   id: string;
+  personId?: string;
   salutation: 'Tuan' | 'Nyonya' | 'Nona';
   name: string;
   birthCity: string;
@@ -175,6 +213,7 @@ export interface KbliItem {
 
 export interface ManagementItem {
   id: string;
+  personId?: string;
   name: string;
   position: string;
   salutation?: 'Tuan' | 'Nyonya' | 'Nona';
@@ -861,6 +900,7 @@ export interface WebinarStats {
 
 export interface Pesero {
   id: string;
+  personId?: string;
   salutation: 'Tuan' | 'Nyonya' | 'Nona';
   name: string;
   birthCity: string;

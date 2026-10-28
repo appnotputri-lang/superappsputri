@@ -33,6 +33,7 @@ export interface ClientSnapshot {
   originalTotalShares?: number;
   shareholders?: {
     id: string;
+    personId?: string;
     name: string;
     sharesOwned: number;
     position?: string;
@@ -62,6 +63,7 @@ export interface ClientSnapshot {
   }[];
   managementItems?: {
     id: string;
+    personId?: string;
     name: string;
     position: string; // Direktur, Komisaris, dsb
     nik?: string;

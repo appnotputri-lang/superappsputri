@@ -13,13 +13,17 @@ import {
   BookOpen, 
   ShieldCheck, 
   FolderDown,
-  ArrowRight
+  ArrowRight,
+  UserCheck,
+  AlertTriangle,
+  Search
 } from 'lucide-react';
 import { PageContainer, PageHeader } from '../../components/ui/PageLayout';
 import { db } from '../../lib/firebase';
 import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
 import { generateShortPublicToken } from '../../services/QuotationService';
 import { CompanyService } from '../../services/CompanyService';
+import { PersonService, PersonMigrationReport } from '../../services/PersonService';
 import { getApiUrl, getAuthHeaders } from '../../lib/api';
 import { 
   FirestoreExportService, 
@@ -68,6 +72,44 @@ export default function MigrationTool() {
   });
   const [exportedBundle, setExportedBundle] = useState<FullNotaryExportResult | null>(null);
   const [exportedCollections, setExportedCollections] = useState<Record<string, any[]>>({});
+
+  // Centralized People Database Migration State
+  const [peopleMigrationLoading, setPeopleMigrationLoading] = useState(false);
+  const [peopleMigrationReport, setPeopleMigrationReport] = useState<PersonMigrationReport | null>(null);
+  const [peopleMigrationLogs, setPeopleMigrationLogs] = useState<string[]>([]);
+
+  const runPeopleDryRun = async () => {
+    setPeopleMigrationLoading(true);
+    setPeopleMigrationLogs([]);
+    try {
+      const res = await PersonService.runPeopleMigration(true, (msg) => {
+        setPeopleMigrationLogs(prev => [...prev, msg]);
+      });
+      setPeopleMigrationReport(res);
+    } catch (err: any) {
+      setPeopleMigrationLogs(prev => [...prev, `ERROR: ${err.message}`]);
+    } finally {
+      setPeopleMigrationLoading(false);
+    }
+  };
+
+  const runPeopleExecution = async () => {
+    if (!window.confirm("PERINGATAN EKSEKUSI MIGRASI:\n\nApakah Anda yakin ingin mengeksekusi migrasi ke Master Database Orang 'people' & backfill personId ke profil klien?\n\nOperasi ini aman, idempoten, dan tidak akan menghapus data lama.")) {
+      return;
+    }
+    setPeopleMigrationLoading(true);
+    setPeopleMigrationLogs([]);
+    try {
+      const res = await PersonService.runPeopleMigration(false, (msg) => {
+        setPeopleMigrationLogs(prev => [...prev, msg]);
+      });
+      setPeopleMigrationReport(res);
+    } catch (err: any) {
+      setPeopleMigrationLogs(prev => [...prev, `ERROR: ${err.message}`]);
+    } finally {
+      setPeopleMigrationLoading(false);
+    }
+  };
 
   const addLog = (msg: string) => {
     setLogs(prev => [...prev, msg]);
@@ -1416,6 +1458,151 @@ export default function MigrationTool() {
 
       <div className="mb-6">
         <InvoiceQuotationReconciliation />
+      </div>
+
+      {/* ============================================================================ */}
+      {/* 0. MIGRASI DATABASE MASTER ORANG TERPUSAT                                   */}
+      {/* ============================================================================ */}
+      <div className="bg-white p-6 rounded-xl border-2 border-indigo-300 shadow-sm space-y-6 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Users className="w-6 h-6 text-indigo-600" />
+              <h3 className="text-base font-bold text-slate-800">
+                Migrasi Database Master Orang Terpusat (people)
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 mt-1 max-w-3xl">
+              Memisahkan identitas individu dari entitas perusahaan (PT, CV, Yayasan). Setiap orang diidentifikasi 
+              secara unik berdasarkan NIK 16 digit dan dihubungkan ke record perusahaan melalui <code className="text-indigo-600 font-bold">personId</code> internal permanen, 
+              sementara jumlah saham dan jabatan tetap tersimpan terpisah pada masing-masing perusahaan.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+              <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
+              Atomic NIK Reservation
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              Idempoten & Non-Destruktif
+            </span>
+          </div>
+        </div>
+
+        {/* Action Controls */}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={runPeopleDryRun}
+            disabled={peopleMigrationLoading}
+            className="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2"
+          >
+            {peopleMigrationLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+            {peopleMigrationLoading ? "Memproses..." : "1. Jalankan Audit & Dry-Run (Simulasi)"}
+          </button>
+
+          <button
+            onClick={runPeopleExecution}
+            disabled={peopleMigrationLoading}
+            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all cursor-pointer disabled:opacity-50 flex items-center gap-2"
+          >
+            {peopleMigrationLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}
+            {peopleMigrationLoading ? "Mengeksekusi Migrasi..." : "2. Eksekusi Migrasi Data Master"}
+          </button>
+        </div>
+
+        {/* Live Logs Terminal */}
+        {peopleMigrationLogs.length > 0 && (
+          <div className="bg-slate-900 rounded-lg p-4 font-mono text-xs text-slate-200 max-h-56 overflow-y-auto space-y-1 shadow-inner">
+            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2 border-b border-slate-800 pb-1 flex justify-between">
+              <span>Log Proses Migrasi Master Orang</span>
+              <span>{peopleMigrationLogs.length} baris</span>
+            </div>
+            {peopleMigrationLogs.map((l, i) => (
+              <div key={i} className={`whitespace-pre-wrap ${l.startsWith('ERROR') ? 'text-rose-400 font-bold' : l.startsWith('⚠️') ? 'text-amber-300' : l.startsWith('===') ? 'text-emerald-400 font-bold' : ''}`}>
+                {l}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Migration Report Cards */}
+        {peopleMigrationReport && (
+          <div className="space-y-4 pt-1">
+            <div className="flex items-center justify-between bg-slate-100 p-3.5 rounded-lg border border-slate-200">
+              <div className="flex items-center gap-2">
+                <span className={`w-2.5 h-2.5 rounded-full ${peopleMigrationReport.isDryRun ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                <span className="text-xs font-bold text-slate-800">
+                  Mode Operasi: {peopleMigrationReport.isDryRun ? "DRY-RUN (SIMULASI - Tidak ada data diubah)" : "EKSEKUSI PENUH (Master Data Disimpan)"}
+                </span>
+              </div>
+              <span className="text-xs font-semibold text-slate-600">
+                Total Record Diperiksa: {peopleMigrationReport.totalIndividualRecords}
+              </span>
+            </div>
+
+            {/* Metrics Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div className="p-3 bg-indigo-50/50 rounded-lg border border-indigo-200">
+                <span className="text-[11px] font-medium text-slate-500 block">NIK Unik Valid</span>
+                <span className="text-xl font-bold text-indigo-700">{peopleMigrationReport.uniqueValidNiks}</span>
+                <span className="text-[10px] text-slate-500 block mt-0.5">kandidat master orang</span>
+              </div>
+              <div className="p-3 bg-purple-50/50 rounded-lg border border-purple-200">
+                <span className="text-[11px] font-medium text-slate-500 block">Lintas Perusahaan</span>
+                <span className="text-xl font-bold text-purple-700">{peopleMigrationReport.multiCompanyPeopleCount}</span>
+                <span className="text-[10px] text-slate-500 block mt-0.5">individu di &gt;1 PT/CV</span>
+              </div>
+              <div className="p-3 bg-emerald-50/50 rounded-lg border border-emerald-200">
+                <span className="text-[11px] font-medium text-slate-500 block">{peopleMigrationReport.isDryRun ? 'Rencana Disimpan' : 'Berhasil Disimpan'}</span>
+                <span className="text-xl font-bold text-emerald-700">
+                  {peopleMigrationReport.isDryRun ? peopleMigrationReport.uniqueValidNiks : peopleMigrationReport.migratedPeopleCount}
+                </span>
+                <span className="text-[10px] text-slate-500 block mt-0.5">ke koleksi &lsquo;people&rsquo;</span>
+              </div>
+              <div className="p-3 bg-amber-50/50 rounded-lg border border-amber-200">
+                <span className="text-[11px] font-medium text-slate-500 block">Tanpa NIK (Terisolasi)</span>
+                <span className="text-xl font-bold text-amber-700">{peopleMigrationReport.recordsWithoutNik}</span>
+                <span className="text-[10px] text-slate-500 block mt-0.5">tetap aman di alur lokal</span>
+              </div>
+            </div>
+
+            {/* Conflicts Table */}
+            {peopleMigrationReport.conflicts.length > 0 && (
+              <div className="p-4 bg-amber-50/40 border border-amber-200 rounded-lg space-y-2">
+                <div className="flex items-center gap-2 text-amber-800 text-xs font-bold">
+                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+                  <span>Daftar NIK dengan Perbedaan Data Identitas ({peopleMigrationReport.conflicts.length} NIK)</span>
+                </div>
+                <p className="text-[11px] text-slate-600">
+                  Meski terjadi variasi penulisan nama atau tanggal lahir pada sumber-sumber lama, engine migrasi memilih record paling lengkap untuk identitas master tanpa mengubah data record spesifik pada perusahaan.
+                </p>
+                <div className="max-h-48 overflow-y-auto border border-amber-200 rounded bg-white">
+                  <table className="w-full text-left text-[11px]">
+                    <thead className="bg-amber-100/60 border-b border-amber-200 font-bold text-slate-700">
+                      <tr>
+                        <th className="p-2">NIK</th>
+                        <th className="p-2">Variasi Nama</th>
+                        <th className="p-2">Sumber Koleksi & Perusahaan</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {peopleMigrationReport.conflicts.map((c, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50">
+                          <td className="p-2 font-mono font-bold text-slate-800">{c.nik}</td>
+                          <td className="p-2 text-slate-700">{c.names.join('  vs  ')}</td>
+                          <td className="p-2 text-slate-500">
+                            {c.sources.map(s => `${s.companyName} (${s.collection})`).join(', ')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ============================================================================ */}

@@ -528,6 +528,33 @@ export async function ensureD1TablesExist(db: any) {
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_webinar_part_lead_status ON webinar_participants(lead_status);`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS idx_webinar_part_created_at ON webinar_participants(created_at);`).run();
 
+  // 17. People table (Database Orang Terpusat)
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS people (
+      person_id TEXT PRIMARY KEY,
+      nik TEXT,
+      name TEXT NOT NULL,
+      salutation TEXT,
+      birth_city TEXT,
+      birth_date TEXT,
+      occupation TEXT,
+      full_address TEXT,
+      rt TEXT,
+      rw TEXT,
+      kelurahan TEXT,
+      kecamatan TEXT,
+      city TEXT,
+      province TEXT,
+      raw_data TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `).run();
+
+  await db.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS idx_people_nik ON people(nik) WHERE nik IS NOT NULL AND nik != '';`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_people_name ON people(name);`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS idx_people_created_at ON people(created_at);`).run();
+
   d1TablesEnsuredCache = true;
 }
 
