@@ -621,44 +621,28 @@ const ShareholderEditor: React.FC<Props> = ({
       )}
 
       <div>
-        <label className="block text-xs font-bold text-slate-700 mb-1.5">Jenis Pemegang Saham</label>
-        <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-lg border border-slate-200">
-          <button
-            type="button"
-            onClick={() => {
+        <label className="block text-xs font-bold text-slate-700 mb-1">Jenis Pemegang Saham</label>
+        <select 
+          value={shareholder.shareholderType || 'PERORANGAN'}
+          onChange={e => {
+            const val = e.target.value as any;
+            if (val === 'PERORANGAN') {
               onChange({ 
                 shareholderType: 'PERORANGAN',
                 linkedProfileId: undefined
               });
-            }}
-            className={`py-2 px-3 rounded-md text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              !isBadanHukum
-                ? 'bg-white text-slate-800 shadow-sm border border-slate-200/80'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-            }`}
-          >
-            <User className="w-4 h-4 text-teal-600" />
-            <span>Orang Perseorangan</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
+            } else {
               onChange({ 
                 shareholderType: 'BADAN_HUKUM',
                 legalEntityType: shareholder.legalEntityType || 'PT Persekutuan Modal'
               });
-            }}
-            className={`py-2 px-3 rounded-md text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-              isBadanHukum
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-            }`}
-          >
-            <Building2 className="w-4 h-4" />
-            <span>Badan Hukum (PT)</span>
-          </button>
-        </div>
+            }
+          }}
+          className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 font-medium"
+        >
+          <option value="PERORANGAN">PERORANGAN</option>
+          <option value="BADAN_HUKUM">BADAN HUKUM</option>
+        </select>
       </div>
 
       {isBadanHukum && !isWna && (

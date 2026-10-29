@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Eye, Trash2, Building2 } from 'lucide-react';
+import { Plus, Eye, Trash2 } from 'lucide-react';
 import { AhuSection } from '../components/CompanyForm';
 import { formatInputNumber } from '../../../../utils/formatters';
 import { CorporateShareholderService } from '../../../services/CorporateShareholderService';
@@ -88,25 +88,10 @@ export const ShareholderSection: React.FC<ShareholderSectionProps> = ({
         <div className="flex justify-end gap-2">
           <button 
             type="button"
-            onClick={() => openShareholderEditor('lama', {
-              id: crypto.randomUUID(),
-              shareholderType: 'BADAN_HUKUM',
-              salutation: '',
-              name: '',
-              legalEntityType: 'PT Persekutuan Modal',
-              sharesOwned: 0,
-              address: { fullAddress: '', rt: '', rw: '', kelurahan: '', kecamatan: '', city: '', province: '', postalCode: '' }
-            } as any)} 
-            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-sm text-[12px] font-bold shadow transition-colors flex items-center gap-1.5 cursor-pointer"
-          >
-            <Building2 className="w-4 h-4" /> + Tambah Pemegang Saham PT
-          </button>
-          <button 
-            type="button"
             onClick={() => openShareholderEditor('lama')} 
             className="bg-[#222d32] text-white px-3 py-1.5 rounded-sm text-[12px] font-bold shadow hover:bg-black transition-colors flex items-center gap-1 cursor-pointer"
           >
-            <Plus className="w-4 h-4" /> Tambah Perorangan
+            <Plus className="w-4 h-4" /> Tambah Pemegang Saham
           </button>
         </div>
         <div className="border border-slate-200 overflow-x-auto rounded-sm bg-white">
