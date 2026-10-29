@@ -59,7 +59,7 @@ export interface RUPSTPageProps {
   isSaving: boolean;
   setIsSaving: (s: boolean) => void;
   isSyncing: boolean;
-  handleManualSync: (type: string, data: any) => Promise<boolean>;
+  handleManualSync: (type: string, data: any) => Promise<any>;
   recordNotification: (title: string, desc: string, type: string) => void;
 
   isRupstPreview: boolean;
@@ -688,9 +688,23 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                   type="button"
                   disabled={isSyncing}
                   onClick={async () => {
-                    const success = await handleManualSync('RUPST', data);
-                    if (success) {
-                      alert(`Nomor Akta ${data.draftAktaRupsNumber || ''} berhasil disimpan ke Buku Daftar Akta!`);
+                    const res = await handleManualSync('RUPST', data);
+                    if (res && (typeof res === 'boolean' ? res : res.success)) {
+                      const finalOrder = (res as any).orderNumber || data.draftAktaRupsOrderNumber;
+                      const finalDeed = (res as any).deedNumber || data.draftAktaRupsNumber;
+                      const projId = data.id || (currentEditingRupstId && currentEditingRupstId !== 'new' ? currentEditingRupstId : null);
+                      if (projId && user) {
+                        try {
+                          await setDoc(doc(db, currentCollectionName, projId), sanitizeForFirestore({
+                            ...data,
+                            draftAktaRupsOrderNumber: finalOrder,
+                            updatedAt: new Date().toISOString()
+                          }), { merge: true });
+                        } catch (e) {
+                          console.warn("Auto-saving RUPST project after sync error:", e);
+                        }
+                      }
+                      alert(`Nomor Akta ${finalDeed || ''} berhasil disimpan ke Buku Daftar Akta!\nNomor Urut Akta: ${finalOrder || ''}`);
                     }
                   }}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase h-10 px-4 rounded-lg shadow-sm transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
@@ -1630,9 +1644,23 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                 <button
                   type="button"
                   onClick={async () => {
-                    const success = await handleManualSync('RUPST', data);
-                    if (success) {
-                      alert(`Nomor Akta ${data.draftAktaRupsNumber || ''} berhasil disimpan ke Buku Daftar Akta!`);
+                    const res = await handleManualSync('RUPST', data);
+                    if (res && (typeof res === 'boolean' ? res : res.success)) {
+                      const finalOrder = (res as any).orderNumber || data.draftAktaRupsOrderNumber;
+                      const finalDeed = (res as any).deedNumber || data.draftAktaRupsNumber;
+                      const projId = data.id || (currentEditingRupstId && currentEditingRupstId !== 'new' ? currentEditingRupstId : null);
+                      if (projId && user) {
+                        try {
+                          await setDoc(doc(db, currentCollectionName, projId), sanitizeForFirestore({
+                            ...data,
+                            draftAktaRupsOrderNumber: finalOrder,
+                            updatedAt: new Date().toISOString()
+                          }), { merge: true });
+                        } catch (e) {
+                          console.warn("Auto-saving RUPST project after sync error:", e);
+                        }
+                      }
+                      alert(`Nomor Akta ${finalDeed || ''} berhasil disimpan ke Buku Daftar Akta!\nNomor Urut Akta: ${finalOrder || ''}`);
                     }
                   }}
                   disabled={isSyncing}
@@ -1675,13 +1703,24 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                     Nomor Urut Akta RUPST
                   </label>
-                  <input
-                    type="text"
-                    value={data.draftAktaRupsOrderNumber || ''}
-                    onChange={e => updateData({ draftAktaRupsOrderNumber: e.target.value })}
-                    placeholder="Contoh: 001"
-                    className="w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={data.draftAktaRupsOrderNumber || ''}
+                      onChange={e => updateData({ draftAktaRupsOrderNumber: e.target.value })}
+                      placeholder="Contoh: 001"
+                      className="flex-1 border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleFetchLatestNumbers}
+                      disabled={isFetchingNumbers}
+                      className="px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg transition-colors flex items-center justify-center cursor-pointer disabled:opacity-50"
+                      title="Hitung Nomor Urut Sesuai Buku Akta"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${isFetchingNumbers ? 'animate-spin' : ''}`} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Tanggal Akta / Keputusan */}
@@ -2636,9 +2675,18 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                                     setRupstDropdownId(null);
                                     try {
                                       const rowData = { ...INITIAL_STATE, ...p } as any;
-                                      const success = await handleManualSync('RUPST', rowData);
-                                      if (success) {
-                                        alert(`Nomor Akta ${p.draftAktaRupsNumber || ''} berhasil disimpan ke Buku Daftar Akta!`);
+                                      const res = await handleManualSync('RUPST', rowData);
+                                      if (res && (typeof res === 'boolean' ? res : res.success)) {
+                                        const finalOrder = (res as any).orderNumber || p.draftAktaRupsOrderNumber;
+                                        const finalDeed = (res as any).deedNumber || p.draftAktaRupsNumber;
+                                        if (p.id) {
+                                          await setDoc(doc(db, currentCollectionName, p.id), sanitizeForFirestore({
+                                            ...p,
+                                            draftAktaRupsOrderNumber: finalOrder,
+                                            updatedAt: new Date().toISOString()
+                                          }), { merge: true });
+                                        }
+                                        alert(`Nomor Akta ${finalDeed || ''} berhasil disimpan ke Buku Daftar Akta!\nNomor Urut Akta: ${finalOrder || ''}`);
                                       }
                                     } catch (err: any) {
                                       alert('Gagal menyimpan ke Buku Akta: ' + (err?.message || 'Terjadi kesalahan'));

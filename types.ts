@@ -456,6 +456,8 @@ export interface CompanyData {
   createDraftAktaRups?: boolean;
   draftAktaRupsNumber?: string;
   draftAktaRupsOrderNumber?: string;
+  nomorUrut?: string;
+  nomorAkta?: string;
   draftAktaRupsDate?: string;
   draftAktaRupsTime?: string;
   

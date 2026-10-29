@@ -179,7 +179,7 @@ export class NotaryService {
     return json.records || (Array.isArray(json) ? json : []);
   }
 
-  static async addDeed(data: Omit<Deed, 'id'> & { id?: string }): Promise<string> {
+  static async addDeed(data: Omit<Deed, 'id'> & { id?: string }): Promise<Deed> {
     const docId = data.id || `deed_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     const res = await fetch('/api/deeds', {
       method: 'POST',
@@ -190,10 +190,15 @@ export class NotaryService {
       throw new Error('Failed to create deed in D1');
     }
     notifyChange('deeds');
-    return docId;
+    try {
+      const created = await res.json();
+      return created || ({ ...data, id: docId } as Deed);
+    } catch {
+      return { ...data, id: docId } as Deed;
+    }
   }
 
-  static async updateDeed(id: string, data: Partial<Deed>): Promise<void> {
+  static async updateDeed(id: string, data: Partial<Deed>): Promise<Deed> {
     const res = await fetch(`/api/deeds/${encodeURIComponent(id)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -203,6 +208,12 @@ export class NotaryService {
       throw new Error(`Failed to update deed ${id} in D1`);
     }
     notifyChange('deeds');
+    try {
+      const updated = await res.json();
+      return updated || ({ ...data, id } as Deed);
+    } catch {
+      return { ...data, id } as Deed;
+    }
   }
 
   static async deleteDeed(id: string): Promise<void> {

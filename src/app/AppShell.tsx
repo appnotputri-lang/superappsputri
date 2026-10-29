@@ -587,7 +587,7 @@ readCount: ${targetClientId ? 1 : 0}`);
   };
 
   const handleFetchLatestNumbers = async () => {
-    const targetDate = data.draftAktaRupsDate;
+    const targetDate = data.draftAktaRupsDate || data.signingDate || (data as any).tanggalAkta || (data as any).tanggal;
     if (!targetDate) {
       alert("Silakan isi Tanggal Akta RUPST/RUPSLB terlebih dahulu.");
       return;

@@ -20,12 +20,19 @@ export interface SyncDeedData {
   appearers: SyncAppearer[];
 }
 
+export interface SyncResult {
+  success: boolean;
+  orderNumber: string;
+  deedNumber: string;
+  deedId?: string;
+}
+
 export const generateRandomId = () => Math.random().toString(36).substr(2, 9);
 
-export const syncToUtama = async (data: SyncDeedData) => {
+export const syncToUtama = async (data: SyncDeedData): Promise<SyncResult> => {
   if (!data.deedNumber || !data.deedDate) {
     console.warn("Nomor Akta atau Tanggal Akta kosong. Sinkronisasi dibatalkan.");
-    return;
+    throw new Error("Nomor Akta dan Tanggal Akta harus diisi.");
   }
 
   try {
@@ -43,6 +50,8 @@ export const syncToUtama = async (data: SyncDeedData) => {
       grantors: []
     };
 
+    let savedDeed: any = null;
+
     // Check if deed with same number exists in D1
     const res = await fetch(`/api/deeds?search=${encodeURIComponent(data.deedNumber)}`);
     if (res.ok) {
@@ -50,15 +59,26 @@ export const syncToUtama = async (data: SyncDeedData) => {
       const records = json.records || [];
       const match = records.find((r: any) => String(r.number || r.deedNumber).trim() === String(data.deedNumber).trim());
       if (match) {
-        await NotaryService.updateDeed(match.id, payload);
+        savedDeed = await NotaryService.updateDeed(match.id, payload);
         console.log("Sync: Updated existing deed in D1 deeds collection", data.deedNumber);
-        return true;
       }
     }
 
-    await NotaryService.addDeed(payload);
-    console.log("Sync: Created new deed in D1 deeds collection", data.deedNumber);
-    return true;
+    if (!savedDeed) {
+      savedDeed = await NotaryService.addDeed(payload);
+      console.log("Sync: Created new deed in D1 deeds collection", data.deedNumber);
+    }
+
+    const finalOrderNumber = String(
+      savedDeed?.orderNumber || savedDeed?.order_number || data.orderNumber || ''
+    );
+
+    return {
+      success: true,
+      orderNumber: finalOrderNumber,
+      deedNumber: data.deedNumber,
+      deedId: savedDeed?.id
+    };
   } catch (error) {
     console.error("Sync to deeds failed:", error);
     throw error;

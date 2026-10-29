@@ -6,6 +6,7 @@ import { db, searchShareholderByNIKClient } from '../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { syncToUtama, getDeedTitle, formatAppearersForRups, formatAppearersForPendirian } from '../../lib/syncUtama';
 import { CompanyService } from '../../services/CompanyService';
+import { fetchLatestDeedNumbers } from '../../lib/deedUtils';
 
 interface DocumentRuntimeContextType {
   data: CompanyData;
@@ -29,7 +30,7 @@ interface DocumentRuntimeContextType {
   isSyncing: boolean;
   mergedData: CompanyData;
   syncCompanyDataToRupst: () => Promise<void> | void;
-  handleManualSync: (type: 'PENDIRIAN' | 'RUPSLB' | 'RUPST', deedData: any) => Promise<boolean>;
+  handleManualSync: (type: 'PENDIRIAN' | 'RUPSLB' | 'RUPST', deedData: any) => Promise<any>;
   proxyModalOpenId: string | null;
   setProxyModalOpenId: (id: string | null) => void;
   editingShareholder: Shareholder | null;
@@ -329,16 +330,43 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
       
       const clientName = (rawClientName || '').toUpperCase().startsWith('PT') ? (rawClientName || '') : `PT ${(rawClientName || '')}`;
 
+      // Hitung nomor urut terbaru dari Buku Akta berdasarkan tanggal akta sesuai rumusan buku akta
+      let calculatedOrderNumber = '';
+      try {
+        const latestNumbers = await fetchLatestDeedNumbers(deedDate);
+        if (latestNumbers && latestNumbers.nextOrderNumber) {
+          calculatedOrderNumber = latestNumbers.nextOrderNumber;
+        }
+      } catch (err) {
+        console.warn("Could not pre-fetch latest numbers from deed book formula:", err);
+      }
+
       const syncData = {
         deedNumber,
-        orderNumber: type === 'PENDIRIAN' ? (deedData as any).nomorUrut : ((deedData as any).draftAktaRupsOrderNumber || (deedData as any).nomorUrut || ''),
+        orderNumber: calculatedOrderNumber || (type === 'PENDIRIAN' ? (deedData as any).nomorUrut : ((deedData as any).draftAktaRupsOrderNumber || (deedData as any).nomorUrut || '')),
         deedDate,
         clientName,
         deedTitle: getDeedTitle(type, deedData, rawClientName),
         appearers: type === 'PENDIRIAN' ? (formatAppearersForPendirian as any)(deedData) : formatAppearersForRups(deedData)
       };
-      await syncToUtama(syncData);
-      return true;
+
+      const syncResult = await syncToUtama(syncData);
+      const finalOrderNumber = (syncResult && typeof syncResult === 'object' && syncResult.orderNumber)
+        ? syncResult.orderNumber
+        : (calculatedOrderNumber || syncData.orderNumber);
+
+      // Perbarui nomor urut di form data dan state dokumen sesuai rumusan buku akta
+      if (type === 'PENDIRIAN') {
+        updateData({ nomorUrut: finalOrderNumber });
+      } else {
+        updateData({ draftAktaRupsOrderNumber: finalOrderNumber });
+      }
+
+      return {
+        success: true,
+        orderNumber: finalOrderNumber,
+        deedNumber
+      };
     } catch (error) {
       console.error("Sync failed:", error);
       alert("Gagal menyimpan ke Buku Daftar Akta: " + (error instanceof Error ? error.message : "Terjadi kesalahan"));
@@ -346,7 +374,7 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsSyncing(false);
     }
-  }, []);
+  }, [updateData]);
 
   // Async NIK lookup auto-enrichment for shareholders with missing personal details
   useEffect(() => {
