@@ -21,6 +21,7 @@ import { useAuth } from '../../../hooks/useAuth';
 import { getApiUrl } from '../../../lib/api';
 import { handleFirestoreError, OperationType } from '../../../lib/firebase';
 import { CompanyService, ClientDirectoryEntry } from '../../../services/CompanyService';
+import { CorporateShareholderService } from '../../../services/CorporateShareholderService';
 import { ShareholderModal } from '../../../components/modals/ShareholderModal';
 import { KbliModal } from '../../../components/modals/KbliModal';
 import { AppLoader } from '../../../components/ui/AppLoader';
@@ -575,6 +576,10 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
     if (!editingShareholder || !editMode) return;
     
     let sanitizedShareholder = { ...editingShareholder };
+    if (CorporateShareholderService.checkIsCorporateShareholder(sanitizedShareholder)) {
+      sanitizedShareholder.isManagement = false;
+      sanitizedShareholder.managementPosition = undefined;
+    }
     const shareholders = data.shareholders || [];
     const finalShareholders = data.finalShareholders || [];
 

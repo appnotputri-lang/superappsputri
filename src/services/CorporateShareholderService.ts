@@ -303,6 +303,8 @@ export class CorporateShareholderService {
     const updates: Partial<Shareholder> = {
       ...sh,
       shareholderType: 'BADAN_HUKUM',
+      isManagement: false,
+      managementPosition: undefined,
       name: (profile.companyName || sh.name || '').toUpperCase().trim(),
       legalEntityType: profile.companyType || sh.legalEntityType || 'PT Persekutuan Modal',
       npwp: profile.npwp || sh.npwp || '',

@@ -419,6 +419,16 @@ const ShareholderEditor: React.FC<Props> = ({
     }
   }, [isBadanHukum, shareholder.linkedProfileId, shareholder.name, activeProfiles.length, effectiveMatchedProfile]);
 
+  // Badan Hukum can ONLY be a shareholder, never Direksi or Dewan Komisaris (UU PT No. 40/2007)
+  React.useEffect(() => {
+    if (isBadanHukum && (shareholder.isManagement || shareholder.managementPosition)) {
+      onChange({
+        isManagement: false,
+        managementPosition: undefined
+      });
+    }
+  }, [isBadanHukum, shareholder.isManagement, shareholder.managementPosition]);
+
   const handleProfileSelect = async (p: CompanyProfile) => {
     let fullProfile = p;
     if (p.id) {
@@ -1527,46 +1537,68 @@ const ShareholderEditor: React.FC<Props> = ({
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-        {(!hideFinancials || !hideManagement) && (
+        {isBadanHukum ? (
           <div>
             <label className="block text-xs font-bold text-slate-700 mb-2">Sebagai <span className="text-red-500">*</span></label>
-            <div className="space-y-3 pl-2">
-              {!hideFinancials && (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    disabled={disableFinancials}
-                    checked={disableFinancials ? false : (shareholder.sharesOwned > 0)} 
-                    onChange={e => {
-                      if (!e.target.checked) {
-                        onChange({ sharesOwned: 0 });
-                      } else if (shareholder.sharesOwned <= 0) {
-                        onChange({ sharesOwned: 1 });
-                      }
-                    }}
-                    className="rounded border-slate-300 text-teal-500 focus:ring-teal-500 disabled:opacity-50"
-                  />
-                  <span className={`text-sm ${disableFinancials ? 'text-slate-400' : 'text-slate-700'}`}>Pemegang Saham</span>
-                </label>
-              )}
-              {!hideManagement && (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    disabled={disableManagement}
-                    checked={shareholder.isManagement || false}
-                    onChange={e => onChange({ isManagement: e.target.checked, managementPosition: e.target.checked ? (shareholder.managementPosition || 'Direktur') : undefined })}
-                    className="rounded border-slate-300 text-teal-500 focus:ring-teal-500 disabled:opacity-50"
-                  />
-                  <span className={`text-sm ${disableManagement ? 'text-slate-400' : 'text-slate-700'}`}>Direksi/Komisaris</span>
-                </label>
-              )}
+            <div className="pl-2">
+              <label className="flex items-center gap-2 cursor-default select-none">
+                <input 
+                  type="checkbox" 
+                  checked={true}
+                  readOnly
+                  className="rounded border-slate-300 text-teal-600 focus:ring-teal-500 cursor-default"
+                />
+                <span className="text-sm font-bold text-slate-800">
+                  Pemegang Saham <span className="text-xs text-blue-600 font-semibold">(Badan Hukum)</span>
+                </span>
+              </label>
+              <p className="text-[11px] text-slate-500 mt-1 pl-6">
+                Badan Hukum hanya dapat bertindak sebagai Pemegang Saham (tidak dapat menjadi Direksi atau Dewan Komisaris).
+              </p>
             </div>
           </div>
+        ) : (
+          (!hideFinancials || !hideManagement) && (
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-2">Sebagai <span className="text-red-500">*</span></label>
+              <div className="space-y-3 pl-2">
+                {!hideFinancials && (
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      disabled={disableFinancials}
+                      checked={disableFinancials ? false : (shareholder.sharesOwned > 0)} 
+                      onChange={e => {
+                        if (!e.target.checked) {
+                          onChange({ sharesOwned: 0 });
+                        } else if (shareholder.sharesOwned <= 0) {
+                          onChange({ sharesOwned: 1 });
+                        }
+                      }}
+                      className="rounded border-slate-300 text-teal-500 focus:ring-teal-500 disabled:opacity-50"
+                    />
+                    <span className={`text-sm ${disableFinancials ? 'text-slate-400' : 'text-slate-700'}`}>Pemegang Saham</span>
+                  </label>
+                )}
+                {!hideManagement && (
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      disabled={disableManagement}
+                      checked={shareholder.isManagement || false}
+                      onChange={e => onChange({ isManagement: e.target.checked, managementPosition: e.target.checked ? (shareholder.managementPosition || 'Direktur') : undefined })}
+                      className="rounded border-slate-300 text-teal-500 focus:ring-teal-500 disabled:opacity-50"
+                    />
+                    <span className={`text-sm ${disableManagement ? 'text-slate-400' : 'text-slate-700'}`}>Direksi/Komisaris</span>
+                  </label>
+                )}
+              </div>
+            </div>
+          )
         )}
 
         <div className="space-y-4">
-          {!hideFinancials && (shareholder.sharesOwned > 0 || disableFinancials) && (
+          {!hideFinancials && (isBadanHukum || shareholder.sharesOwned > 0 || disableFinancials) && (
             <>
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Klasifikasi Saham <span className="text-red-500">*</span></label>
@@ -1740,7 +1772,7 @@ const ShareholderEditor: React.FC<Props> = ({
             </>
           )}
 
-          {shareholder.isManagement && !hideManagement && (
+          {!isBadanHukum && shareholder.isManagement && !hideManagement && (
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Jabatan Pengurus <span className="text-red-500">*</span></label>
               <select 
