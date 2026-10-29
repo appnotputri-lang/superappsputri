@@ -265,8 +265,11 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
             sharesOwned: sh.sharesOwned || 0,
             shareholder: sh,
             proxyData: {
-              representationType: (sh as any).representativePosition === 'Kuasa Direksi' ? 'KUASA_DIREKSI' : 'DIREKTUR_PT_LAIN',
-              position: (sh as any).representativePosition || "Direktur",
+              representationType: (sh as any).representativePosition === 'Kuasa Direksi'
+                ? 'KUASA_DIREKSI'
+                : (sh.proxyData?.representationType || (sh as any).representationType || 'DIREKTUR_PT_LAIN'),
+              position: (sh as any).representativePosition || sh.proxyData?.position || sh.proxyData?.occupation || "Direktur",
+              proxyDeedDate: (sh as any).proxyDeedDate || sh.proxyData?.proxyDeedDate || "",
               ...repPerson
             }
           });
@@ -388,7 +391,7 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
       } else {
         const r = att.representations[0];
         const isDirector = r.proxyData.representationType === 'DIREKTUR_PT_LAIN' || r.proxyData.representationType === 'KUASA_DIREKSI';
-        const posName = r.proxyData.position || (r.proxyData.representationType === 'KUASA_DIREKSI' ? 'Kuasa Direksi' : 'Direktur');
+        const posName = r.proxyData.position || r.proxyData.occupation || (r.shareholder as any).representativePosition || (r.proxyData.representationType === 'KUASA_DIREKSI' ? 'Kuasa Direksi' : 'Direktur');
         const parValue = data.originalSharePrice || 100000;
         const currentShares = r.sharesOwned || 0;
         const currentValue = currentShares * parValue;
@@ -516,7 +519,7 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
 
       att.representations.forEach((r, rIdx) => {
         const isDirector = r.proxyData.representationType === 'DIREKTUR_PT_LAIN' || r.proxyData.representationType === 'KUASA_DIREKSI';
-        const posName = r.proxyData.position || (r.proxyData.representationType === 'KUASA_DIREKSI' ? 'Kuasa Direksi' : 'Direktur');
+        const posName = r.proxyData.position || r.proxyData.occupation || (r.shareholder as any).representativePosition || (r.proxyData.representationType === 'KUASA_DIREKSI' ? 'Kuasa Direksi' : 'Direktur');
         const parValue = data.originalSharePrice || 100000;
         const currentShares = r.sharesOwned || 0;
         const currentValue = currentShares * parValue;

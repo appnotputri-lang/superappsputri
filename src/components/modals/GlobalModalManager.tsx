@@ -5,6 +5,7 @@ import { KbliModal } from './KbliModal';
 import { EditProfileModal } from '../../../components/EditProfileModal';
 import ProxyInputModal from './RepresentativeModal';
 import PendirianDocumentPreview from '../../PendirianDocumentPreview';
+import { CorporateShareholderService } from '../../services/CorporateShareholderService';
 
 interface GlobalModalManagerProps {
   // Shareholder Modal Props
@@ -85,6 +86,7 @@ export const GlobalModalManager: React.FC<GlobalModalManagerProps> = (props) => 
         data={props.data}
         currentTargetSharesPaid={props.currentTargetSharesPaid}
         saveShareholder={props.saveShareholder}
+        profiles={props.profiles}
       />
 
       {props.showPendirianPreview && props.pendirianPreviewData && (
@@ -193,10 +195,32 @@ export const GlobalModalManager: React.FC<GlobalModalManagerProps> = (props) => 
             availableParties={availableParties}
             shareholder={sh}
             profiles={props.profiles}
-            onSave={(proxyData) => {
-              const newList = props.data.shareholders.map((item: any) =>
-                item.id === props.proxyModalOpenId ? { ...item, proxyData } : item
-              );
+            excludeCompanyIdOrName={props.data.selectedProfileId || props.data.companyName}
+            onSave={(proxyData, linkedProfile) => {
+              const newList = props.data.shareholders.map((item: any) => {
+                if (item.id === props.proxyModalOpenId) {
+                  let updated = {
+                    ...item,
+                    isProxy: true,
+                    proxyData
+                  };
+
+                  if (linkedProfile) {
+                    updated = CorporateShareholderService.applyCorporateProfileToShareholder(
+                      updated,
+                      linkedProfile,
+                      null,
+                      proxyData.representationType || 'DIREKTUR_PT_LAIN',
+                      proxyData.proxyDeedDate
+                    );
+                    updated.proxyData = proxyData;
+                  }
+
+                  updated = CorporateShareholderService.syncShareholderRepresentative(updated);
+                  return updated;
+                }
+                return item;
+              });
               props.updateData({ shareholders: newList });
               props.setProxyModalOpenId(null);
             }}

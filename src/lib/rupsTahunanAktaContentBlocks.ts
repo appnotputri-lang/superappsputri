@@ -175,7 +175,8 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     );
     rep = found?.isProxy && found.proxyData ? found.proxyData : (found || validShareholders[0]);
   } else {
-    if (data.representativeType === "EXISTING") {
+    const repType = data.representativeType || (data.manualRepresentative ? "MANUAL" : "EXISTING");
+    if (repType === "EXISTING") {
       const found = validShareholders.find(
         (s) => s.id === data.authorizedRepresentativeId,
       );
@@ -193,7 +194,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
             : chairSh || validShareholders[0] || (data.shareholders || [])[0];
       }
     } else {
-      rep = data.manualRepresentative;
+      rep = data.manualRepresentative || validShareholders[0] || (data.shareholders || [])[0];
     }
   }
 
@@ -766,8 +767,11 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
             sharesOwned: sh.sharesOwned || 0,
             shareholder: sh,
             proxyData: {
-              representationType: (sh as any).representativePosition === 'Kuasa Direksi' ? 'KUASA_DIREKSI' : 'DIREKTUR_PT_LAIN',
-              position: (sh as any).representativePosition || "Direktur",
+              representationType: (sh as any).representativePosition === 'Kuasa Direksi'
+                ? 'KUASA_DIREKSI'
+                : (sh.proxyData?.representationType || (sh as any).representationType || 'DIREKTUR_PT_LAIN'),
+              position: (sh as any).representativePosition || sh.proxyData?.position || sh.proxyData?.occupation || "Direktur",
+              proxyDeedDate: (sh as any).proxyDeedDate || sh.proxyData?.proxyDeedDate || "",
               ...repPerson,
             },
           });
@@ -861,7 +865,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     const isDirector =
       r.proxyData.representationType === "DIREKTUR_PT_LAIN" ||
       r.proxyData.representationType === "KUASA_DIREKSI";
-    const posName = r.proxyData.position || (r.proxyData.representationType === "KUASA_DIREKSI" ? "Kuasa Direksi" : "Direktur");
+    const posName = r.proxyData.position || r.proxyData.occupation || (r.shareholder as any).representativePosition || (r.proxyData.representationType === "KUASA_DIREKSI" ? "Kuasa Direksi" : "Direktur");
     const shareRp =
       (r.sharesOwned || 0) * (data.originalSharePrice || 10000000);
     const formattedAmt = formatNumber(shareRp);
@@ -986,8 +990,7 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     }
 
     const isRep =
-      (att.name || "").toUpperCase().trim() ===
-      (rep.name || "").toUpperCase().trim();
+      Boolean(rep && (att.name || "").toUpperCase().trim() === ((rep.name || "").toUpperCase().trim()));
     const currentSal = (att.salutation || "Tuan").trim();
     let displayName = (att.name || "").toUpperCase().trim();
 

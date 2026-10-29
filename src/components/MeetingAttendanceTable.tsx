@@ -2,6 +2,7 @@ import React from 'react';
 import { Users, Plus, Eye, Trash2 } from 'lucide-react';
 import { formatInputNumber } from '../../utils/formatters';
 import { useDocumentRuntime } from '../domain/company/useDocumentRuntime';
+import { CorporateShareholderService } from '../services/CorporateShareholderService';
 
 interface MeetingAttendanceTableProps {
   sectionTitle: string;
@@ -73,71 +74,130 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
             </tr>
           </thead>
           <tbody>
-            {shareholders.map((s, idx) => (
-              <tr key={s.id ? `sh-${s.id}-${idx}` : `sh-idx-${idx}`} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors">
-                <td className="p-2 border-r border-slate-200 font-medium uppercase">{s.name}</td>
-                <td className="p-2 border-r border-slate-200">{formatInputNumber(s.sharesOwned)} Saham</td>
-                <td className="p-2 text-center border-r border-slate-200">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 cursor-pointer"
-                    checked={s.isPresent || false}
-                    onChange={e => {
-                      const newList = shareholders.map(item =>
-                        item.id === s.id
-                          ? { ...item, isPresent: e.target.checked, isProxy: e.target.checked ? item.isProxy : false, proxyData: e.target.checked ? item.proxyData : undefined }
-                          : item
-                      );
-                      updateData({ shareholders: newList });
-                    }}
-                  />
-                </td>
-                <td className="p-2 text-center border-r border-slate-200">
-                  {s.isPresent && (
+            {shareholders.map((s, idx) => {
+              const isCorp = CorporateShareholderService.checkIsCorporateShareholder(s);
+              const repName = s.guardianName || (s.isProxy && s.proxyData?.name) || '';
+              const repPos = s.representativePosition || s.proxyData?.occupation || s.proxyData?.position || (isCorp ? 'Direktur' : 'Penerima Kuasa');
+              const repSal = s.proxyData?.salutation || s.guardianSalutation || 'Tuan';
+
+              return (
+                <tr key={s.id ? `sh-${s.id}-${idx}` : `sh-idx-${idx}`} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors">
+                  <td className="p-2 border-r border-slate-200 font-medium uppercase">
+                    <div className="flex flex-col">
+                      <span className="font-bold text-slate-800">{s.name}</span>
+                      {isCorp && (
+                        <span className="inline-block mt-0.5 px-1.5 py-0.5 bg-blue-100 text-blue-700 font-bold text-[9px] rounded w-fit tracking-wide">
+                          Badan Hukum (PT)
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="p-2 border-r border-slate-200 font-semibold">{formatInputNumber(s.sharesOwned)} Saham</td>
+                  <td className="p-2 text-center border-r border-slate-200">
                     <input
                       type="checkbox"
-                      className="w-4 h-4 cursor-pointer accent-orange-600"
-                      checked={s.isProxy || false}
+                      className="w-4 h-4 cursor-pointer"
+                      checked={s.isPresent || false}
                       onChange={e => {
+                        const isChecked = e.target.checked;
                         const newList = shareholders.map(item =>
-                          item.id === s.id ? { ...item, isProxy: e.target.checked, proxyData: e.target.checked ? item.proxyData : undefined } : item
+                          item.id === s.id
+                            ? {
+                                ...item,
+                                isPresent: isChecked,
+                                isProxy: isChecked ? (isCorp ? true : item.isProxy) : false,
+                                proxyData: isChecked ? item.proxyData : undefined
+                              }
+                            : item
                         );
                         updateData({ shareholders: newList });
                       }}
-                      title="Centang jika pemegang saham dikuasakan ke orang lain"
                     />
-                  )}
-                </td>
-                <td className="p-2 text-center border-r border-slate-200">
-                  {s.isPresent && s.isProxy && (
-                    s.proxyData?.name ? (
-                      <div className="flex items-center justify-between gap-2 px-1">
-                        <span className="text-[11px] font-bold text-slate-700 uppercase truncate">
-                          {s.proxyData.salutation} {s.proxyData.name}
+                  </td>
+                  <td className="p-2 text-center border-r border-slate-200">
+                    {s.isPresent && (
+                      isCorp ? (
+                        <span className="inline-block px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold rounded">
+                          Diwakili
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProxyModalOpenId(s.id);
+                      ) : (
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 cursor-pointer accent-orange-600"
+                          checked={s.isProxy || false}
+                          onChange={e => {
+                            const newList = shareholders.map(item =>
+                              item.id === s.id ? { ...item, isProxy: e.target.checked, proxyData: e.target.checked ? item.proxyData : undefined } : item
+                            );
+                            updateData({ shareholders: newList });
                           }}
-                          className="text-[9px] text-blue-600 hover:underline whitespace-nowrap cursor-pointer"
-                        >
-                          Ubah
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProxyModalOpenId(s.id);
-                        }}
-                        className="text-[10px] bg-orange-500 text-white px-3 py-1 rounded hover:bg-orange-600 transition-colors font-bold cursor-pointer"
-                      >
-                        + Isi Data Kuasa
-                      </button>
-                    )
-                  )}
-                </td>
+                          title="Centang jika pemegang saham dikuasakan ke orang lain"
+                        />
+                      )
+                    )}
+                  </td>
+                  <td className="p-2 text-center border-r border-slate-200">
+                    {s.isPresent && (
+                      (() => {
+                        if (repName) {
+                          return (
+                            <div className="flex items-center justify-between gap-2 px-1">
+                              <span className={`text-[11px] font-bold uppercase truncate px-2 py-0.5 rounded border ${
+                                isCorp
+                                  ? 'text-blue-900 bg-blue-50 border-blue-200'
+                                  : 'text-orange-900 bg-orange-50 border-orange-200'
+                              }`}>
+                                {isCorp ? '🏢 ' : ''}{repSal} {repName} ({repPos})
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setProxyModalOpenId(s.id);
+                                }}
+                                className="text-[9px] text-blue-600 hover:underline whitespace-nowrap cursor-pointer font-bold ml-1"
+                              >
+                                Ubah
+                              </button>
+                            </div>
+                          );
+                        }
+
+                        if (isCorp) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newList = shareholders.map(item =>
+                                  item.id === s.id ? { ...item, isProxy: true } : item
+                                );
+                                updateData({ shareholders: newList });
+                                setProxyModalOpenId(s.id);
+                              }}
+                              className="text-[10px] bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded transition-colors font-bold cursor-pointer shadow-xs"
+                            >
+                              + Pilih Wakil PT (Direksi/Komisaris)
+                            </button>
+                          );
+                        }
+
+                        if (s.isProxy) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setProxyModalOpenId(s.id);
+                              }}
+                              className="text-[10px] bg-orange-500 text-white px-3 py-1 rounded hover:bg-orange-600 transition-colors font-bold cursor-pointer"
+                            >
+                              + Isi Data Kuasa
+                            </button>
+                          );
+                        }
+
+                        return <span className="text-slate-400 text-[10px]">-</span>;
+                      })()
+                    )}
+                  </td>
                 {showAksiColumn && (
                   <td className="p-2 text-center">
                     <div className="flex justify-center items-center gap-1.5">
@@ -161,7 +221,8 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
                   </td>
                 )}
               </tr>
-            ))}
+            );
+          })}
             {shareholders.length === 0 && (
               <tr>
                 <td colSpan={showAksiColumn ? 6 : 5} className="p-4 text-center text-slate-400 italic">

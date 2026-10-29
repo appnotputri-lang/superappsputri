@@ -1,8 +1,9 @@
 import React from 'react';
-import { X, UserCheck, FileText } from 'lucide-react';
+import { X, UserCheck, FileText, AlertCircle, Building2, CheckCircle2 } from 'lucide-react';
 import { IndoRegionSelector } from '../../../components/AddressFields';
 import { Shareholder, CompanyProfile } from '../../../types';
 import { CompanyService } from '../../services/CompanyService';
+import { CorporateShareholderService, CorporateStakeholderParty } from '../../services/CorporateShareholderService';
 
 export interface ProxyData {
   salutation: 'Tuan' | 'Nyonya' | 'Nona';
@@ -38,11 +39,12 @@ interface Props {
   isOpen: boolean;
   shareholderName: string;
   initialData?: Partial<ProxyData>;
-  onSave: (data: ProxyData) => void;
+  onSave: (data: ProxyData, linkedProfile?: CompanyProfile | null) => void;
   onClose: () => void;
   availableParties?: any[];
   shareholder?: Shareholder;
   profiles?: CompanyProfile[];
+  excludeCompanyIdOrName?: string;
 }
 
 const emptyProxy = (): ProxyData => ({
@@ -72,18 +74,6 @@ const emptyProxy = (): ProxyData => ({
   hasKitas: false,
 });
 
-const normalizeName = (name: string): string => {
-  if (!name) return '';
-  let str = name.toUpperCase();
-  // Strip common prefixes/suffixes
-  str = str.replace(/\bPT\b/g, '')
-           .replace(/\bPT\.\s*/g, '')
-           .replace(/\bPERSEROAN\s+TERBATAS\b/g, '')
-           .replace(/[^A-Z0-9]/g, '')
-           .trim();
-  return str;
-};
-
 const ProxyInputModal: React.FC<Props> = ({
   isOpen,
   shareholderName,
@@ -93,9 +83,13 @@ const ProxyInputModal: React.FC<Props> = ({
   availableParties,
   shareholder,
   profiles = [],
+  excludeCompanyIdOrName,
 }) => {
+  const isCorporate = CorporateShareholderService.checkIsCorporateShareholder(shareholder);
+
   const [form, setForm] = React.useState<ProxyData>(() => ({
     ...emptyProxy(),
+    representationType: isCorporate ? 'DIREKTUR_PT_LAIN' : (initialData?.representationType || 'KUASA'),
     ...(initialData || {}),
     address: { ...emptyProxy().address, ...(initialData?.address || {}) },
   }));
@@ -103,22 +97,24 @@ const ProxyInputModal: React.FC<Props> = ({
   const [activeProfileId, setActiveProfileId] = React.useState<string>('');
   const [showManualCompanySearch, setShowManualCompanySearch] = React.useState<boolean>(false);
   const [fullParentProfile, setFullParentProfile] = React.useState<CompanyProfile | null>(null);
+  const [selectedPartyMissingNote, setSelectedPartyMissingNote] = React.useState<string>('');
 
+  // Available profiles strictly excluding the meeting company
+  const availableCorporateProfiles = React.useMemo(() => {
+    return CorporateShareholderService.filterAvailableCorporateProfiles(
+      profiles,
+      excludeCompanyIdOrName
+    );
+  }, [profiles, excludeCompanyIdOrName]);
+
+  // Auto-find matching corporate profile for this shareholder
   const autoParentProfile = React.useMemo(() => {
-    if (!shareholder || !profiles) return null;
-    if (shareholder.linkedProfileId) {
-      const found = profiles.find(p => p.id === shareholder.linkedProfileId);
-      if (found) return found;
-    }
-    if (shareholder.name) {
-      const shNorm = normalizeName(shareholder.name);
-      if (shNorm) {
-        const found = profiles.find(p => p.companyName && normalizeName(p.companyName) === shNorm);
-        if (found) return found;
-      }
-    }
-    return null;
-  }, [shareholder, profiles]);
+    return CorporateShareholderService.findMatchingCorporateProfile(
+      shareholder,
+      profiles,
+      excludeCompanyIdOrName
+    );
+  }, [shareholder, profiles, excludeCompanyIdOrName]);
 
   React.useEffect(() => {
     if (autoParentProfile) {
@@ -146,92 +142,27 @@ const ProxyInputModal: React.FC<Props> = ({
 
   const parentProfile = fullParentProfile || (activeProfileId ? profiles.find(p => p.id === activeProfileId) || null : autoParentProfile);
 
-  const parentManagementItems = React.useMemo(() => {
+  // Extract stakeholders (Direksi, Komisaris, Pemegang Saham) from parent profile
+  const parentStakeholders = React.useMemo<CorporateStakeholderParty[]>(() => {
     if (!parentProfile) return [];
-    
-    const list: any[] = [];
-    
-    // 1. Gather from management items lists
-    const newItems = parentProfile.newManagementItems || [];
-    const oldItems = parentProfile.oldManagementItems || [];
-    
-    [...newItems, ...oldItems].forEach(m => {
-      if (m && m.name && m.name.trim() !== '') {
-        list.push({
-          name: m.name,
-          salutation: m.salutation || 'Tuan',
-          position: m.position || m.occupation || 'Direktur/Komisaris',
-          nik: m.nik || '',
-          birthCity: m.birthCity || '',
-          birthDate: m.birthDate || '',
-          nationalityType: (m as any).nationalityType || 'WNI',
-          isForeign: (m as any).isForeign || false,
-          nationality: (m as any).nationality || '',
-          passportNumber: (m as any).passportNumber || '',
-          kitasNumber: (m as any).kitasNumber || '',
-          kitasType: (m as any).kitasType || 'NONE',
-          hasKitas: (m as any).hasKitas || false,
-          address: m.address || {},
-          isManagement: true,
-        });
-      }
-    });
-
-    // 2. Gather from shareholders list who are marked as management or are individuals
-    const shItems = parentProfile.shareholders || [];
-    shItems.forEach(s => {
-      if (s && s.name && s.name.trim() !== '' && s.shareholderType !== 'BADAN_HUKUM') {
-        const isMgr = s.isManagement || !!s.managementPosition;
-        list.push({
-          name: s.name,
-          salutation: s.salutation || 'Tuan',
-          position: s.managementPosition || (isMgr ? 'Direktur' : 'Pemegang Saham'),
-          nik: s.nik || '',
-          birthCity: s.birthCity || '',
-          birthDate: s.birthDate || '',
-          nationalityType: s.nationalityType || 'WNI',
-          isForeign: s.isForeign || false,
-          nationality: s.nationality || '',
-          passportNumber: s.passportNumber || '',
-          kitasNumber: s.kitasNumber || '',
-          kitasType: s.kitasType || 'NONE',
-          hasKitas: s.hasKitas || false,
-          address: s.address || {},
-          isFromShareholder: true,
-          isManagement: isMgr,
-        });
-      }
-    });
-
-    // 3. Filter duplicates by normalized name, prioritizing management matches
-    const uniqueMap = new Map<string, any>();
-    list.forEach(item => {
-      const norm = normalizeName(item.name);
-      if (!norm) return;
-      if (!uniqueMap.has(norm)) {
-        uniqueMap.set(norm, item);
-      } else {
-        const existing = uniqueMap.get(norm);
-        const existingIsMgmt = existing.isManagement || existing.position !== 'Pemegang Saham';
-        const newIsMgmt = item.isManagement || item.position !== 'Pemegang Saham';
-        if (newIsMgmt && !existingIsMgmt) {
-          uniqueMap.set(norm, item);
-        }
-      }
-    });
-
-    return Array.from(uniqueMap.values());
+    return CorporateShareholderService.extractCorporateStakeholders(parentProfile);
   }, [parentProfile]);
+
+  const direksiList = React.useMemo(() => parentStakeholders.filter(p => p.roleCategory === 'DIREKSI'), [parentStakeholders]);
+  const komisarisList = React.useMemo(() => parentStakeholders.filter(p => p.roleCategory === 'KOMISARIS'), [parentStakeholders]);
+  const pemegangSahamList = React.useMemo(() => parentStakeholders.filter(p => p.roleCategory === 'PEMEGANG_SAHAM'), [parentStakeholders]);
 
   React.useEffect(() => {
     if (isOpen) {
       setForm({
         ...emptyProxy(),
+        representationType: isCorporate ? (initialData?.representationType || 'DIREKTUR_PT_LAIN') : (initialData?.representationType || 'KUASA'),
         ...(initialData || {}),
         address: { ...emptyProxy().address, ...(initialData?.address || {}) },
       });
+      setSelectedPartyMissingNote('');
     }
-  }, [isOpen, shareholderName]);
+  }, [isOpen, shareholderName, isCorporate]);
 
   if (!isOpen) return null;
 
@@ -243,18 +174,52 @@ const ProxyInputModal: React.FC<Props> = ({
 
   const isWna = form.nationalityType === 'WNA' || form.isForeign;
 
+  const handleApplyStakeholder = (party: CorporateStakeholderParty) => {
+    if (party.missingFields.length > 0) {
+      setSelectedPartyMissingNote(`Catatan: Data ${party.name} di Master Klien belum memiliki: ${party.missingFields.join(', ')}. Silakan lengkapi formulir di bawah ini.`);
+    } else {
+      setSelectedPartyMissingNote('');
+    }
+
+    update({
+      salutation: party.salutation || 'Tuan',
+      name: (party.name || '').toUpperCase().trim(),
+      nik: party.nik || '',
+      birthCity: party.birthCity || '',
+      birthDate: party.birthDate || '',
+      occupation: party.position || party.occupation || (party.roleCategory === 'PEMEGANG_SAHAM' ? 'WIRASWASTA' : 'Direktur'),
+      nationalityType: party.nationalityType || 'WNI',
+      isForeign: party.nationalityType === 'WNA',
+      nationality: party.nationality || (party.nationalityType === 'WNA' ? 'WNA' : 'Indonesia'),
+      passportNumber: party.passportNumber || '',
+      kitasNumber: party.kitasNumber || '',
+      kitasType: party.kitasType || 'NONE',
+      hasKitas: party.hasKitas || false,
+      address: {
+        fullAddress: party.address?.fullAddress || '',
+        rt: party.address?.rt || '',
+        rw: party.address?.rw || '',
+        kelurahan: party.address?.kelurahan || '',
+        kecamatan: party.address?.kecamatan || '',
+        city: party.address?.city || '',
+        province: party.address?.province || '',
+        postalCode: party.address?.postalCode || '',
+      }
+    });
+  };
+
   const handleSave = () => {
-    if (!form.name.trim()) { alert('Nama penerima kuasa wajib diisi.'); return; }
-    if (!isWna && !form.nik.trim()) { alert('NIK penerima kuasa wajib diisi.'); return; }
+    if (!form.name.trim()) { alert('Nama pihak yang mewakili wajib diisi.'); return; }
+    if (!isWna && !form.nik.trim()) { alert('NIK pihak yang mewakili wajib diisi.'); return; }
     if (isWna) {
-      if (!form.nationality?.trim()) { alert('Nama Negara asal penerima kuasa wajib diisi.'); return; }
-      if (!form.passportNumber?.trim()) { alert('Nomor Passport penerima kuasa wajib diisi.'); return; }
+      if (!form.nationality?.trim()) { alert('Nama Negara asal pihak yang mewakili wajib diisi.'); return; }
+      if (!form.passportNumber?.trim()) { alert('Nomor Passport pihak yang mewakili wajib diisi.'); return; }
     }
     if (form.representationType !== 'DIREKTUR_PT_LAIN' && !form.proxyDeedDate) { 
       alert('Tanggal Akta/Surat Kuasa wajib diisi.'); 
       return; 
     }
-    onSave(form);
+    onSave(form, parentProfile);
   };
 
   return (
@@ -264,19 +229,20 @@ const ProxyInputModal: React.FC<Props> = ({
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center rounded-t-2xl">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-100 rounded-full">
-              <UserCheck className="w-4 h-4 text-orange-600" />
+            <div className={`p-2 rounded-full ${isCorporate ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-600'}`}>
+              {isCorporate ? <Building2 className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
             </div>
             <div>
               <h2 className="font-bold text-sm tracking-widest uppercase text-slate-800">
-                Data Penerima Kuasa
+                {isCorporate ? 'Pihak yang Mewakili PT Pemegang Saham' : 'Data Penerima Kuasa'}
               </h2>
               <p className="text-[10px] text-slate-500 mt-0.5">
-                Kuasa dari: <span className="font-bold text-orange-600">{shareholderName}</span>
+                {isCorporate ? 'Badan Hukum PT: ' : 'Kuasa dari: '}
+                <span className="font-bold text-blue-700 uppercase">{shareholderName}</span>
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-black/5 bg-black/5 rounded-full transition-colors">
+          <button onClick={onClose} className="p-2 hover:bg-black/5 bg-black/5 rounded-full transition-colors cursor-pointer">
             <X className="w-4 h-4 text-slate-600" />
           </button>
         </div>
@@ -288,31 +254,12 @@ const ProxyInputModal: React.FC<Props> = ({
           {/* ── SELEKTOR KAPASITAS / REPRESENTASI ── */}
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-2">
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
-              Kapasitas/Kewenangan Penerima Kuasa <span className="text-red-500">*</span>
+              Kapasitas/Kewenangan yang Menghadap <span className="text-red-500">*</span>
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <label className={`flex items-center gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${
-                form.representationType !== 'DIREKTUR_PT_LAIN' 
-                  ? 'bg-teal-50/50 border-teal-300 text-teal-900' 
-                  : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50'
-              }`}>
-                <input 
-                  type="radio" 
-                  name="representationType" 
-                  value="KUASA"
-                  checked={form.representationType !== 'DIREKTUR_PT_LAIN'}
-                  onChange={() => update({ representationType: 'KUASA' })}
-                  className="text-teal-500 focus:ring-teal-500 w-4 h-4"
-                />
-                <div className="flex flex-col">
-                  <span className="text-xs font-bold">Penerima Kuasa</span>
-                  <span className="text-[10px] text-slate-500 leading-normal">Membawa Surat / Akta Kuasa</span>
-                </div>
-              </label>
-
-              <label className={`flex items-center gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${
                 form.representationType === 'DIREKTUR_PT_LAIN' 
-                  ? 'bg-teal-50/50 border-teal-300 text-teal-900' 
+                  ? 'bg-blue-50/80 border-blue-400 text-blue-950 font-bold shadow-xs' 
                   : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50'
               }`}>
                 <input 
@@ -321,11 +268,30 @@ const ProxyInputModal: React.FC<Props> = ({
                   value="DIREKTUR_PT_LAIN"
                   checked={form.representationType === 'DIREKTUR_PT_LAIN'}
                   onChange={() => update({ representationType: 'DIREKTUR_PT_LAIN', proxyDeedDate: '' })}
-                  className="text-teal-500 focus:ring-teal-500 w-4 h-4"
+                  className="text-blue-600 focus:ring-blue-500 w-4 h-4"
                 />
                 <div className="flex flex-col">
-                  <span className="text-xs font-bold">Direktur PT Lain</span>
-                  <span className="text-[10px] text-slate-500 leading-normal">Direktur/Pengurus Badan Hukum</span>
+                  <span className="text-xs font-bold">Direktur / Pengurus PT</span>
+                  <span className="text-[10px] text-slate-500 leading-normal">Berdasarkan AD/ART (Tanpa Akta Kuasa)</span>
+                </div>
+              </label>
+
+              <label className={`flex items-center gap-2.5 p-3 rounded-lg border cursor-pointer transition-all ${
+                form.representationType !== 'DIREKTUR_PT_LAIN' 
+                  ? 'bg-teal-50/80 border-teal-400 text-teal-950 font-bold shadow-xs' 
+                  : 'bg-white border-slate-200 text-slate-800 hover:bg-slate-50'
+              }`}>
+                <input 
+                  type="radio" 
+                  name="representationType" 
+                  value="KUASA"
+                  checked={form.representationType !== 'DIREKTUR_PT_LAIN'}
+                  onChange={() => update({ representationType: 'KUASA' })}
+                  className="text-teal-600 focus:ring-teal-500 w-4 h-4"
+                />
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold">Kuasa Direksi / Penerima Kuasa</span>
+                  <span className="text-[10px] text-slate-500 leading-normal">Membawa Surat / Akta Kuasa Khusus</span>
                 </div>
               </label>
             </div>
@@ -350,168 +316,138 @@ const ProxyInputModal: React.FC<Props> = ({
                 className="w-full px-3 py-2 border border-orange-300 rounded outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-sm bg-white"
               />
               <p className="text-[10px] text-orange-600 mt-1.5">
-                Akan tercetak: "berdasarkan Akta Kuasa tertanggal [tanggal ini]"
+                Akan tercetak: "berdasarkan Surat Kuasa tertanggal [tanggal ini]"
               </p>
             </div>
           )}
 
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pt-1 border-t border-slate-100">
-            Identitas Penerima Kuasa
-          </div>
-
-          {/* ── SELEKTOR DARI PROFIL PT YANG MEMEGANG SAHAM ── */}
-          {form.representationType === 'DIREKTUR_PT_LAIN' ? (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
-              {parentProfile && (
-                <div className="flex justify-between items-center bg-blue-100/60 px-3 py-1.5 rounded text-xs font-bold text-blue-900 border border-blue-200">
-                  <span>🏢 Pemegang Saham: {parentProfile.companyName}</span>
+          {/* ── SELEKTOR DARI PROFIL PT PEMEGANG SAHAM (DATA KLIEN) ── */}
+          <div className="bg-blue-50/70 border border-blue-200 rounded-lg p-4 space-y-3">
+            {parentProfile && (
+              <div className="bg-blue-100/70 p-3 rounded-lg border border-blue-200 space-y-1.5 text-xs text-blue-900">
+                <div className="flex justify-between items-center">
+                  <span className="font-extrabold uppercase flex items-center gap-1.5">
+                    <Building2 className="w-4 h-4 text-blue-700" /> PT Terhubung: {parentProfile.companyName}
+                  </span>
                   <button
                     type="button"
                     onClick={() => setShowManualCompanySearch(prev => !prev)}
-                    className="text-[10px] text-blue-600 underline hover:text-blue-800 transition-colors"
+                    className="text-[11px] text-blue-600 underline hover:text-blue-800 font-bold cursor-pointer"
                   >
-                    {showManualCompanySearch ? 'Batal' : 'Ganti PT'}
+                    {showManualCompanySearch ? 'Batal' : 'Ganti Profil PT'}
                   </button>
                 </div>
-              )}
+                <div className="text-[11px] text-slate-600 grid grid-cols-2 gap-1 pt-1 border-t border-blue-200/60">
+                  <span>Kedudukan: <b>{parentProfile.domicile || parentProfile.oldDomicile || 'Belum diisi'}</b></span>
+                  <span>Akta Pendirian: <b>{parentProfile.establishmentDeedNumber ? `No. ${parentProfile.establishmentDeedNumber}` : 'Belum diisi'}</b></span>
+                  <span className="col-span-2 truncate">SK Kemenkumham: <b>{parentProfile.establishmentSkNumber || 'Belum diisi'}</b></span>
+                </div>
+              </div>
+            )}
 
-              {/* Tampilkan pencarian manual PT jika diinginkan, atau jika autoParentProfile tidak ditemukan */}
-              {(!parentProfile || showManualCompanySearch) && (
-                <div>
-                  <label className="block text-[11px] font-bold text-blue-900 mb-1">
-                    Cari / Hubungkan ke Profil PT Pemegang Saham:
-                  </label>
-                  <select
-                    value={activeProfileId}
-                    onChange={e => {
-                      setActiveProfileId(e.target.value);
-                      setShowManualCompanySearch(false);
-                    }}
-                    className="w-full px-3 py-1.5 border border-blue-300 rounded outline-none text-xs bg-white focus:border-blue-500 font-bold text-blue-900"
-                  >
-                    <option value="">-- Manual/Ketik Sendiri atau Pilih Profil --</option>
-                    {profiles.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.companyName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {parentProfile && parentManagementItems.length > 0 ? (
-                <div>
-                  <label className="block text-[11px] font-bold text-blue-900 mb-1 flex items-center gap-1.5">
-                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
-                    Pilih Direktur / Komisaris dari PT {parentProfile.companyName}:
-                  </label>
-                  <select
-                    onChange={e => {
-                      const idxStr = e.target.value;
-                      if (idxStr !== '') {
-                        const party = parentManagementItems[parseInt(idxStr, 10)];
-                        update({
-                          salutation: party.salutation || 'Tuan',
-                          name: (party.name || '').toUpperCase(),
-                          nik: party.nik || '',
-                          birthCity: party.birthCity || '',
-                          birthDate: party.birthDate || '',
-                          occupation: party.position || party.occupation || 'Direktur',
-                          nationalityType: party.nationalityType || 'WNI',
-                          isForeign: party.isForeign || false,
-                          nationality: party.nationality || '',
-                          passportNumber: party.passportNumber || '',
-                          kitasNumber: party.kitasNumber || '',
-                          kitasType: party.kitasType || 'NONE',
-                          hasKitas: party.hasKitas || false,
-                          address: {
-                            fullAddress: party.address?.fullAddress || '',
-                            rt: party.address?.rt || '',
-                            rw: party.address?.rw || '',
-                            kelurahan: party.address?.kelurahan || '',
-                            kecamatan: party.address?.kecamatan || '',
-                            city: party.address?.city || '',
-                            province: party.address?.province || '',
-                            postalCode: party.address?.postalCode || '',
-                          }
-                        });
-                      }
-                    }}
-                    className="w-full px-3 py-2 border-2 border-blue-450 rounded outline-none text-xs bg-white focus:border-blue-700 font-extrabold text-blue-950 focus:ring-2 focus:ring-blue-100"
-                    defaultValue=""
-                  >
-                    <option value="">-- Pilih Direksi / Komisaris PT {parentProfile.companyName} --</option>
-                    {parentManagementItems.map((p, idx) => (
-                      <option key={idx} value={idx}>
-                        {p.name} ({p.position || p.occupation || 'Pengurus'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ) : (
-                <div className="bg-amber-50 border border-amber-200 rounded p-2 text-[10px] text-amber-800 font-medium">
-                  Pengurus tidak ditemukan dalam profil PT {parentProfile?.companyName || "terpilih"}. Pastikan pengurus sudah diisi di Company Profile pemegang saham, atau Anda dapat mengisi data di bawah secara manual.
-                </div>
-              )}
-            </div>
-          ) : (
-            parentProfile && parentManagementItems.length > 0 && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <label className="block text-xs font-bold text-blue-900 mb-1 flex items-center gap-1.5">
-                  <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-                  Ambil Data Pengurus PT {parentProfile.companyName} (Pemegang Saham):
+            {/* Tampilkan pencarian manual PT jika diinginkan, atau jika autoParentProfile tidak ditemukan */}
+            {(!parentProfile || showManualCompanySearch) && (
+              <div>
+                <label className="block text-[11px] font-bold text-blue-900 mb-1">
+                  Hubungkan ke Profil PT Pemegang Saham (dari Master Data Klien):
                 </label>
                 <select
+                  value={activeProfileId}
                   onChange={e => {
-                    const idxStr = e.target.value;
-                    if (idxStr !== '') {
-                      const party = parentManagementItems[parseInt(idxStr, 10)];
-                      update({
-                        salutation: party.salutation || 'Tuan',
-                        name: (party.name || '').toUpperCase(),
-                        nik: party.nik || '',
-                        birthCity: party.birthCity || '',
-                        birthDate: party.birthDate || '',
-                        occupation: party.position || party.occupation || 'Direktur',
-                        nationalityType: party.nationalityType || 'WNI',
-                        isForeign: party.isForeign || false,
-                        nationality: party.nationality || '',
-                        passportNumber: party.passportNumber || '',
-                        kitasNumber: party.kitasNumber || '',
-                        kitasType: party.kitasType || 'NONE',
-                        hasKitas: party.hasKitas || false,
-                        address: {
-                          fullAddress: party.address?.fullAddress || '',
-                          rt: party.address?.rt || '',
-                          rw: party.address?.rw || '',
-                          kelurahan: party.address?.kelurahan || '',
-                          kecamatan: party.address?.kecamatan || '',
-                          city: party.address?.city || '',
-                          province: party.address?.province || '',
-                          postalCode: party.address?.postalCode || '',
-                        }
-                      });
-                    }
+                    setActiveProfileId(e.target.value);
+                    setShowManualCompanySearch(false);
                   }}
-                  className="w-full px-3 py-1.5 border border-blue-300 rounded outline-none text-xs bg-white focus:border-blue-500 font-bold text-blue-900"
-                  defaultValue=""
+                  className="w-full px-3 py-2 border border-blue-300 rounded outline-none text-xs bg-white focus:border-blue-500 font-bold text-blue-900"
                 >
-                  <option value="">-- Pilih Pengurus PT {parentProfile.companyName} --</option>
-                  {parentManagementItems.map((p, idx) => (
-                    <option key={idx} value={idx}>
-                      {p.name} ({p.position || 'Pengurus'})
+                  <option value="">-- Cari & Pilih Profil PT dari Database --</option>
+                  {availableCorporateProfiles.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.companyName}
                     </option>
                   ))}
                 </select>
               </div>
-            )
-          )}
+            )}
 
+            {/* List Stakeholders dari Master Klien */}
+            {parentProfile ? (
+              parentStakeholders.length > 0 ? (
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-bold text-blue-900 flex items-center gap-1.5">
+                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+                    Ambil Data Pihak dari PT {parentProfile.companyName}:
+                  </label>
+                  <select
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val && val !== 'MANUAL') {
+                        const party = parentStakeholders.find(p => p.id === val);
+                        if (party) {
+                          handleApplyStakeholder(party);
+                        }
+                      }
+                    }}
+                    className="w-full px-3 py-2 border-2 border-blue-400 rounded-lg outline-none text-xs bg-white focus:border-blue-700 font-bold text-blue-950 focus:ring-2 focus:ring-blue-100"
+                    defaultValue=""
+                  >
+                    <option value="">-- Pilih Pihak yang Mewakili (Direksi, Komisaris, Pemegang Saham) --</option>
+                    {direksiList.length > 0 && (
+                      <optgroup label="Dewan Direksi (Direksi)">
+                        {direksiList.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} — {p.position} {p.isComplete ? '✓ (Lengkap)' : '⚠️ (Perlu Lengkapi Data)'}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {komisarisList.length > 0 && (
+                      <optgroup label="Dewan Komisaris">
+                        {komisarisList.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} — {p.position} {p.isComplete ? '✓ (Lengkap)' : '⚠️ (Perlu Lengkapi Data)'}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {pemegangSahamList.length > 0 && (
+                      <optgroup label="Pemegang Saham PT (Perorangan)">
+                        {pemegangSahamList.map(p => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} — Pemegang Saham {p.isComplete ? '✓ (Lengkap)' : '⚠️ (Perlu Lengkapi Data)'}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    <option value="MANUAL">-- Kuasa Direksi / Pihak Lainnya (Input Manual) --</option>
+                  </select>
+
+                  {selectedPartyMissingNote && (
+                    <div className="p-2.5 bg-amber-50 border border-amber-200 rounded text-amber-800 text-[11px] flex items-start gap-1.5 font-medium">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <span>{selectedPartyMissingNote}</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 font-medium space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                    Pemberitahuan Data Belum Lengkap
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    Data Direksi, Dewan Komisaris, dan Pemegang Saham untuk <b>PT {parentProfile.companyName}</b> belum tersedia di Master Data Klien. Silakan isi data pihak yang mewakili secara manual pada formulir di bawah ini, atau lengkapi data pada menu <b>Profil Perusahaan / Master Klien</b>.
+                  </p>
+                </div>
+              )
+            ) : null}
+          </div>
+
+          {/* Atau ambil dari pihak rapat lainnya jika kuasa biasa */}
           {form.representationType !== 'DIREKTUR_PT_LAIN' && availableParties && availableParties.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <label className="block text-xs font-bold text-amber-900 mb-1 flex items-center gap-1.5">
-                <span className="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
-                Ambil Data dari Pihak/Pengurus yang Sudah Ada:
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
+              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                <span className="inline-block w-2 h-2 rounded-full bg-slate-400"></span>
+                Atau Ambil dari Pihak/Peserta Rapat Lainnya:
               </label>
               <select
                 onChange={e => {
@@ -545,7 +481,7 @@ const ProxyInputModal: React.FC<Props> = ({
                     });
                   }
                 }}
-                className="w-full px-3 py-1.5 border border-amber-300 rounded outline-none text-xs bg-white focus:border-amber-500 font-medium"
+                className="w-full px-3 py-1.5 border border-slate-300 rounded outline-none text-xs bg-white focus:border-slate-500 font-medium"
                 defaultValue=""
               >
                 <option value="">-- Pilih Pihak / Pengurus --</option>
@@ -558,223 +494,180 @@ const ProxyInputModal: React.FC<Props> = ({
             </div>
           )}
 
-          {/* Nama */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Nama <span className="text-red-500">*</span>
-            </label>
-            <div className="flex gap-2">
-              <select
-                value={form.salutation || 'Tuan'}
-                onChange={e => update({ salutation: e.target.value as ProxyData['salutation'] })}
-                className="w-24 px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-              >
-                <option value="Tuan">Tuan</option>
-                <option value="Nyonya">Nyonya</option>
-                <option value="Nona">Nona</option>
-              </select>
+          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pt-2 border-t border-slate-100">
+            Formulir Lengkap Identitas yang Menghadap
+          </div>
+
+          {/* Form Nama & Jabatan */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Jabatan / Kedudukan <span className="text-red-500">*</span>
+              </label>
               <input
                 type="text"
-                value={form.name || ''}
-                onChange={e => update({ name: e.target.value.toUpperCase() })}
-                className="flex-1 px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm font-bold"
-                placeholder="Nama lengkap penerima kuasa"
+                value={form.occupation || ''}
+                onChange={e => update({ occupation: e.target.value.toUpperCase() })}
+                placeholder="CONTOH: DIREKTUR UTAMA / KUASA DIREKSI"
+                className="w-full px-3 py-2 border border-slate-300 rounded text-sm outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 font-bold uppercase"
               />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Nama Lengkap <span className="text-red-500">*</span>
+              </label>
+              <div className="flex gap-2">
+                <select
+                  value={form.salutation}
+                  onChange={e => update({ salutation: e.target.value as any })}
+                  className="w-24 px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 cursor-pointer"
+                >
+                  <option value="Tuan">Tuan</option>
+                  <option value="Nyonya">Nyonya</option>
+                  <option value="Nona">Nona</option>
+                </select>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={e => update({ name: e.target.value.toUpperCase() })}
+                  placeholder="NAMA LENGKAP"
+                  className="flex-1 px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm font-bold uppercase"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Checkbox Asing */}
-          <div className="flex items-center gap-2 pt-1">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input 
-                type="checkbox" 
-                checked={isWna}
+          {/* Kewarganegaraan */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Kewarganegaraan</label>
+              <select
+                value={form.nationalityType || 'WNI'}
                 onChange={e => {
-                  const check = e.target.checked;
-                  update({ 
-                    isForeign: check,
-                    nationalityType: check ? 'WNA' : 'WNI', 
-                    nationality: check ? '' : 'WNI',
-                    nik: check ? '' : form.nik,
-                    passportNumber: check ? form.passportNumber : ''
+                  const val = e.target.value as 'WNI' | 'WNA';
+                  update({
+                    nationalityType: val,
+                    isForeign: val === 'WNA',
+                    nationality: val === 'WNI' ? 'Indonesia' : ''
                   });
                 }}
-                className="rounded border-slate-300 text-teal-500 focus:ring-teal-500 w-4 h-4"
-              />
-              <span className="text-xs text-slate-700 font-bold">Penerima Kuasa Asing (WNA)</span>
-            </label>
+                className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+              >
+                <option value="WNI">WNI (Indonesia)</option>
+                <option value="WNA">WNA (Asing)</option>
+              </select>
+            </div>
+            {!isWna ? (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  NIK <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.nik}
+                  onChange={e => update({ nik: e.target.value.replace(/\D/g, '') })}
+                  placeholder="16 DIGIT NIK"
+                  maxLength={16}
+                  className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm font-mono"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Nomor Paspor <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={form.passportNumber || ''}
+                  onChange={e => update({ passportNumber: e.target.value.toUpperCase() })}
+                  placeholder="NOMOR PASPOR"
+                  className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm uppercase"
+                />
+              </div>
+            )}
           </div>
 
-          {/* NIK or WNA credentials */}
-          {!isWna ? (
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                NIK <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={form.nik || ''}
-                onChange={e => update({ nik: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
-                placeholder="Nomor Induk Kependudukan"
-              />
-            </div>
-          ) : (
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Nama Negara <span className="text-red-500">*</span>
-                </label>
-                <input 
-                  type="text" 
-                  value={form.nationality || ''} 
-                  onChange={e => update({ nationality: e.target.value.toUpperCase() })}
-                  placeholder="CONTOH: AMERIKA SERIKAT"
-                  className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-ring focus:ring-1 focus:border-teal-500 focus:ring-teal-500 text-sm bg-white"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Nomor Passport <span className="text-red-500">*</span>
-                </label>
-                <input 
-                  type="text" 
-                  value={form.passportNumber || ''} 
-                  onChange={e => update({ passportNumber: e.target.value.toUpperCase() })}
-                  placeholder="Nomor Passport"
-                  className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-ring focus:ring-1 focus:border-teal-500 focus:ring-teal-500 text-sm bg-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Tipe Izin Tinggal</label>
-                  <select 
-                    value={form.kitasType || 'NONE'}
-                    onChange={e => update({ 
-                      kitasType: e.target.value as any, 
-                      hasKitas: e.target.value !== 'NONE' 
-                    })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                  >
-                    <option value="NONE">-- Tidak Ada --</option>
-                    <option value="KITAS">KITAS</option>
-                    <option value="KITAP">KITAP</option>
-                  </select>
-                </div>
-                {form.kitasType && form.kitasType !== 'NONE' && (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Nomor {form.kitasType}</label>
-                    <input 
-                      type="text" 
-                      value={form.kitasNumber || ''} 
-                      onChange={e => update({ kitasNumber: e.target.value.toUpperCase() })}
-                      placeholder={`Nomor ${form.kitasType}`}
-                      className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm bg-white"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* Tempat & Tanggal Lahir */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Tempat Lahir <span className="text-red-500">*</span>
-              </label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Tempat Lahir</label>
               <input
                 type="text"
-                value={form.birthCity || ''}
+                value={form.birthCity}
                 onChange={e => update({ birthCity: e.target.value.toUpperCase() })}
-                className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+                placeholder="KOTA LAHIR"
+                className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm uppercase"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                Tanggal Lahir <span className="text-red-500">*</span>
-              </label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal Lahir</label>
               <input
                 type="date"
-                value={form.birthDate || ''}
+                value={form.birthDate}
                 onChange={e => update({ birthDate: e.target.value })}
                 className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm bg-slate-50"
               />
             </div>
           </div>
 
-          {/* Pekerjaan */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Pekerjaan <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={form.occupation || ''}
-              onChange={e => update({ occupation: e.target.value.toUpperCase() })}
-              placeholder="CONTOH: WIRASWASTA"
-              className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
-            />
-          </div>
-
           {/* Alamat */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">
-              Alamat <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={form.address?.fullAddress || ''}
-              onChange={e => updateAddress({ fullAddress: e.target.value.toUpperCase() })}
-              className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm min-h-[72px]"
-              placeholder="Nama jalan, nomor, dll."
+          <div className="pt-2 border-t border-slate-100 space-y-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Alamat Lengkap</label>
+              <textarea
+                value={form.address.fullAddress}
+                onChange={e => updateAddress({ fullAddress: e.target.value.toUpperCase() })}
+                placeholder="NAMA JALAN / GEDUNG / NOMOR"
+                className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm min-h-[60px] uppercase"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1">RT</label>
+                <input
+                  type="text"
+                  value={form.address.rt}
+                  onChange={e => updateAddress({ rt: e.target.value })}
+                  placeholder="000"
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded outline-none text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1">RW</label>
+                <input
+                  type="text"
+                  value={form.address.rw}
+                  onChange={e => updateAddress({ rw: e.target.value })}
+                  placeholder="000"
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded outline-none text-xs"
+                />
+              </div>
+            </div>
+
+            <IndoRegionSelector
+              address={form.address}
+              onUpdate={updateAddress}
+              hideStreetAndRT={true}
             />
           </div>
-
-          {/* RT / RW */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">RT</label>
-              <input
-                type="text"
-                value={form.address?.rt || ''}
-                onChange={e => updateAddress({ rt: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">RW</label>
-              <input
-                type="text"
-                value={form.address?.rw || ''}
-                onChange={e => updateAddress({ rw: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
-              />
-            </div>
-          </div>
-
-          {/* Provinsi, Kab/Kota, Kecamatan, Kelurahan */}
-          <IndoRegionSelector
-            address={form.address}
-            onUpdate={updateAddress}
-            hideStreetAndRT={true}
-          />
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 rounded-b-2xl bg-white">
+        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-3 bg-slate-50 rounded-b-2xl">
           <button
+            type="button"
             onClick={onClose}
-            className="px-5 py-2 text-sm font-bold text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+            className="px-5 py-2 border border-slate-300 rounded-lg text-xs font-bold text-slate-600 hover:bg-white transition-colors cursor-pointer"
           >
-            BATAL
+            Batal
           </button>
           <button
+            type="button"
             onClick={handleSave}
-            className="px-5 py-2 text-sm font-bold text-white bg-teal-500 rounded-lg hover:bg-teal-600 transition-colors"
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer"
           >
-            SIMPAN DATA
+            Simpan Data Wakil
           </button>
         </div>
 

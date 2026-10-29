@@ -1,10 +1,11 @@
 import React from 'react';
 import { Shareholder, CompanyProfile } from '../../../types';
-import { User, Banknote, Globe, ShieldCheck, MapPin, Coins, History, Zap, Info, Briefcase, UserPlus, ArrowRightLeft, Users, Plus, Trash2, Camera, Loader2, AlertCircle } from 'lucide-react';
+import { User, Banknote, Globe, ShieldCheck, MapPin, Coins, History, Zap, Info, Briefcase, UserPlus, ArrowRightLeft, Users, Plus, Trash2, Camera, Loader2, AlertCircle, RefreshCw, Building2, CheckCircle2 } from 'lucide-react';
 import { formatCurrency, numberToWords, formatInputNumber, parseFormattedNumber } from '../../../utils/formatters';
 import { IndoRegionSelector } from '../../../components/AddressFields';
 import { searchShareholderByNIKClient } from '../../lib/firebase';
 import { useDocumentRuntime } from '../../domain/company/useDocumentRuntime';
+import { CorporateShareholderService, CorporateStakeholderParty } from '../../services/CorporateShareholderService';
 
 interface Props {
   shareholder: Shareholder;
@@ -243,49 +244,40 @@ const ShareholderEditor: React.FC<Props> = ({
   const currentTotalValue = shareholder.sharesOwned * activeGlobalSharePrice;
   const canQuickFill = totalSharesAllowed > 0 && shareholder.sharesOwned < maxPossible && !disableFinancials;
   const isWna = shareholder.nationalityType === 'WNA' || shareholder.isForeign;
-  const isBadanHukum = shareholder.shareholderType === 'BADAN_HUKUM';
+  const isBadanHukum = CorporateShareholderService.checkIsCorporateShareholder(shareholder);
+  const meetingCompanyIdOrName = runtimeData?.selectedProfileId || runtimeData?.companyName;
 
   const matchedProfile = React.useMemo(() => {
     if (!isBadanHukum || !activeProfiles || activeProfiles.length === 0) return null;
-    return activeProfiles.find(p => 
-      (shareholder.linkedProfileId && p.id === shareholder.linkedProfileId) ||
-      (shareholder.name && p.companyName && p.companyName.trim().toUpperCase() === shareholder.name.trim().toUpperCase())
+    return CorporateShareholderService.findMatchingCorporateProfile(
+      shareholder,
+      activeProfiles,
+      meetingCompanyIdOrName
     );
-  }, [isBadanHukum, activeProfiles, shareholder.linkedProfileId, shareholder.name]);
+  }, [isBadanHukum, activeProfiles, shareholder.linkedProfileId, shareholder.name, meetingCompanyIdOrName]);
 
-  const managementListForWakil = React.useMemo<any[]>(() => {
+  const stakeholdersForWakil = React.useMemo<CorporateStakeholderParty[]>(() => {
     if (!matchedProfile) return [];
-    return matchedProfile.newManagementItems?.length > 0 ? matchedProfile.newManagementItems : 
-         (matchedProfile.oldManagementItems?.length > 0 ? matchedProfile.oldManagementItems : 
-         (matchedProfile.shareholders || []).filter(s => s.isManagement));
+    return CorporateShareholderService.extractCorporateStakeholders(matchedProfile);
   }, [matchedProfile]);
 
-  // Helper to remove PT prefix variation for sorting/filtering
-  const cleanPT = (name: string): string => {
-    if (!name) return "";
-    const regex = /^(PT|PT\.|P\.T\.|P\.T)\s*/i;
-    return name.replace(regex, "").trim().toLowerCase();
-  };
+  const direksiForWakil = React.useMemo(() => stakeholdersForWakil.filter(s => s.roleCategory === 'DIREKSI'), [stakeholdersForWakil]);
+  const komisarisForWakil = React.useMemo(() => stakeholdersForWakil.filter(s => s.roleCategory === 'KOMISARIS'), [stakeholdersForWakil]);
+  const pemegangSahamForWakil = React.useMemo(() => stakeholdersForWakil.filter(s => s.roleCategory === 'PEMEGANG_SAHAM'), [stakeholdersForWakil]);
 
-  // Sort profiles alphabetically ignoring "PT" prefix and filter based on search query
+  // Sort profiles alphabetically ignoring "PT" prefix and filter based on search query, strictly excluding meeting PT
   const sortedAndFilteredProfiles = React.useMemo(() => {
-    const sorted = [...activeProfiles].sort((a, b) => {
-      const nameA = cleanPT(a.companyName || "");
-      const nameB = cleanPT(b.companyName || "");
-      return nameA.localeCompare(nameB, "id", { sensitivity: "base" });
-    });
-
-    if (!profileSearchQuery.trim()) {
-      return sorted;
-    }
-    const q = profileSearchQuery.toLowerCase();
-    return sorted.filter(p => (p.companyName || '').toLowerCase().includes(q));
-  }, [activeProfiles, profileSearchQuery]);
+    return CorporateShareholderService.filterAvailableCorporateProfiles(
+      activeProfiles,
+      meetingCompanyIdOrName,
+      profileSearchQuery
+    );
+  }, [activeProfiles, meetingCompanyIdOrName, profileSearchQuery]);
 
   const selectedProfile = React.useMemo(() => {
-    if (!shareholder.linkedProfileId) return null;
-    return activeProfiles.find(p => p.id === shareholder.linkedProfileId);
-  }, [shareholder.linkedProfileId, activeProfiles]);
+    if (!shareholder.linkedProfileId) return matchedProfile;
+    return activeProfiles.find(p => p.id === shareholder.linkedProfileId) || matchedProfile;
+  }, [shareholder.linkedProfileId, activeProfiles, matchedProfile]);
 
   const handleSharesChange = (inputValue: string) => {
     let val = parseFormattedNumber(inputValue);
@@ -322,15 +314,11 @@ const ShareholderEditor: React.FC<Props> = ({
   // Automatically pull 'Kedudukan' (city) and representative from company profile if shareholder is BADAN_HUKUM
   React.useEffect(() => {
     if (isBadanHukum && activeProfiles && activeProfiles.length > 0) {
-      const matchedProfile = activeProfiles.find(p => 
-        (shareholder.linkedProfileId && p.id === shareholder.linkedProfileId) ||
-        (shareholder.name && p.companyName && p.companyName.trim().toUpperCase() === shareholder.name.trim().toUpperCase())
-      );
-
-      if (matchedProfile) {
+      const p = matchedProfile;
+      if (p) {
         const updates: Partial<Shareholder> = {};
         
-        const profileCity = (matchedProfile.domicile || matchedProfile.oldDomicile || matchedProfile.newAddress?.city || matchedProfile.oldAddress?.city || matchedProfile.kedudukanPT || (matchedProfile as any).city || '').toUpperCase();
+        const profileCity = (p.domicile || p.oldDomicile || p.newAddress?.city || p.oldAddress?.city || p.kedudukanPT || (p as any).city || '').toUpperCase();
         if (profileCity && (!shareholder.address || shAddress.city !== profileCity)) {
           updates.address = {
             ...shAddress,
@@ -338,37 +326,22 @@ const ShareholderEditor: React.FC<Props> = ({
           };
         }
 
+        if (!shareholder.linkedProfileId && p.id) {
+          updates.linkedProfileId = p.id;
+        }
+
         // Try to populate representative if not set
-        if (!shareholder.guardianName) {
-          const managementList: any[] = matchedProfile.newManagementItems?.length > 0 ? matchedProfile.newManagementItems : 
-                               (matchedProfile.oldManagementItems?.length > 0 ? matchedProfile.oldManagementItems : 
-                               (matchedProfile.shareholders || []).filter(s => s.isManagement));
-          
-          if (managementList && managementList.length > 0) {
-             let rep = managementList.find(m => String(m.position || m.managementPosition || '').toLowerCase() === 'direktur utama');
-             if (!rep) {
-               rep = managementList.find(m => String(m.position || m.managementPosition || '').toLowerCase() === 'direktur');
-             }
-             if (!rep) {
-               rep = managementList[0];
-             }
-             if (rep) {
-                updates.representativeId = rep.id;
-                updates.representativePosition = rep.position || rep.managementPosition || 'Direktur Utama';
-                updates.guardianName = (rep.name || '').toUpperCase();
-                updates.guardianSalutation = rep.salutation || 'Tuan';
-                
-                // Populate all other representative details
-                if (rep.nik) updates.guardianNik = rep.nik;
-                if (rep.occupation) updates.guardianOccupation = rep.occupation;
-                if (rep.birthCity) updates.guardianBirthCity = rep.birthCity;
-                if (rep.birthDate) updates.guardianBirthDate = rep.birthDate;
-                if (rep.address) updates.guardianAddress = rep.address;
-                if (rep.nationality) updates.guardianNationality = rep.nationality;
-                if (rep.nationalityType) updates.guardianNationalityType = rep.nationalityType;
-                if (rep.passportNumber) updates.guardianPassportNumber = rep.passportNumber;
-                if (rep.kitasNumber) updates.guardianKitasNumber = rep.kitasNumber;
-             }
+        if (!shareholder.guardianName && !shareholder.representativeId) {
+          const stakeholders = CorporateShareholderService.extractCorporateStakeholders(p);
+          const topDir = stakeholders.find(s => s.roleCategory === 'DIREKSI') || stakeholders[0];
+          if (topDir) {
+            const applied = CorporateShareholderService.applyCorporateProfileToShareholder(
+              shareholder,
+              p,
+              topDir,
+              'DIREKTUR_PT_LAIN'
+            );
+            Object.assign(updates, applied);
           }
         }
         
@@ -377,69 +350,20 @@ const ShareholderEditor: React.FC<Props> = ({
         }
       }
     }
-  }, [isBadanHukum, shareholder.linkedProfileId, shareholder.name, activeProfiles.length]);
+  }, [isBadanHukum, shareholder.linkedProfileId, shareholder.name, activeProfiles.length, matchedProfile]);
 
   const handleProfileSelect = (p: CompanyProfile) => {
-    const targetAddress = p.newAddress && p.newAddress.fullAddress ? { ...p.newAddress } : (p.oldAddress && p.oldAddress.fullAddress ? { ...p.oldAddress } : {
-      fullAddress: '',
-      rt: '',
-      rw: '',
-      kelurahan: '',
-      kecamatan: '',
-      city: '',
-      province: ''
-    });
-
-    const profileCity = (p.domicile || p.oldDomicile || p.newAddress?.city || p.oldAddress?.city || p.kedudukanPT || (p as any).city || targetAddress.city || '').toUpperCase();
-    targetAddress.city = profileCity;
-
-    const updates: Partial<Shareholder> = {
-      name: (p.companyName || '').toUpperCase(),
-      legalEntityType: p.companyType || 'PT Persekutuan Modal',
-      npwp: p.npwp || '',
-      address: targetAddress,
-      skNumber: p.establishmentSkNumber || '',
-      skDate: p.establishmentSkDate || '',
-      establishmentDeedNumber: p.establishmentDeedNumber || '',
-      establishmentDeedDate: p.establishmentDeedDate || '',
-      establishmentNotary: p.establishmentNotary || '',
-      establishmentNotaryTitle: p.establishmentNotaryTitle || '',
-      establishmentNotaryDomicile: p.establishmentNotaryDomicile || '',
-      establishmentSkNumber: p.establishmentSkNumber || '',
-      establishmentSkDate: p.establishmentSkDate || '',
-      amendmentDeeds: p.amendmentDeeds || [],
-      linkedProfileId: p.id
-    };
-
-    const managementList: any[] = p.newManagementItems?.length > 0 ? p.newManagementItems : 
-                         (p.oldManagementItems?.length > 0 ? p.oldManagementItems : 
-                         (p.shareholders || []).filter(s => s.isManagement));
-                         
-    if (managementList && managementList.length > 0) {
-       let rep = managementList.find(m => String(m.position || m.managementPosition || '').toLowerCase() === 'direktur utama');
-       if (!rep) {
-         rep = managementList.find(m => String(m.position || m.managementPosition || '').toLowerCase() === 'direktur');
-       }
-       if (!rep) {
-         rep = managementList[0];
-       }
-       if (rep) {
-          updates.representativeId = rep.id;
-          updates.representativePosition = rep.position || rep.managementPosition || 'Direktur Utama';
-          updates.guardianName = (rep.name || '').toUpperCase();
-          updates.guardianSalutation = rep.salutation || 'Tuan';
-          if (rep.nik) updates.guardianNik = rep.nik;
-          if (rep.occupation) updates.guardianOccupation = rep.occupation;
-          if (rep.birthCity) updates.guardianBirthCity = rep.birthCity;
-          if (rep.birthDate) updates.guardianBirthDate = rep.birthDate;
-          if (rep.address) updates.guardianAddress = rep.address;
-          if (rep.nationality) updates.guardianNationality = rep.nationality;
-          if (rep.nationalityType) updates.guardianNationalityType = rep.nationalityType;
-          if (rep.passportNumber) updates.guardianPassportNumber = rep.passportNumber;
-          if (rep.kitasNumber) updates.guardianKitasNumber = rep.kitasNumber;
-       }
+    const stakeholders = CorporateShareholderService.extractCorporateStakeholders(p);
+    let defaultRep = stakeholders.find(s => s.id === shareholder.representativeId);
+    if (!defaultRep && !shareholder.guardianName) {
+      defaultRep = stakeholders.find(s => s.roleCategory === 'DIREKSI') || stakeholders[0];
     }
-
+    const updates = CorporateShareholderService.applyCorporateProfileToShareholder(
+      shareholder,
+      p,
+      defaultRep,
+      (shareholder as any).representativePosition === 'Kuasa Direksi' ? 'KUASA' : 'DIREKTUR_PT_LAIN'
+    );
     onChange(updates);
   };
 
@@ -728,6 +652,43 @@ const ShareholderEditor: React.FC<Props> = ({
                   </>
                 )}
               </div>
+
+              {matchedProfile && (
+                <div className="mt-3 p-3 bg-white border border-blue-200 rounded-lg text-xs text-blue-900 space-y-1.5 shadow-2xs">
+                  <div className="flex justify-between items-center">
+                    <span className="font-extrabold flex items-center gap-1.5 uppercase">
+                      <Building2 className="w-4 h-4 text-blue-600 shrink-0" />
+                      {matchedProfile.companyName}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleProfileSelect(matchedProfile)}
+                      className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[11px] font-bold border border-blue-200 flex items-center gap-1 cursor-pointer transition-colors"
+                      title="Sinkronkan data legalitas & pihak terbaru dari Master Klien"
+                    >
+                      <RefreshCw className="w-3 h-3 text-blue-600" />
+                      <span>Sinkronkan Data Terbaru</span>
+                    </button>
+                  </div>
+                  <div className="text-[11px] text-slate-600 grid grid-cols-2 gap-1 pt-1 border-t border-slate-100">
+                    <span>Kedudukan: <b>{matchedProfile.domicile || matchedProfile.oldDomicile || 'Belum diisi'}</b></span>
+                    <span>Akta: <b>{matchedProfile.establishmentDeedNumber ? `No. ${matchedProfile.establishmentDeedNumber}` : 'Belum diisi'}</b></span>
+                    <span className="col-span-2 truncate">SK Menkumham: <b>{matchedProfile.establishmentSkNumber || 'Belum diisi'}</b></span>
+                  </div>
+                </div>
+              )}
+
+              {matchedProfile && stakeholdersForWakil.length === 0 && (
+                <div className="mt-2.5 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 font-medium flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold">Pemberitahuan Data Belum Lengkap:</span>
+                    <p className="mt-0.5 text-[11px] leading-normal">
+                      Profil PT <b>{matchedProfile.companyName}</b> belum memiliki data Direksi, Dewan Komisaris, atau Pemegang Saham di Master Data Klien. Anda dapat memilih opsi <b>Input Manual</b> pada bagian Data Wakil di bawah, atau melengkapi data pada menu Profil Klien.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </>
@@ -778,13 +739,15 @@ const ShareholderEditor: React.FC<Props> = ({
       )}
 
       <div>
-        <label className="block text-xs font-bold text-slate-700 mb-1">Nama <span className="text-red-500">*</span></label>
+        <label className="block text-xs font-bold text-slate-700 mb-1">
+          {isBadanHukum ? "Nama Badan Hukum / Perusahaan" : "Nama"} <span className="text-red-500">*</span>
+        </label>
         <div className="flex gap-2">
           {!isBadanHukum && (
             <select 
               value={shareholder.salutation || 'Tuan'} 
               onChange={e => onChange({ salutation: e.target.value as any })}
-              className="w-24 px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+              className="w-24 px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 cursor-pointer"
             >
               <option value="Tuan">Tuan</option>
               <option value="Nyonya">Nyonya</option>
@@ -794,8 +757,20 @@ const ShareholderEditor: React.FC<Props> = ({
           <input 
             type="text"
             value={shareholder.name || ''}
-            onChange={e => onChange({ name: e.target.value.toUpperCase() })}
-            className="flex-1 w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm font-bold"
+            onChange={e => {
+              const val = e.target.value;
+              const nameUpper = val.toUpperCase();
+              const updates: Partial<Shareholder> = { name: nameUpper };
+              if (CorporateShareholderService.checkIsCorporateShareholder({ name: nameUpper })) {
+                updates.shareholderType = 'BADAN_HUKUM';
+                if (!shareholder.legalEntityType) {
+                  updates.legalEntityType = 'PT Persekutuan Modal';
+                }
+              }
+              onChange(updates);
+            }}
+            placeholder={isBadanHukum ? "CONTOH: PT NUSA JAYA ABADI" : "NAMA LENGKAP"}
+            className="flex-1 w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm font-bold uppercase"
           />
         </div>
       </div>
@@ -1634,46 +1609,79 @@ const ShareholderEditor: React.FC<Props> = ({
           </p>
           
           <div className="mb-3">
-            <label className="block text-xs font-bold text-slate-700 mb-1">Pilih Wakil <span className="text-red-500">*</span></label>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Pilih Pihak yang Mewakili <span className="text-red-500">*</span></label>
             <select 
               value={shareholder.representativeId || 'MANUAL'} 
               onChange={e => {
                 const val = e.target.value;
                 if (val === 'MANUAL') {
-                  onChange({ representativeId: 'MANUAL', representativePosition: 'Kuasa Direksi' });
+                  const updates = CorporateShareholderService.syncShareholderRepresentative({
+                    ...shareholder,
+                    representativeId: 'MANUAL',
+                    representativePosition: (shareholder as any).representativePosition || 'Kuasa Direksi'
+                  });
+                  onChange(updates);
                 } else {
-                  const rep = managementListForWakil.find((m: any) => m.id === val);
-                  if (rep) {
-                    const updates: Partial<Shareholder> = {
-                      representativeId: rep.id,
-                      representativePosition: rep.position || rep.managementPosition || 'Direktur Utama',
-                      guardianName: (rep.name || '').toUpperCase(),
-                      guardianSalutation: rep.salutation || 'Tuan',
-                      guardianNik: rep.nik || '',
-                      guardianOccupation: rep.occupation || '',
-                      guardianBirthCity: rep.birthCity || '',
-                      guardianBirthDate: rep.birthDate || '',
-                      guardianAddress: rep.address || undefined,
-                      guardianNationality: rep.nationality || '',
-                      guardianNationalityType: rep.nationalityType || 'WNI',
-                      guardianPassportNumber: rep.passportNumber || '',
-                      guardianKitasNumber: rep.kitasNumber || ''
-                    };
+                  const party = stakeholdersForWakil.find(m => m.id === val);
+                  if (party && matchedProfile) {
+                    const updates = CorporateShareholderService.applyCorporateProfileToShareholder(
+                      shareholder,
+                      matchedProfile,
+                      party,
+                      (party.roleCategory === 'DIREKSI' || party.roleCategory === 'KOMISARIS') ? 'DIREKTUR_PT_LAIN' : 'KUASA'
+                    );
                     onChange(updates);
                   }
                 }
               }}
               className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 font-medium"
             >
-              {managementListForWakil.length > 0 && <option value="" disabled>-- Pilih Pengurus --</option>}
-              {managementListForWakil.map((m: any, idx: number) => (
-                <option key={m.id || idx} value={m.id}>
-                  {m.name} - {m.position || m.managementPosition}
-                </option>
-              ))}
-              <option value="MANUAL">{managementListForWakil.length > 0 ? 'Kuasa Direksi / Lainnya (Input Manual)' : 'Input Manual'}</option>
+              {stakeholdersForWakil.length > 0 && <option value="" disabled>-- Pilih dari Data Klien --</option>}
+              {direksiForWakil.length > 0 && (
+                <optgroup label="Dewan Direksi (Direksi)">
+                  {direksiForWakil.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} — {p.position} {p.isComplete ? '✓' : '⚠️ (Perlu Lengkapi Data)'}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {komisarisForWakil.length > 0 && (
+                <optgroup label="Dewan Komisaris">
+                  {komisarisForWakil.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} — {p.position} {p.isComplete ? '✓' : '⚠️ (Perlu Lengkapi Data)'}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {pemegangSahamForWakil.length > 0 && (
+                <optgroup label="Pemegang Saham PT (Perorangan)">
+                  {pemegangSahamForWakil.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} — Pemegang Saham {p.isComplete ? '✓' : '⚠️ (Perlu Lengkapi Data)'}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              <option value="MANUAL">{stakeholdersForWakil.length > 0 ? 'Kuasa Direksi / Pihak Lainnya (Input Manual)' : 'Input Manual'}</option>
             </select>
           </div>
+
+          {(() => {
+            const currentSelectedParty = stakeholdersForWakil.find(m => m.id === shareholder.representativeId);
+            if (currentSelectedParty && currentSelectedParty.missingFields.length > 0) {
+              return (
+                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded text-amber-800 text-[11px] flex items-start gap-1.5 font-medium">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <span>
+                    Catatan: Data <b>{currentSelectedParty.name}</b> di database Klien belum memiliki: {currentSelectedParty.missingFields.join(', ')}. Silakan lengkapi formulir di bawah ini agar akta dan pelaporan valid.
+                  </span>
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           {(!shareholder.representativeId || shareholder.representativeId === 'MANUAL') && (
             <>

@@ -36,6 +36,7 @@ import { ClientProjectSyncService, ClientSyncSelection } from '../../../services
 import { PullClientDataModal } from '../../../components/common/PullClientDataModal';
 import { ToastNotification, ToastState } from '../../../components/common/ToastNotification';
 import { getRupsLbChairCandidates, resolveRupsLbChairPosition } from '../../../lib/meetingChairHelper';
+import { CorporateShareholderService } from '../../../services/CorporateShareholderService';
 
 export interface RUPSTPageProps {
   user: any;
@@ -278,7 +279,13 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
         isProxy: sh.isProxy || false,
         proxyData: sh.proxyData,
         isShareholder: true,
-        isManagement: roles.some(r => /direktur|direksi|komisaris/i.test(r))
+        isManagement: roles.some(r => /direktur|direksi|komisaris/i.test(r)),
+        shareholderType: sh.shareholderType,
+        linkedProfileId: sh.linkedProfileId,
+        guardianName: sh.guardianName,
+        guardianSalutation: sh.guardianSalutation,
+        representativePosition: sh.representativePosition,
+        rawShareholder: sh
       });
     });
 
@@ -1914,10 +1921,17 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                         <tr key={person.id || idx} className="hover:bg-slate-50/80 transition-colors">
                           <td className="p-3 text-center font-semibold text-slate-500">{idx + 1}</td>
                           <td className="p-3">
-                            <span className="font-bold text-slate-800 uppercase tracking-tight block">
-                              {person.salutation ? `${person.salutation} ` : ''}{person.name}
-                            </span>
-                            {person.nik && (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-slate-800 uppercase tracking-tight block">
+                                {person.salutation ? `${person.salutation} ` : ''}{person.name}
+                              </span>
+                              {CorporateShareholderService.checkIsCorporateShareholder(person) && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-50 text-blue-700 border border-blue-200 uppercase tracking-wider">
+                                  Badan Hukum (PT)
+                                </span>
+                              )}
+                            </div>
+                            {person.nik && !CorporateShareholderService.checkIsCorporateShareholder(person) && (
                               <span className="text-[10px] text-slate-400 font-mono">NIK: {person.nik}</span>
                             )}
                           </td>
@@ -1974,34 +1988,52 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                           </td>
                           <td className="p-3 text-center">
                             {person.isShareholder && person.isPresent ? (
-                              person.isProxy ? (
-                                <div className="flex items-center justify-center gap-2">
-                                  <span className="text-xs font-bold text-orange-700 bg-orange-50 px-2.5 py-1 rounded-md border border-orange-200">
-                                    Kuasa: {person.proxyData?.name || 'Belum diisi'}
-                                  </span>
+                              (() => {
+                                const isCorp = CorporateShareholderService.checkIsCorporateShareholder(person);
+                                const repName = person.guardianName || (person.isProxy && person.proxyData?.name) || '';
+                                const repPos = person.representativePosition || person.proxyData?.occupation || person.proxyData?.position || (isCorp ? 'Direktur' : 'Penerima Kuasa');
+
+                                if (repName) {
+                                  return (
+                                    <div className="flex flex-col items-center justify-center gap-1">
+                                      <span className={`text-[11px] font-bold px-2.5 py-1 rounded-md border ${
+                                        isCorp 
+                                          ? 'text-blue-900 bg-blue-50 border-blue-200' 
+                                          : 'text-orange-700 bg-orange-50 border-orange-200'
+                                      }`}>
+                                        {isCorp ? '🏢 Wakil: ' : 'Kuasa: '}{repName} ({repPos})
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setProxyModalOpenId(person.id)}
+                                        className="text-[10px] text-blue-600 hover:underline font-semibold cursor-pointer"
+                                      >
+                                        Ubah Wakil / Kuasa
+                                      </button>
+                                    </div>
+                                  );
+                                }
+
+                                return (
                                   <button
                                     type="button"
-                                    onClick={() => setProxyModalOpenId(person.id)}
-                                    className="text-xs text-blue-600 hover:underline font-semibold"
+                                    onClick={() => {
+                                      const newList = (data.shareholders || []).map((s: any) =>
+                                        s.id === person.id ? { ...s, isPresent: true, isProxy: true } : s
+                                      );
+                                      updateData({ shareholders: newList });
+                                      setProxyModalOpenId(person.id);
+                                    }}
+                                    className={`text-[11px] font-bold px-2.5 py-1 rounded-md border transition-colors cursor-pointer ${
+                                      isCorp
+                                        ? 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100'
+                                        : 'text-slate-500 hover:text-blue-600 border-dashed border-slate-300 hover:border-blue-400'
+                                    }`}
                                   >
-                                    Ubah
+                                    {isCorp ? '+ Pilih Wakil PT (Direksi/Komisaris)' : '+ Kuasakan'}
                                   </button>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const newList = (data.shareholders || []).map((s: any) =>
-                                      s.id === person.id ? { ...s, isProxy: true } : s
-                                    );
-                                    updateData({ shareholders: newList });
-                                    setProxyModalOpenId(person.id);
-                                  }}
-                                  className="text-[11px] text-slate-500 hover:text-blue-600 font-semibold cursor-pointer"
-                                >
-                                  + Kuasakan
-                                </button>
-                              )
+                                );
+                              })()
                             ) : (
                               <span className="text-slate-400 text-xs">-</span>
                             )}

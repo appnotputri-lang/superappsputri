@@ -10,6 +10,7 @@ interface ShareholderModalProps {
   data: any;
   currentTargetSharesPaid: number;
   saveShareholder: (s: any) => void;
+  profiles?: any[];
 }
 
 export const ShareholderModal: React.FC<ShareholderModalProps> = ({
@@ -19,7 +20,8 @@ export const ShareholderModal: React.FC<ShareholderModalProps> = ({
   setEditMode,
   data,
   currentTargetSharesPaid,
-  saveShareholder
+  saveShareholder,
+  profiles
 }) => {
   return (
     <Modal
@@ -58,6 +60,7 @@ export const ShareholderModal: React.FC<ShareholderModalProps> = ({
               hideFinancials={editMode === 'pengganti' || editMode === 'pengganti_saham' || editMode === 'baru'}
               hideManagement={editMode === 'baru'}
               availableParties={(editMode === 'pengganti' || editMode === 'pengganti_saham' || editMode === 'baru') ? data.shareholders : undefined}
+              profiles={profiles}
             />
           </div>
         )}

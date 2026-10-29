@@ -136,8 +136,11 @@ export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAtte
             sharesOwned: sh.sharesOwned || 0,
             shareholder: sh,
             proxyData: {
-              representationType: (sh as any).representativePosition === 'Kuasa Direksi' ? 'KUASA_DIREKSI' : 'DIREKTUR_PT_LAIN',
-              position: (sh as any).representativePosition || "Direktur",
+              representationType: (sh as any).representativePosition === 'Kuasa Direksi'
+                ? 'KUASA_DIREKSI'
+                : (sh.proxyData?.representationType || (sh as any).representationType || 'DIREKTUR_PT_LAIN'),
+              position: (sh as any).representativePosition || sh.proxyData?.position || sh.proxyData?.occupation || "Direktur",
+              proxyDeedDate: (sh as any).proxyDeedDate || sh.proxyData?.proxyDeedDate || "",
               ...repPerson,
             },
           });
@@ -269,7 +272,7 @@ const buildRepresentationBlocks = (
 ): Block[] => {
   const { originalSharePrice, useAktaFormat, isSirkuler } = config;
   const isDirector = r.proxyData.representationType === "DIREKTUR_PT_LAIN" || r.proxyData.representationType === "KUASA_DIREKSI";
-  const posName = r.proxyData.position || (r.proxyData.representationType === "KUASA_DIREKSI" ? "Kuasa Direksi" : "Direktur");
+  const posName = r.proxyData.position || r.proxyData.occupation || (r.shareholder as any).representativePosition || (r.proxyData.representationType === "KUASA_DIREKSI" ? "Kuasa Direksi" : "Direktur");
   const shareRp = (r.sharesOwned || 0) * originalSharePrice;
 
   const prefixRuns: FormatToken[] = [];
