@@ -606,51 +606,65 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
       </div>
 
       {/* HEADER SECTION */}
-      <div className="bg-white border border-slate-200/90 rounded-xl p-5 shadow-xs">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          {/* Title & Status */}
-          <div className="flex items-start sm:items-center gap-3.5">
-            <div className="w-12 h-12 rounded-xl bg-[#1b449c] text-white flex items-center justify-center shrink-0 shadow-sm">
-              <FileSignature className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-                  RUPS Tahunan (RUPST)
-                </h1>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  <span>{isSaving ? 'Menyimpan...' : (currentEditingRupstId ? (data.rupstStatus === 'SELESAI' ? 'Tersimpan (Selesai)' : 'Draft Tersimpan') : 'Tersimpan')}</span>
+      <div className="bg-white border border-slate-200/90 rounded-xl p-4 sm:p-5 shadow-xs">
+        {currentEditingRupstId ? (
+          <div className="space-y-4">
+            {/* Top row: Title, Status, Company Badge, and Kembali Button */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-[#1b449c] text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <FileSignature className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                      RUPS Tahunan (RUPST)
+                    </h1>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      <span>{isSaving ? 'Menyimpan...' : (data.rupstStatus === 'SELESAI' ? 'Tersimpan (Selesai)' : 'Draft Tersimpan')}</span>
+                    </div>
+                    {data.companyName && (
+                      <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-md truncate max-w-[280px]">
+                        {data.companyName.toUpperCase().startsWith('PT') ? data.companyName : `PT ${data.companyName}`}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 font-normal mt-0.5">
+                    Pengelolaan Rapat Umum Pemegang Saham Tahunan, Notulen, dan Draf Akta Notariil
+                  </p>
                 </div>
               </div>
-              <p className="text-xs text-slate-500 font-normal mt-0.5">
-                Pengelolaan Rapat Umum Pemegang Saham Tahunan, Notulen, dan Draf Akta Notariil
-              </p>
+
+              {/* Kembali ke Daftar */}
+              <button
+                type="button"
+                onClick={() => {
+                  const returnToProjectId = activeProjectContext;
+                  setIsRupstDocDropdownOpen(false);
+                  setCurrentEditingRupstId(null);
+                  setActiveProjectContext(null);
+                  if (returnToProjectId) {
+                    setSelectedProjectId(returnToProjectId);
+                    setActiveSidebarTab('project_detail');
+                  }
+                }}
+                className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs uppercase h-9 px-3.5 rounded-lg shadow-2xs transition-colors flex items-center gap-1.5 shrink-0 self-start sm:self-auto cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4 text-slate-500" />
+                <span>Kembali ke Daftar</span>
+              </button>
             </div>
-          </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            {currentEditingRupstId ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const returnToProjectId = activeProjectContext;
-                    setIsRupstDocDropdownOpen(false);
-                    setCurrentEditingRupstId(null);
-                    setActiveProjectContext(null);
-                    if (returnToProjectId) {
-                      setSelectedProjectId(returnToProjectId);
-                      setActiveSidebarTab('project_detail');
-                    }
-                  }}
-                  className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs uppercase h-10 px-4 rounded-lg shadow-2xs transition-colors flex items-center gap-2 cursor-pointer"
-                >
-                  <ArrowLeft className="w-4 h-4 text-slate-500" />
-                  <span>Kembali</span>
-                </button>
+            {/* Bottom Toolbar row: Action buttons neatly aligned */}
+            <div className="pt-3.5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500">
+                  Bentuk: <span className="font-bold text-blue-700 uppercase">{data.rupstType === 'sirkuler' ? 'Sirkuler Tahunan' : 'RUPST'}</span>
+                </span>
+              </div>
 
+              <div className="flex flex-wrap items-center gap-2 justify-start sm:justify-end">
                 {isRupstPreview ? (
                   <button 
                     type="button"
@@ -659,35 +673,33 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                       setIsRupstDocDropdownOpen(false);
                       setIsRupstPreview(false); 
                     }}
-                    className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs uppercase h-10 px-4 rounded-lg shadow-2xs transition-colors flex items-center gap-2 cursor-pointer"
+                    className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs uppercase h-9 px-3.5 rounded-lg shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
                   >
-                    <Edit className="w-4 h-4 text-slate-500" />
+                    <Edit className="w-3.5 h-3.5 text-slate-500" />
                     <span>Edit Form</span>
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={resetData}
-                    className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs uppercase h-10 px-4 rounded-lg shadow-2xs transition-colors flex items-center gap-2 cursor-pointer"
+                    className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs uppercase h-9 px-3.5 rounded-lg shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
                     <span>Reset</span>
                   </button>
                 )}
 
-                {/* SINGLE SYNC BUTTON - Positioned directly next to Simpan RUPST */}
                 <button
                   type="button"
                   onClick={handleOpenPullClientModal}
                   disabled={isPullingClient}
-                  className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs uppercase h-10 px-4 rounded-lg shadow-2xs transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="bg-white hover:bg-blue-50/60 text-slate-700 hover:text-blue-700 border border-slate-200 hover:border-blue-200 font-bold text-xs uppercase h-9 px-3.5 rounded-lg shadow-2xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   title="Tarik data terbaru dari Master Klien"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 text-blue-600 ${isPullingClient ? 'animate-spin' : ''}`} />
                   <span>Sync Data Klien</span>
                 </button>
 
-                {/* SIMPAN KE BUKU AKTA BUTTON */}
                 <button
                   type="button"
                   disabled={isSyncing}
@@ -711,60 +723,81 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                       alert(`Nomor Akta ${finalDeed || ''} berhasil disimpan ke Buku Daftar Akta!\nNomor Urut Akta: ${finalOrder || ''}`);
                     }
                   }}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase h-10 px-4 rounded-lg shadow-sm transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase h-9 px-3.5 rounded-lg shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                   title="Simpan nomor akta RUPST ini ke Buku Daftar Akta Notaris"
                 >
                   {isSyncing ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       <span>Menyimpan...</span>
                     </>
                   ) : (
                     <>
-                      <BookOpen className="w-4 h-4" />
+                      <BookOpen className="w-3.5 h-3.5" />
                       <span>Simpan ke Buku Akta</span>
                     </>
                   )}
                 </button>
 
-                {/* SIMPAN RUPST BUTTON */}
                 <button
                   type="button"
                   disabled={isSaving}
                   onClick={handleSaveRupst}
-                  className="bg-[#1b449c] hover:bg-[#13327d] text-white font-bold text-xs uppercase h-10 px-5 rounded-lg shadow-sm transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-[#1b449c] hover:bg-[#13327d] text-white font-bold text-xs uppercase h-9 px-4 rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSaving ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       <span>Menyimpan...</span>
                     </>
                   ) : (
                     <>
-                      <Save className="w-4 h-4" />
+                      <Save className="w-3.5 h-3.5" />
                       <span>Simpan RUPST</span>
                     </>
                   )}
                 </button>
-              </>
-            ) : (
-              <button 
-                onClick={() => {
-                  setCurrentEditingRupstId('new');
-                  setIsRupstPreview(false);
-                  const defaultType = activeProjectJobType === 'rups_t' ? 'rapat' : 'sirkuler';
-                  updateData({ 
-                    ...INITIAL_STATE, 
-                    rupstType: defaultType,
-                  } as any);
-                }} 
-                className="bg-[#1b449c] hover:bg-[#13327d] text-white px-5 py-2.5 rounded-lg font-bold text-xs flex items-center gap-2 transition-all shadow-sm shrink-0 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" /> TAMBAH RUPST BARU
-              </button>
-            )}
+              </div>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="w-12 h-12 rounded-xl bg-[#1b449c] text-white flex items-center justify-center shrink-0 shadow-sm">
+                <FileSignature className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+                    RUPS Tahunan (RUPST)
+                  </h1>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    <span>Tersimpan</span>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500 font-normal mt-0.5">
+                  Pengelolaan Rapat Umum Pemegang Saham Tahunan, Notulen, dan Draf Akta Notariil
+                </p>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => {
+                setCurrentEditingRupstId('new');
+                setIsRupstPreview(false);
+                const defaultType = activeProjectJobType === 'rups_t' ? 'rapat' : 'sirkuler';
+                updateData({ 
+                  ...INITIAL_STATE, 
+                  rupstType: defaultType,
+                } as any);
+              }} 
+              className="bg-[#1b449c] hover:bg-[#13327d] text-white px-5 py-2.5 rounded-lg font-bold text-xs flex items-center gap-2 transition-all shadow-sm shrink-0 cursor-pointer self-start sm:self-auto"
+            >
+              <Plus className="w-4 h-4" /> TAMBAH RUPST BARU
+            </button>
+          </div>
+        )}
       </div>
 
       {currentEditingRupstId ? (
