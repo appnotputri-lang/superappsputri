@@ -804,14 +804,16 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
         <div className="space-y-6 pb-12">
           {/* STEP INDICATOR / SECTION PROGRESS BAR */}
           <div className="bg-white border border-slate-200/90 rounded-xl p-4 shadow-xs overflow-x-auto">
-            <div className="flex items-center justify-between min-w-[720px] gap-2">
+            <div className="flex items-center justify-between min-w-[850px] gap-2">
               {[
-                { id: 'section-identitas', num: '1', title: 'Identitas Perseroan' },
-                { id: 'section-agenda', num: '2', title: 'Agenda & Keuangan' },
-                { id: 'section-rapat', num: '3', title: 'Data Rapat' },
-                { id: 'section-pihak', num: '4', title: 'Para Pihak' },
-                { id: 'section-kuasa', num: '5', title: 'Kuasa' },
-                { id: 'section-dokumen', num: '6', title: 'Dokumen Keluaran' },
+                { id: 'section-identitas', title: 'Identitas PT' },
+                { id: 'section-keputusan', title: 'Bentuk Keputusan' },
+                { id: 'section-agenda', title: 'Agenda & Keuangan' },
+                { id: 'section-rapat', title: isSirkuler ? 'Data Akta' : 'Data Rapat' },
+                ...(!isSirkuler ? [{ id: 'section-pimpinan', title: 'Pimpinan Rapat' }] : []),
+                { id: 'section-pihak', title: isSirkuler ? 'Pemegang Saham' : 'Para Pihak' },
+                { id: 'section-kuasa', title: 'Kuasa' },
+                { id: 'section-dokumen', title: 'Dokumen' },
               ].map((step, idx, arr) => (
                 <React.Fragment key={step.id}>
                   <button
@@ -823,7 +825,7 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                     className="flex items-center gap-2.5 text-left group cursor-pointer shrink-0"
                   >
                     <div className="w-7 h-7 rounded-full bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center font-bold text-xs group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                      {step.num}
+                      {idx + 1}
                     </div>
                     <span className="text-xs font-bold text-slate-700 group-hover:text-blue-700 transition-colors">
                       {step.title}
@@ -1675,7 +1677,7 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                     4
                   </div>
                   <h3 className="text-base font-bold text-slate-800 tracking-tight">
-                    Data Rapat & Nomor Akta
+                    {isSirkuler ? 'Data Akta & Keputusan Sirkuler' : 'Data Rapat & Nomor Akta'}
                   </h3>
                 </div>
                 <button
@@ -1909,23 +1911,18 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
               )}
             </div>
 
-            {/* SECTION 5: PIMPINAN RAPAT */}
-            <div id="section-pimpinan" className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-6 space-y-4">
-              <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-sm">
-                  5
+            {/* SECTION 5: PIMPINAN RAPAT (HANYA UNTUK RAPAT FISIK/HYBRID, DISEMBUNYIKAN PADA SIRKULER TAHUNAN) */}
+            {!isSirkuler && (
+              <div id="section-pimpinan" className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-6 space-y-4">
+                <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-sm">
+                    5
+                  </div>
+                  <h3 className="text-base font-bold text-slate-800 tracking-tight">
+                    Pimpinan Rapat
+                  </h3>
                 </div>
-                <h3 className="text-base font-bold text-slate-800 tracking-tight">
-                  Pimpinan Rapat
-                </h3>
-              </div>
 
-              {data.rupstType === 'sirkuler' ? (
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 leading-relaxed flex items-center gap-3">
-                  <Info className="w-5 h-5 text-slate-400 shrink-0" />
-                  <span>Pada RUPST Sirkuler (Pasal 91 UU PT), keputusan diambil secara sirkuler tanpa rapat fisik sehingga tidak ada pimpinan rapat. Dokumen ditandatangani oleh seluruh pemegang saham.</span>
-                </div>
-              ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
@@ -1965,15 +1962,15 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                     />
                   </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
-            {/* SECTION 6: DAFTAR PEMEGANG SAHAM (SIRKULER) ATAU PEMEGANG SAHAM, DIREKSI, KOMISARIS (RAPAT) */}
+            {/* SECTION: DAFTAR PEMEGANG SAHAM (SIRKULER) ATAU PEMEGANG SAHAM, DIREKSI, KOMISARIS (RAPAT) */}
             <div id="section-pihak" className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-6 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-sm">
-                    6
+                    {isSirkuler ? 5 : 6}
                   </div>
                   <h3 className="text-base font-bold text-slate-800 tracking-tight">
                     {isSirkuler ? 'Daftar Pemegang Saham (Para Pihak Sirkuler)' : 'Daftar Pemegang Saham, Direksi, dan Dewan Komisaris'}
@@ -2191,11 +2188,11 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
               </div>
             </div>
 
-            {/* SECTION 7: KUASA */}
+            {/* SECTION: KUASA */}
             <div id="section-kuasa" className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-6 space-y-4">
               <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
                 <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-sm">
-                  7
+                  {isSirkuler ? 6 : 7}
                 </div>
                 <h3 className="text-base font-bold text-slate-800 tracking-tight">
                   Kuasa dan Data Notariil
@@ -2291,11 +2288,11 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
               </div>
             </div>
 
-            {/* SECTION 8: DOKUMEN KELUARAN */}
+            {/* SECTION: DOKUMEN KELUARAN */}
             <div id="section-dokumen" className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-6 space-y-4">
               <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
                 <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-sm">
-                  8
+                  {isSirkuler ? 7 : 8}
                 </div>
                 <h3 className="text-base font-bold text-slate-800 tracking-tight">
                   Dokumen Keluaran
