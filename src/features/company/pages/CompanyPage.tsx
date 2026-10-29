@@ -41,6 +41,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
   // 1. Context & Auth Hooks
   const { user, userProfile } = useAuth();
   const { 
+    profiles: contextProfiles,
     fetchDirectoryPage,
     getProfile,
     save: saveCompanyInContext, 
@@ -74,6 +75,33 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
   // Merge modal profiles on-demand state
   const [mergeProfiles, setMergeProfiles] = useState<ClientDirectoryEntry[]>([]);
   const [isMergeProfilesLoading, setIsMergeProfilesLoading] = useState<boolean>(false);
+  const [corporateProfiles, setCorporateProfiles] = useState<CompanyProfile[]>([]);
+
+  // Load corporate profiles from directory for corporate shareholder selection
+  useEffect(() => {
+    let isSubscribed = true;
+    CompanyService.getClientDirectory({ clientType: 'PT', limit: 'all' })
+      .then(items => {
+        if (isSubscribed && items && items.length > 0) {
+          const mapped: CompanyProfile[] = items.map(d => ({
+            id: d.clientId || d.id,
+            companyName: d.companyName,
+            clientType: d.clientType || 'PT',
+            companyType: d.companyType || 'PT_LOKAL',
+            domicile: d.domicile || '',
+            establishmentDeedNumber: d.establishmentDeedNumber || '',
+            establishmentDeedDate: d.establishmentDeedDate || '',
+            establishmentNotary: d.establishmentNotary || '',
+            establishmentSkNumber: d.establishmentSkNumber || '',
+            establishmentSkDate: d.establishmentSkDate || '',
+            npwp: d.npwp || ''
+          } as CompanyProfile));
+          setCorporateProfiles(mapped);
+        }
+      })
+      .catch(err => console.warn('Error loading corporate profiles in CompanyPage:', err));
+    return () => { isSubscribed = false; };
+  }, []);
 
   // 5. State for Merge Clients Modal
   const [isMergeModalOpen, setIsMergeModalOpen] = useState<boolean>(false);
@@ -1198,6 +1226,8 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
         data={data}
         currentTargetSharesPaid={currentTargetSharesPaidForModal}
         saveShareholder={saveShareholder}
+        profiles={corporateProfiles.length > 0 ? corporateProfiles : (contextProfiles || [])}
+        excludeCompanyIdOrName={data.id || data.companyName}
       />
 
       <KbliModal

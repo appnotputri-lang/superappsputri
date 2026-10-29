@@ -185,6 +185,7 @@ export interface Shareholder {
   proxyData?: {
     salutation: 'Tuan' | 'Nyonya' | 'Nona';
     name: string;
+    position?: string;
     nik: string;
     birthCity: string;
     birthDate: string;

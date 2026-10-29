@@ -36,7 +36,11 @@ export interface ClientDirectoryEntry {
   clientType: string;
   companyType?: string;
   domicile?: string;
+  establishmentDeedNumber?: string;
   establishmentDeedDate?: string;
+  establishmentNotary?: string;
+  establishmentSkNumber?: string;
+  establishmentSkDate?: string;
   establishmentYear?: string;
   updatedAt?: string;
   isArchived?: boolean;

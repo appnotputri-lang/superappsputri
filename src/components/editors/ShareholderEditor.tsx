@@ -1,11 +1,12 @@
 import React from 'react';
 import { Shareholder, CompanyProfile } from '../../../types';
-import { User, Banknote, Globe, ShieldCheck, MapPin, Coins, History, Zap, Info, Briefcase, UserPlus, ArrowRightLeft, Users, Plus, Trash2, Camera, Loader2, AlertCircle, RefreshCw, Building2, CheckCircle2 } from 'lucide-react';
+import { User, Banknote, Globe, ShieldCheck, MapPin, Coins, History, Zap, Info, Briefcase, UserPlus, ArrowRightLeft, Users, Plus, Trash2, Camera, Loader2, AlertCircle, RefreshCw, Building2, CheckCircle2, Search, X } from 'lucide-react';
 import { formatCurrency, numberToWords, formatInputNumber, parseFormattedNumber } from '../../../utils/formatters';
 import { IndoRegionSelector } from '../../../components/AddressFields';
 import { searchShareholderByNIKClient } from '../../lib/firebase';
 import { useDocumentRuntime } from '../../domain/company/useDocumentRuntime';
 import { CorporateShareholderService, CorporateStakeholderParty } from '../../services/CorporateShareholderService';
+import { CompanyService } from '../../services/CompanyService';
 
 interface Props {
   shareholder: Shareholder;
@@ -25,6 +26,7 @@ interface Props {
   profiles?: CompanyProfile[];
   availableParties?: Shareholder[];
   disabled?: boolean;
+  excludeCompanyIdOrName?: string;
 }
 
 const ShareholderEditor: React.FC<Props> = ({ 
@@ -44,12 +46,48 @@ const ShareholderEditor: React.FC<Props> = ({
   hasCapitalChange = false,
   profiles = [],
   availableParties,
-  disabled = false
+  disabled = false,
+  excludeCompanyIdOrName
 }) => {
   const runtime = useDocumentRuntime();
   const { data: runtimeData, profiles: contextProfiles } = runtime;
 
-  const activeProfiles = (profiles && profiles.length > 0) ? profiles : (contextProfiles || []);
+  const [internalProfiles, setInternalProfiles] = React.useState<CompanyProfile[]>([]);
+  const [isLoadingProfiles, setIsLoadingProfiles] = React.useState<boolean>(false);
+  const [isLoadingProfileDetail, setIsLoadingProfileDetail] = React.useState<boolean>(false);
+  const [fullProfilesCache, setFullProfilesCache] = React.useState<Record<string, CompanyProfile>>({});
+
+  // Fallback: If corporate profiles are not provided via props or runtime context, load directly from directory
+  React.useEffect(() => {
+    if ((!profiles || profiles.length === 0) && (!contextProfiles || contextProfiles.length === 0)) {
+      setIsLoadingProfiles(true);
+      CompanyService.getClientDirectory({ clientType: 'PT', limit: 'all' })
+        .then(items => {
+          if (items && items.length > 0) {
+            const mapped: CompanyProfile[] = items.map(d => ({
+              id: d.clientId || d.id,
+              companyName: d.companyName,
+              clientType: d.clientType || 'PT',
+              companyType: d.companyType || 'PT_LOKAL',
+              domicile: d.domicile || '',
+              establishmentDeedNumber: d.establishmentDeedNumber || '',
+              establishmentDeedDate: d.establishmentDeedDate || '',
+              establishmentNotary: d.establishmentNotary || '',
+              establishmentSkNumber: d.establishmentSkNumber || '',
+              establishmentSkDate: d.establishmentSkDate || '',
+              npwp: d.npwp || ''
+            } as CompanyProfile));
+            setInternalProfiles(mapped);
+          }
+        })
+        .catch(err => console.warn('Failed to fetch internal corporate profiles:', err))
+        .finally(() => setIsLoadingProfiles(false));
+    }
+  }, [profiles, contextProfiles]);
+
+  const activeProfiles = (profiles && profiles.length > 0) 
+    ? profiles 
+    : ((contextProfiles && contextProfiles.length > 0) ? contextProfiles : internalProfiles);
   const activeGlobalSharePrice = globalSharePrice !== undefined ? globalSharePrice : (runtimeData?.originalSharePrice || 0);
   const activeAllShareholders = (allShareholders && allShareholders.length > 0) ? allShareholders : (runtimeData?.shareholders || []);
 
@@ -245,7 +283,7 @@ const ShareholderEditor: React.FC<Props> = ({
   const canQuickFill = totalSharesAllowed > 0 && shareholder.sharesOwned < maxPossible && !disableFinancials;
   const isWna = shareholder.nationalityType === 'WNA' || shareholder.isForeign;
   const isBadanHukum = CorporateShareholderService.checkIsCorporateShareholder(shareholder);
-  const meetingCompanyIdOrName = runtimeData?.selectedProfileId || runtimeData?.companyName;
+  const meetingCompanyIdOrName = excludeCompanyIdOrName || runtimeData?.selectedProfileId || runtimeData?.id || runtimeData?.companyName;
 
   const matchedProfile = React.useMemo(() => {
     if (!isBadanHukum || !activeProfiles || activeProfiles.length === 0) return null;
@@ -256,10 +294,37 @@ const ShareholderEditor: React.FC<Props> = ({
     );
   }, [isBadanHukum, activeProfiles, shareholder.linkedProfileId, shareholder.name, meetingCompanyIdOrName]);
 
+  const effectiveMatchedProfile = React.useMemo(() => {
+    if (!matchedProfile) return null;
+    return fullProfilesCache[matchedProfile.id]
+      ? { ...matchedProfile, ...fullProfilesCache[matchedProfile.id] }
+      : matchedProfile;
+  }, [matchedProfile, fullProfilesCache]);
+
+  React.useEffect(() => {
+    if (matchedProfile && matchedProfile.id && !fullProfilesCache[matchedProfile.id]) {
+      const hasMgmt = (matchedProfile.newManagementItems && matchedProfile.newManagementItems.length > 0) ||
+                      (matchedProfile.oldManagementItems && matchedProfile.oldManagementItems.length > 0) ||
+                      (matchedProfile.shareholders && matchedProfile.shareholders.length > 0);
+      if (!hasMgmt) {
+        CompanyService.getCompanyProfile(matchedProfile.id)
+          .then(detail => {
+            if (detail) {
+              setFullProfilesCache(prev => ({
+                ...prev,
+                [matchedProfile.id]: detail
+              }));
+            }
+          })
+          .catch(e => console.warn('Could not load profile detail:', e));
+      }
+    }
+  }, [matchedProfile?.id]);
+
   const stakeholdersForWakil = React.useMemo<CorporateStakeholderParty[]>(() => {
-    if (!matchedProfile) return [];
-    return CorporateShareholderService.extractCorporateStakeholders(matchedProfile);
-  }, [matchedProfile]);
+    if (!effectiveMatchedProfile) return [];
+    return CorporateShareholderService.extractCorporateStakeholders(effectiveMatchedProfile);
+  }, [effectiveMatchedProfile]);
 
   const direksiForWakil = React.useMemo(() => stakeholdersForWakil.filter(s => s.roleCategory === 'DIREKSI'), [stakeholdersForWakil]);
   const komisarisForWakil = React.useMemo(() => stakeholdersForWakil.filter(s => s.roleCategory === 'KOMISARIS'), [stakeholdersForWakil]);
@@ -275,9 +340,11 @@ const ShareholderEditor: React.FC<Props> = ({
   }, [activeProfiles, meetingCompanyIdOrName, profileSearchQuery]);
 
   const selectedProfile = React.useMemo(() => {
-    if (!shareholder.linkedProfileId) return matchedProfile;
-    return activeProfiles.find(p => p.id === shareholder.linkedProfileId) || matchedProfile;
-  }, [shareholder.linkedProfileId, activeProfiles, matchedProfile]);
+    if (!shareholder.linkedProfileId) return effectiveMatchedProfile;
+    const found = activeProfiles.find(p => p.id === shareholder.linkedProfileId);
+    if (!found) return effectiveMatchedProfile;
+    return fullProfilesCache[found.id] ? { ...found, ...fullProfilesCache[found.id] } : found;
+  }, [shareholder.linkedProfileId, activeProfiles, effectiveMatchedProfile, fullProfilesCache]);
 
   const handleSharesChange = (inputValue: string) => {
     let val = parseFormattedNumber(inputValue);
@@ -314,7 +381,7 @@ const ShareholderEditor: React.FC<Props> = ({
   // Automatically pull 'Kedudukan' (city) and representative from company profile if shareholder is BADAN_HUKUM
   React.useEffect(() => {
     if (isBadanHukum && activeProfiles && activeProfiles.length > 0) {
-      const p = matchedProfile;
+      const p = effectiveMatchedProfile;
       if (p) {
         const updates: Partial<Shareholder> = {};
         
@@ -350,21 +417,64 @@ const ShareholderEditor: React.FC<Props> = ({
         }
       }
     }
-  }, [isBadanHukum, shareholder.linkedProfileId, shareholder.name, activeProfiles.length, matchedProfile]);
+  }, [isBadanHukum, shareholder.linkedProfileId, shareholder.name, activeProfiles.length, effectiveMatchedProfile]);
 
-  const handleProfileSelect = (p: CompanyProfile) => {
-    const stakeholders = CorporateShareholderService.extractCorporateStakeholders(p);
+  const handleProfileSelect = async (p: CompanyProfile) => {
+    let fullProfile = p;
+    if (p.id) {
+      if (fullProfilesCache[p.id]) {
+        fullProfile = { ...p, ...fullProfilesCache[p.id] };
+      } else {
+        setIsLoadingProfileDetail(true);
+        try {
+          const fetched = await CompanyService.getCompanyProfile(p.id);
+          if (fetched) {
+            fullProfile = { ...p, ...fetched };
+            setFullProfilesCache(prev => ({
+              ...prev,
+              [p.id]: fetched
+            }));
+          }
+        } catch (err) {
+          console.warn('Failed to fetch full company profile:', err);
+        } finally {
+          setIsLoadingProfileDetail(false);
+        }
+      }
+    }
+
+    const stakeholders = CorporateShareholderService.extractCorporateStakeholders(fullProfile);
     let defaultRep = stakeholders.find(s => s.id === shareholder.representativeId);
     if (!defaultRep && !shareholder.guardianName) {
       defaultRep = stakeholders.find(s => s.roleCategory === 'DIREKSI') || stakeholders[0];
     }
     const updates = CorporateShareholderService.applyCorporateProfileToShareholder(
       shareholder,
-      p,
+      fullProfile,
       defaultRep,
       (shareholder as any).representativePosition === 'Kuasa Direksi' ? 'KUASA' : 'DIREKTUR_PT_LAIN'
     );
     onChange(updates);
+  };
+
+  const refreshProfileDetail = async () => {
+    const profId = shareholder.linkedProfileId || effectiveMatchedProfile?.id;
+    if (!profId) return;
+    setIsLoadingProfileDetail(true);
+    try {
+      const fetched = await CompanyService.getCompanyProfile(profId, true);
+      if (fetched) {
+        setFullProfilesCache(prev => ({
+          ...prev,
+          [profId]: fetched
+        }));
+        await handleProfileSelect({ ...(effectiveMatchedProfile || {}), ...fetched, id: profId });
+      }
+    } catch (e) {
+      console.warn('Error refreshing profile detail:', e);
+    } finally {
+      setIsLoadingProfileDetail(false);
+    }
   };
 
   return (
@@ -511,15 +621,44 @@ const ShareholderEditor: React.FC<Props> = ({
       )}
 
       <div>
-        <label className="block text-xs font-bold text-slate-700 mb-1">Jenis Pemegang Saham</label>
-        <select 
-          value={shareholder.shareholderType || 'PERORANGAN'}
-          onChange={e => onChange({ shareholderType: e.target.value as any })}
-          className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-        >
-          <option value="PERORANGAN">PERORANGAN</option>
-          <option value="BADAN_HUKUM">BADAN HUKUM</option>
-        </select>
+        <label className="block text-xs font-bold text-slate-700 mb-1.5">Jenis Pemegang Saham</label>
+        <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-lg border border-slate-200">
+          <button
+            type="button"
+            onClick={() => {
+              onChange({ 
+                shareholderType: 'PERORANGAN',
+                linkedProfileId: undefined
+              });
+            }}
+            className={`py-2 px-3 rounded-md text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              !isBadanHukum
+                ? 'bg-white text-slate-800 shadow-sm border border-slate-200/80'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
+          >
+            <User className="w-4 h-4 text-teal-600" />
+            <span>Orang Perseorangan</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              onChange({ 
+                shareholderType: 'BADAN_HUKUM',
+                legalEntityType: shareholder.legalEntityType || 'PT Persekutuan Modal'
+              });
+            }}
+            className={`py-2 px-3 rounded-md text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+              isBadanHukum
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
+          >
+            <Building2 className="w-4 h-4" />
+            <span>Badan Hukum (PT)</span>
+          </button>
+        </div>
       </div>
 
       {isBadanHukum && !isWna && (
@@ -540,157 +679,194 @@ const ShareholderEditor: React.FC<Props> = ({
             </select>
           </div>
 
-          {activeProfiles && activeProfiles.length > 0 && (
-            <div className="mb-4 p-4 bg-blue-50/50 rounded border border-blue-200">
-              <label className="block text-xs font-bold text-blue-700 mb-1 flex items-center justify-between">
-                <span>Hubungkan / Ambil dari Profil Perusahaan</span>
-                {shareholder.linkedProfileId && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onChange({ linkedProfileId: undefined });
-                      setProfileSearchQuery('');
-                    }}
-                    className="text-[11px] text-red-650 hover:text-red-800 font-extrabold uppercase transition-colors cursor-pointer"
-                  >
-                    Putuskan Hubungan
-                  </button>
-                )}
-              </label>
-              
-              <div className="relative mt-1">
-                {/* Visual Select Button */}
+          <div className="mb-4 p-4 bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-slate-50 rounded-xl border border-blue-200 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-blue-600 text-white rounded-md shadow-xs">
+                  <Building2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-extrabold text-blue-950 uppercase tracking-wide">
+                    Pencarian Data PT Calon Pemegang Saham
+                  </h4>
+                  <p className="text-[11px] text-blue-700/80">
+                    Cari data PT dari Master Klien untuk mengisi otomatis legalitas, akta pendirian, SK, dan susunan pengurus
+                  </p>
+                </div>
+              </div>
+
+              {(shareholder.linkedProfileId || effectiveMatchedProfile) && (
                 <button
                   type="button"
-                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                  className="w-full flex items-center justify-between px-3 py-2 border border-blue-300 rounded text-sm bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-medium text-left shadow-sm transition-all cursor-pointer min-h-[38px]"
+                  onClick={() => {
+                    onChange({ linkedProfileId: undefined, name: '' });
+                    setProfileSearchQuery('');
+                  }}
+                  className="text-[11px] text-red-600 hover:text-red-800 font-bold px-2 py-1 bg-red-50 hover:bg-red-100 rounded border border-red-200 transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                  title="Putuskan hubungan dengan profil PT ini"
                 >
-                  <span className={selectedProfile ? "text-slate-850 font-bold uppercase" : "text-slate-400"}>
-                    {selectedProfile ? selectedProfile.companyName : "-- Cari & Pilih Profil Perusahaan --"}
-                  </span>
-                  <span className="text-slate-500 ml-2 text-xs">▼</span>
+                  <X className="w-3.5 h-3.5" />
+                  <span>Lepas / Ganti PT</span>
                 </button>
+              )}
+            </div>
 
-                {/* Dropdown Popover */}
-                {isProfileDropdownOpen && (
-                  <>
-                    {/* Fixed full-screen transparent overlay to close on outside click */}
-                    <div 
-                      className="fixed inset-0 z-[90] bg-transparent" 
-                      onClick={() => setIsProfileDropdownOpen(false)}
-                    />
-                    <div className="absolute top-full left-0 right-0 z-[100] mt-1 bg-white border border-slate-200 rounded shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-                      {/* Search Input Box */}
-                      <div className="p-2 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
-                        <input
-                          type="text"
-                          placeholder="Ketik untuk mencari profil PT..."
-                          value={profileSearchQuery}
-                          onChange={e => setProfileSearchQuery(e.target.value)}
-                          className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs font-medium outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
-                          autoFocus
-                          onClick={e => e.stopPropagation()}
-                        />
-                        {profileSearchQuery && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setProfileSearchQuery('');
-                            }}
-                            className="p-1 text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer"
-                          >
-                            Clear
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Options List */}
-                      <div className="max-h-60 overflow-y-auto">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onChange({ linkedProfileId: undefined });
-                            setIsProfileDropdownOpen(false);
-                            setProfileSearchQuery('');
-                          }}
-                          className="w-full px-4 py-2 text-left text-xs font-bold text-red-650 hover:bg-slate-50 border-b border-slate-100 uppercase transition-colors cursor-pointer"
-                        >
-                          -- Kosongkan Pilihan / Lewati --
-                        </button>
-
-                        {sortedAndFilteredProfiles.length === 0 ? (
-                          <div className="px-4 py-3 text-xs text-slate-400 italic text-center">
-                            Profil perusahaan tidak ditemukan
-                          </div>
-                        ) : (
-                          sortedAndFilteredProfiles.map(p => {
-                            const isSelected = p.id === shareholder.linkedProfileId;
-                            return (
-                              <button
-                                key={p.id}
-                                type="button"
-                                onClick={() => {
-                                  handleProfileSelect(p);
-                                  setIsProfileDropdownOpen(false);
-                                  setProfileSearchQuery('');
-                                }}
-                                className={`w-full px-4 py-2.5 text-left text-xs uppercase font-extrabold transition-colors border-b border-slate-50 last:border-0 flex items-center justify-between cursor-pointer ${
-                                  isSelected 
-                                    ? 'bg-blue-50 text-blue-700 font-extrabold shadow-sm' 
-                                    : 'text-slate-700 hover:bg-slate-50'
-                                }`}
-                              >
-                                <span className="truncate">{p.companyName}</span>
-                                {isSelected && <span className="text-blue-600 text-xs font-bold">✓ Terpilih</span>}
-                              </button>
-                            );
-                          })
-                        )}
-                      </div>
-                    </div>
-                  </>
+            {/* Live Search Input with dropdown */}
+            <div className="relative mt-2">
+              <div className="relative flex items-center">
+                <Search className="w-4 h-4 text-blue-500 absolute left-3 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Ketik nama PT untuk mencari dari Master Klien (contoh: PT Maju Bersama)..."
+                  value={profileSearchQuery}
+                  onChange={e => {
+                    setProfileSearchQuery(e.target.value);
+                    setIsProfileDropdownOpen(true);
+                  }}
+                  onFocus={() => setIsProfileDropdownOpen(true)}
+                  className="w-full pl-9 pr-8 py-2.5 border border-blue-300 rounded-lg text-xs font-bold bg-white outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 shadow-2xs transition-all placeholder:font-normal placeholder:text-slate-400"
+                />
+                {profileSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setProfileSearchQuery('')}
+                    className="absolute right-2.5 p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 )}
               </div>
 
-              {matchedProfile && (
-                <div className="mt-3 p-3 bg-white border border-blue-200 rounded-lg text-xs text-blue-900 space-y-1.5 shadow-2xs">
-                  <div className="flex justify-between items-center">
-                    <span className="font-extrabold flex items-center gap-1.5 uppercase">
-                      <Building2 className="w-4 h-4 text-blue-600 shrink-0" />
-                      {matchedProfile.companyName}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleProfileSelect(matchedProfile)}
-                      className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[11px] font-bold border border-blue-200 flex items-center gap-1 cursor-pointer transition-colors"
-                      title="Sinkronkan data legalitas & pihak terbaru dari Master Klien"
-                    >
-                      <RefreshCw className="w-3 h-3 text-blue-600" />
-                      <span>Sinkronkan Data Terbaru</span>
-                    </button>
-                  </div>
-                  <div className="text-[11px] text-slate-600 grid grid-cols-2 gap-1 pt-1 border-t border-slate-100">
-                    <span>Kedudukan: <b>{matchedProfile.domicile || matchedProfile.oldDomicile || 'Belum diisi'}</b></span>
-                    <span>Akta: <b>{matchedProfile.establishmentDeedNumber ? `No. ${matchedProfile.establishmentDeedNumber}` : 'Belum diisi'}</b></span>
-                    <span className="col-span-2 truncate">SK Menkumham: <b>{matchedProfile.establishmentSkNumber || 'Belum diisi'}</b></span>
-                  </div>
-                </div>
-              )}
+              {/* Autocomplete / Browse Popover */}
+              {isProfileDropdownOpen && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-[90] bg-transparent" 
+                    onClick={() => setIsProfileDropdownOpen(false)}
+                  />
+                  <div className="absolute top-full left-0 right-0 z-[100] mt-1 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 max-h-64 overflow-y-auto">
+                    <div className="p-2 bg-slate-50 border-b border-slate-100 text-[11px] font-bold text-slate-500 flex justify-between items-center">
+                      <span>Daftar PT di Master Klien ({sortedAndFilteredProfiles.length} ditemukan)</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onChange({ linkedProfileId: undefined });
+                          setIsProfileDropdownOpen(false);
+                          setProfileSearchQuery('');
+                        }}
+                        className="text-red-500 hover:text-red-700 text-[10px] font-bold cursor-pointer"
+                      >
+                        Lewati / Kosongkan
+                      </button>
+                    </div>
 
-              {matchedProfile && stakeholdersForWakil.length === 0 && (
-                <div className="mt-2.5 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 font-medium flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold">Pemberitahuan Data Belum Lengkap:</span>
-                    <p className="mt-0.5 text-[11px] leading-normal">
-                      Profil PT <b>{matchedProfile.companyName}</b> belum memiliki data Direksi, Dewan Komisaris, atau Pemegang Saham di Master Data Klien. Anda dapat memilih opsi <b>Input Manual</b> pada bagian Data Wakil di bawah, atau melengkapi data pada menu Profil Klien.
-                    </p>
+                    {isLoadingProfiles ? (
+                      <div className="p-4 text-center text-xs text-blue-600 font-medium flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Memuat data PT dari database Klien...
+                      </div>
+                    ) : sortedAndFilteredProfiles.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-slate-400 italic">
+                        {profileSearchQuery ? `Tidak ada PT yang cocok dengan "${profileSearchQuery}"` : 'Tidak ada data PT tersedia.'}
+                      </div>
+                    ) : (
+                      sortedAndFilteredProfiles.map(p => {
+                        const isSelected = p.id === (shareholder.linkedProfileId || effectiveMatchedProfile?.id);
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => {
+                              handleProfileSelect(p);
+                              setIsProfileDropdownOpen(false);
+                              setProfileSearchQuery('');
+                            }}
+                            className={`w-full p-2.5 text-left border-b border-slate-100 last:border-0 hover:bg-blue-50 transition-colors cursor-pointer flex items-start justify-between gap-3 ${
+                              isSelected ? 'bg-blue-50/80 border-l-4 border-l-blue-600' : ''
+                            }`}
+                          >
+                            <div className="flex flex-col min-w-0">
+                              <span className="text-xs font-extrabold uppercase text-slate-800 truncate">
+                                {p.companyName}
+                              </span>
+                              <span className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5 flex-wrap">
+                                <span>Kedudukan: <b>{p.domicile || p.oldDomicile || '—'}</b></span>
+                                {p.establishmentDeedNumber && (
+                                  <span>• Akta No. <b>{p.establishmentDeedNumber}</b></span>
+                                )}
+                                {p.establishmentSkNumber && (
+                                  <span>• SK: <b>{p.establishmentSkNumber}</b></span>
+                                )}
+                              </span>
+                            </div>
+                            {isSelected ? (
+                              <span className="px-2 py-0.5 text-[10px] font-bold bg-blue-600 text-white rounded shrink-0">
+                                Terpilih
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 text-[10px] font-bold bg-slate-100 hover:bg-blue-100 text-blue-700 rounded shrink-0 transition-colors">
+                                Pilih PT Ini
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })
+                    )}
                   </div>
-                </div>
+                </>
               )}
             </div>
-          )}
+
+            {/* Selected Connected Profile Card */}
+            {effectiveMatchedProfile && (
+              <div className="mt-3 p-3.5 bg-white border border-blue-200 rounded-lg text-xs text-blue-950 space-y-2 shadow-2xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div>
+                      <span className="font-extrabold text-sm uppercase text-blue-900 block">
+                        {effectiveMatchedProfile.companyName}
+                      </span>
+                      <span className="text-[10px] text-emerald-700 font-bold">
+                        ✓ Terhubung ke Master Database Klien
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isLoadingProfileDetail}
+                    onClick={refreshProfileDetail}
+                    className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded text-[11px] font-bold border border-blue-200 flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                    title="Sinkronkan data legalitas & pihak terbaru dari Master Klien"
+                  >
+                    <RefreshCw className={`w-3 h-3 text-blue-600 ${isLoadingProfileDetail ? 'animate-spin' : ''}`} />
+                    <span>{isLoadingProfileDetail ? 'Menyinkronkan...' : 'Sinkronkan Data Terbaru'}</span>
+                  </button>
+                </div>
+
+                <div className="text-[11px] text-slate-600 grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-2 border-t border-slate-100">
+                  <div>Kedudukan: <b className="text-slate-800">{effectiveMatchedProfile.domicile || effectiveMatchedProfile.oldDomicile || effectiveMatchedProfile.newAddress?.city || 'Belum diisi'}</b></div>
+                  <div>Akta Pendirian: <b className="text-slate-800">{effectiveMatchedProfile.establishmentDeedNumber ? `No. ${effectiveMatchedProfile.establishmentDeedNumber}` : 'Belum diisi'}</b></div>
+                  <div className="sm:col-span-2 truncate">SK Menkumham: <b className="text-slate-800">{effectiveMatchedProfile.establishmentSkNumber || 'Belum diisi'}</b></div>
+                  {effectiveMatchedProfile.npwp && (
+                    <div className="sm:col-span-2">NPWP: <b className="text-slate-800">{effectiveMatchedProfile.npwp}</b></div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Notice if stakeholders not available */}
+            {effectiveMatchedProfile && stakeholdersForWakil.length === 0 && !isLoadingProfileDetail && (
+              <div className="mt-2.5 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 font-medium flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold">Pemberitahuan Data Belum Lengkap:</span>
+                  <p className="mt-0.5 text-[11px] leading-normal">
+                    Profil PT <b>{effectiveMatchedProfile.companyName}</b> belum memiliki susunan Direksi, Dewan Komisaris, atau Pemegang Saham di Master Data Klien. Anda dapat memilih opsi <b>Input Manual</b> pada bagian Data Wakil di bawah, atau melengkapi susunan pengurus pada menu Profil Klien.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </>
       )}
 
@@ -1623,10 +1799,11 @@ const ShareholderEditor: React.FC<Props> = ({
                   onChange(updates);
                 } else {
                   const party = stakeholdersForWakil.find(m => m.id === val);
-                  if (party && matchedProfile) {
+                  const activeProf = effectiveMatchedProfile || matchedProfile;
+                  if (party && activeProf) {
                     const updates = CorporateShareholderService.applyCorporateProfileToShareholder(
                       shareholder,
-                      matchedProfile,
+                      activeProf,
                       party,
                       (party.roleCategory === 'DIREKSI' || party.roleCategory === 'KOMISARIS') ? 'DIREKTUR_PT_LAIN' : 'KUASA'
                     );
