@@ -16,6 +16,7 @@ import { useProjectSession } from '../domain/project/useProjectSession';
 import { useDocumentRuntime } from '../domain/company/useDocumentRuntime';
 import { ProjectService } from '../services/ProjectService';
 import { CompanyService } from '../services/CompanyService';
+import { CorporateShareholderService } from '../services/CorporateShareholderService';
 import { fetchLatestDeedNumbers } from '../lib/deedUtils';
 import { syncToUtama, getDeedTitle, formatAppearersForRups, formatAppearersForPendirian } from '../lib/syncUtama';
 import { checkIsEmbedMode, requestSsoTokenFromParent } from '../utils/ssoEmbed';
@@ -638,33 +639,49 @@ readCount: ${targetClientId ? 1 : 0}`);
     setCurrentTargetSharesPaid(null);
   };
 
-  const saveShareholder = (s: Shareholder) => {
+  const saveShareholder = async (s: Shareholder) => {
     if (!editMode) return;
     const rawData = data as any;
+    let finalSh = { ...s };
+
+    if (CorporateShareholderService.checkIsCorporateShareholder(finalSh)) {
+      finalSh.isManagement = false;
+      finalSh.managementPosition = undefined;
+      try {
+        const { updatedShareholder } = await CorporateShareholderService.saveOrSyncCorporateClientProfile(
+          finalSh,
+          profiles,
+          data?.selectedProfileId || (data as any)?.id || data?.companyName
+        );
+        finalSh = updatedShareholder;
+      } catch (e) {
+        console.warn('Auto saving corporate client profile in AppShell warning:', e);
+      }
+    }
 
     if (editMode === 'lama') {
-      const existing = data.shareholders.find(x => x.id === s.id);
+      const existing = data.shareholders.find(x => x.id === finalSh.id);
       if (existing) {
         updateData({
-          shareholders: data.shareholders.map(x => x.id === s.id ? s : x)
+          shareholders: data.shareholders.map(x => x.id === finalSh.id ? finalSh : x)
         });
       } else {
         updateData({
-          shareholders: [...data.shareholders, s]
+          shareholders: [...data.shareholders, finalSh]
         });
       }
     } else if (editMode === 'baru') {
       const newShs = rawData.finalShareholders || rawData.newShareholders || [];
-      const existing = newShs.find((x: any) => x.id === s.id);
+      const existing = newShs.find((x: any) => x.id === finalSh.id);
       if (existing) {
         updateData({
-          finalShareholders: newShs.map((x: any) => x.id === s.id ? s : x),
-          newShareholders: newShs.map((x: any) => x.id === s.id ? s : x)
+          finalShareholders: newShs.map((x: any) => x.id === finalSh.id ? finalSh : x),
+          newShareholders: newShs.map((x: any) => x.id === finalSh.id ? finalSh : x)
         } as any);
       } else {
         updateData({
-          finalShareholders: [...newShs, s],
-          newShareholders: [...newShs, s]
+          finalShareholders: [...newShs, finalSh],
+          newShareholders: [...newShs, finalSh]
         } as any);
       }
     }

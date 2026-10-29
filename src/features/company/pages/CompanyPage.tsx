@@ -572,13 +572,31 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
     }
   };
 
-  const saveShareholder = () => {
-    if (!editingShareholder || !editMode) return;
+  const saveShareholder = async (passedShareholder?: Shareholder) => {
+    const targetShareholder = passedShareholder || editingShareholder;
+    if (!targetShareholder || !editMode) return;
     
-    let sanitizedShareholder = { ...editingShareholder };
+    let sanitizedShareholder = { ...targetShareholder };
     if (CorporateShareholderService.checkIsCorporateShareholder(sanitizedShareholder)) {
       sanitizedShareholder.isManagement = false;
       sanitizedShareholder.managementPosition = undefined;
+
+      try {
+        const { updatedShareholder, savedProfile } = await CorporateShareholderService.saveOrSyncCorporateClientProfile(
+          sanitizedShareholder,
+          corporateProfiles.length > 0 ? corporateProfiles : (contextProfiles || []),
+          data.id || data.companyName
+        );
+        sanitizedShareholder = updatedShareholder;
+        if (savedProfile) {
+          setCorporateProfiles(prev => {
+            const next = prev.filter(p => p.id !== savedProfile.id);
+            return [savedProfile, ...next];
+          });
+        }
+      } catch (err) {
+        console.warn('Auto saving corporate client profile in CompanyPage warning:', err);
+      }
     }
     const shareholders = data.shareholders || [];
     const finalShareholders = data.finalShareholders || [];

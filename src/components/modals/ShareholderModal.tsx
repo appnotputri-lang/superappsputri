@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal } from '../../../components/Modal';
 import ShareholderEditor from "../editors/ShareholderEditor";
+import { Loader2 } from 'lucide-react';
 
 interface ShareholderModalProps {
   editingShareholder: any | null;
@@ -25,10 +26,24 @@ export const ShareholderModal: React.FC<ShareholderModalProps> = ({
   profiles,
   excludeCompanyIdOrName
 }) => {
+  const [isSaving, setIsSaving] = React.useState(false);
+
+  const handleSave = async () => {
+    if (!editingShareholder || isSaving) return;
+    setIsSaving(true);
+    try {
+      await saveShareholder(editingShareholder);
+    } catch (err) {
+      console.error('Error saving shareholder:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <Modal
       isOpen={Boolean(editingShareholder)}
-      onClose={() => { setEditingShareholder(null); setEditMode(null); }}
+      onClose={() => { if (!isSaving) { setEditingShareholder(null); setEditMode(null); } }}
       title={editMode === 'pengganti' ? "Formulir Lengkap Pengganti / Pengurus Baru" : editMode === 'pengganti_saham' ? "Formulir Lengkap Penerima Peralihan Saham Baru" : "Tambah Pemegang Saham, Komisaris dan Direksi"}
       maxWidth="max-w-4xl"
       headerColor="bg-white text-slate-800 border-b border-slate-200"
@@ -68,8 +83,23 @@ export const ShareholderModal: React.FC<ShareholderModalProps> = ({
           </div>
         )}
         <div className="mt-auto flex justify-end gap-3 p-4 px-6 border-t border-slate-200 bg-white sticky bottom-0 z-10 shrink-0">
-          <button onClick={() => { setEditingShareholder(null); setEditMode(null); }} className="px-8 py-2 border border-slate-300 bg-white text-slate-700 rounded font-bold text-sm hover:bg-slate-50 transition-all">BATAL</button>
-          <button onClick={() => editingShareholder && saveShareholder(editingShareholder)} className="px-8 py-2 bg-[#40bdae] text-white rounded font-bold text-sm hover:bg-[#349c8f] transition-all shadow-sm">SIMPAN DATA</button>
+          <button 
+            type="button" 
+            disabled={isSaving} 
+            onClick={() => { setEditingShareholder(null); setEditMode(null); }} 
+            className="px-8 py-2 border border-slate-300 bg-white text-slate-700 rounded font-bold text-sm hover:bg-slate-50 transition-all cursor-pointer disabled:opacity-50"
+          >
+            BATAL
+          </button>
+          <button 
+            type="button" 
+            disabled={isSaving} 
+            onClick={handleSave} 
+            className="px-8 py-2 bg-[#40bdae] text-white rounded font-bold text-sm hover:bg-[#349c8f] transition-all shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2"
+          >
+            {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+            <span>{isSaving ? "MENYIMPAN DATA..." : "SIMPAN DATA"}</span>
+          </button>
         </div>
       </div>
     </Modal>

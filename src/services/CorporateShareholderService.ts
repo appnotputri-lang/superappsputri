@@ -1,4 +1,5 @@
 import { Shareholder, CompanyProfile, Address } from '../../types';
+import { CompanyService } from './CompanyService';
 
 export interface CorporateStakeholderParty {
   id: string;
@@ -426,5 +427,207 @@ export class CorporateShareholderService {
     }
 
     return updated;
+  }
+
+  /**
+   * When a corporate shareholder is manually entered or updated, this method ensures
+   * that it is also registered/saved as an official Client PT in the Master Clients database,
+   * completely following all PT client storage rules (Firestore `profiles`, `client_unique_keys`,
+   * SQLite/D1 directory index, centralized people collection, and normalized naming).
+   */
+  static async saveOrSyncCorporateClientProfile(
+    sh: Shareholder,
+    availableProfiles: CompanyProfile[] = [],
+    excludeCompanyIdOrName?: string
+  ): Promise<{ updatedShareholder: Shareholder; savedProfile: CompanyProfile | null }> {
+    if (!this.checkIsCorporateShareholder(sh)) {
+      return { updatedShareholder: sh, savedProfile: null };
+    }
+
+    const rawName = (sh.name || '').trim();
+    if (!rawName) {
+      return { updatedShareholder: sh, savedProfile: null };
+    }
+
+    // Format according to standard PT naming rules (e.g. "PT NAMA PERUSAHAAN")
+    const formattedName = CompanyService.formatCompanyName(rawName, 'PT').toUpperCase().trim();
+    const normalized = this.normalizeCorporateName(formattedName);
+    if (!normalized) {
+      return { updatedShareholder: sh, savedProfile: null };
+    }
+
+    // Prevent overwriting or mix-up with the currently edited meeting/client company
+    const normExclude = excludeCompanyIdOrName ? this.normalizeCorporateName(excludeCompanyIdOrName) : '';
+    if (excludeCompanyIdOrName && (sh.linkedProfileId === excludeCompanyIdOrName || normalized === normExclude)) {
+      return { updatedShareholder: sh, savedProfile: null };
+    }
+
+    try {
+      // 1. Check if profile already exists in available profiles or directory
+      let existingProfile: CompanyProfile | null = null;
+      let targetId = sh.linkedProfileId;
+
+      if (targetId) {
+        existingProfile = await CompanyService.getCompanyProfile(targetId);
+      }
+
+      if (!existingProfile) {
+        // Search in availableProfiles
+        const foundInAvailable = availableProfiles.find(
+          p => p.id !== excludeCompanyIdOrName && this.normalizeCorporateName(p.companyName) === normalized
+        );
+        if (foundInAvailable) {
+          targetId = foundInAvailable.id;
+          existingProfile = (await CompanyService.getCompanyProfile(foundInAvailable.id)) || foundInAvailable;
+        }
+      }
+
+      if (!existingProfile) {
+        // Search in directory
+        try {
+          const dirResults = await CompanyService.searchClientDirectory(formattedName, 5);
+          const matchedDir = dirResults.find(
+            d => (d.clientId || d.id) !== excludeCompanyIdOrName && this.normalizeCorporateName(d.companyName) === normalized
+          );
+          if (matchedDir) {
+            targetId = matchedDir.clientId || matchedDir.id;
+            existingProfile = await CompanyService.getCompanyProfile(targetId);
+          }
+        } catch (dirErr) {
+          console.warn('[CorporateShareholderService] Directory search warning:', dirErr);
+        }
+      }
+
+      if (!targetId) {
+        targetId = crypto.randomUUID();
+      }
+
+      // 2. Prepare full profile payload adhering to PT storage rules
+      const profileCity = (
+        sh.address?.city ||
+        existingProfile?.domicile ||
+        existingProfile?.oldDomicile ||
+        sh.establishmentNotaryDomicile ||
+        ''
+      ).toUpperCase().trim();
+
+      const targetAddress: Address = {
+        fullAddress: sh.address?.fullAddress || existingProfile?.newAddress?.fullAddress || existingProfile?.oldAddress?.fullAddress || '',
+        rt: sh.address?.rt || existingProfile?.newAddress?.rt || existingProfile?.oldAddress?.rt || '',
+        rw: sh.address?.rw || existingProfile?.newAddress?.rw || existingProfile?.oldAddress?.rw || '',
+        kelurahan: sh.address?.kelurahan || existingProfile?.newAddress?.kelurahan || existingProfile?.oldAddress?.kelurahan || '',
+        kecamatan: sh.address?.kecamatan || existingProfile?.newAddress?.kecamatan || existingProfile?.oldAddress?.kecamatan || '',
+        city: profileCity,
+        province: sh.address?.province || existingProfile?.newAddress?.province || existingProfile?.oldAddress?.province || '',
+        postalCode: sh.address?.postalCode || existingProfile?.newAddress?.postalCode || existingProfile?.oldAddress?.postalCode || ''
+      };
+
+      // 3. Assemble management items (Direksi / Pengurus) from the person representing this PT
+      const existingMgmt: any[] = [
+        ...(existingProfile?.newManagementItems || existingProfile?.oldManagementItems || [])
+      ];
+
+      if (sh.guardianName && sh.guardianName.trim()) {
+        const repName = sh.guardianName.toUpperCase().trim();
+        const normRepName = this.normalizeCorporateName(repName);
+        const repPos = sh.representativePosition || 'Direktur';
+        const repNik = sh.guardianNik || '';
+
+        const repIdx = existingMgmt.findIndex(m => 
+          (repNik && m.nik === repNik) || (m.name && this.normalizeCorporateName(m.name) === normRepName)
+        );
+
+        const repItem: any = {
+          id: repIdx >= 0 ? existingMgmt[repIdx].id : (sh.representativeId && sh.representativeId !== 'MANUAL' ? sh.representativeId : crypto.randomUUID()),
+          name: repName,
+          salutation: sh.guardianSalutation || (repIdx >= 0 ? existingMgmt[repIdx].salutation : 'Tuan'),
+          position: repPos,
+          managementPosition: repPos,
+          isManagement: true,
+          nik: repNik || (repIdx >= 0 ? existingMgmt[repIdx].nik : ''),
+          birthCity: (sh.guardianBirthCity || (repIdx >= 0 ? existingMgmt[repIdx].birthCity : '')).toUpperCase().trim(),
+          birthDate: sh.guardianBirthDate || (repIdx >= 0 ? existingMgmt[repIdx].birthDate : ''),
+          occupation: (sh.guardianOccupation || repPos).toUpperCase().trim(),
+          address: sh.guardianAddress && sh.guardianAddress.fullAddress ? sh.guardianAddress : (repIdx >= 0 && existingMgmt[repIdx].address ? existingMgmt[repIdx].address : targetAddress),
+          nationalityType: sh.guardianNationalityType || (repIdx >= 0 ? existingMgmt[repIdx].nationalityType : 'WNI'),
+          nationality: sh.guardianNationality || (repIdx >= 0 ? existingMgmt[repIdx].nationality : 'Indonesia')
+        };
+
+        if (repIdx >= 0) {
+          existingMgmt[repIdx] = { ...existingMgmt[repIdx], ...repItem };
+        } else {
+          existingMgmt.push(repItem);
+        }
+      }
+
+      const clientType = 'PT';
+      const companyType = sh.legalEntityType === 'PT Perorangan' ? 'PT_PERORANGAN' : (existingProfile?.companyType || 'PT_LOKAL');
+
+      const profilePayload: Partial<CompanyProfile> = {
+        ...existingProfile,
+        id: targetId,
+        companyName: formattedName,
+        clientType: clientType,
+        companyType: companyType,
+        domicile: profileCity,
+        oldDomicile: profileCity,
+        newAddress: targetAddress,
+        oldAddress: targetAddress,
+        npwp: sh.npwp || existingProfile?.npwp || '',
+        establishmentDeedNumber: sh.establishmentDeedNumber || existingProfile?.establishmentDeedNumber || '',
+        establishmentDeedDate: sh.establishmentDeedDate || existingProfile?.establishmentDeedDate || '',
+        establishmentNotary: sh.establishmentNotary || existingProfile?.establishmentNotary || '',
+        establishmentNotaryTitle: sh.establishmentNotaryTitle || existingProfile?.establishmentNotaryTitle || '',
+        establishmentNotaryDomicile: sh.establishmentNotaryDomicile || existingProfile?.establishmentNotaryDomicile || profileCity,
+        establishmentSkNumber: sh.establishmentSkNumber || sh.skNumber || existingProfile?.establishmentSkNumber || '',
+        establishmentSkDate: sh.establishmentSkDate || sh.skDate || existingProfile?.establishmentSkDate || '',
+        amendmentDeeds: (sh.amendmentDeeds && sh.amendmentDeeds.length > 0) ? sh.amendmentDeeds : (existingProfile?.amendmentDeeds || []),
+        newManagementItems: existingMgmt,
+        oldManagementItems: existingMgmt
+      };
+
+      // 4. Save to Master Client via CompanyService (handles Firestore transaction, D1 sync, people sync, unique keys)
+      try {
+        await CompanyService.saveCompany(targetId, profilePayload, false);
+      } catch (saveErr: any) {
+        if (saveErr instanceof Error && saveErr.message.startsWith('KLIEN_NAME_EXISTS:')) {
+          const dirEntries = await CompanyService.searchClientDirectory(formattedName, 5);
+          const matchedDir = dirEntries.find(d => this.normalizeCorporateName(d.companyName) === normalized);
+          if (matchedDir && matchedDir.clientId) {
+            targetId = matchedDir.clientId;
+            await CompanyService.saveCompany(targetId, { ...profilePayload, id: targetId }, false);
+          } else {
+            console.warn('[CorporateShareholderService] Name exists collision could not resolve clientId:', saveErr);
+          }
+        } else {
+          throw saveErr;
+        }
+      }
+
+      const updatedShareholder: Shareholder = {
+        ...sh,
+        name: formattedName,
+        linkedProfileId: targetId,
+        address: targetAddress,
+        isManagement: false,
+        managementPosition: undefined
+      };
+
+      return {
+        updatedShareholder,
+        savedProfile: { ...profilePayload, id: targetId } as CompanyProfile
+      };
+    } catch (err) {
+      console.error('[CorporateShareholderService] Error auto-saving corporate client PT profile:', err);
+      return {
+        updatedShareholder: {
+          ...sh,
+          name: formattedName,
+          isManagement: false,
+          managementPosition: undefined
+        },
+        savedProfile: null
+      };
+    }
   }
 }
