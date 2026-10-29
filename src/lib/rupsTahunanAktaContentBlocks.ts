@@ -167,34 +167,35 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
     totalShares > 0 ? (presentShares / totalShares) * 100 : 100;
 
   // Rep details (The person appearing before the Notary to state the resolutions)
-  // In RUPST Sirkuler, if bukan pemegang saham tidak ada di keputusan sirkuler ataupun akta
   let rep: any;
-  if (isSirkuler) {
-    const found = validShareholders.find(
-      (s) => s.id === data.authorizedRepresentativeId,
-    );
-    rep = found?.isProxy && found.proxyData ? found.proxyData : (found || validShareholders[0]);
+  const repType = data.representativeType || (data.manualRepresentative?.name ? "MANUAL" : "EXISTING");
+  if (repType === "MANUAL" && data.manualRepresentative?.name) {
+    rep = data.manualRepresentative;
   } else {
-    const repType = data.representativeType || (data.manualRepresentative ? "MANUAL" : "EXISTING");
-    if (repType === "EXISTING") {
-      const found = validShareholders.find(
-        (s) => s.id === data.authorizedRepresentativeId,
+    const allCandidates = [
+      ...(data.shareholders || []),
+      ...(data.oldManagementItems || []),
+      ...(data.newManagementItems || [])
+    ];
+    const found = allCandidates.find(
+      (s: any) =>
+        s.id === data.authorizedRepresentativeId ||
+        (s.name && s.name.trim().toUpperCase() === (data.authorizedRepresentativeId || "").trim().toUpperCase())
+    );
+    if (found) {
+      rep = (found as any).isProxy && (found as any).proxyData ? (found as any).proxyData : found;
+    } else if (!isSirkuler && data.meetingChair) {
+      const chairPerson = allCandidates.find(
+        (s: any) =>
+          (s.name || "").trim().toUpperCase() ===
+          (data.meetingChair || "").trim().toUpperCase(),
       );
-      if (found) {
-        rep = found.isProxy && found.proxyData ? found.proxyData : found;
-      } else {
-        const chairSh = validShareholders.find(
-          (s) =>
-            (s.name || "").toUpperCase() ===
-            (data.meetingChair || "").toUpperCase(),
-        );
-        rep =
-          chairSh?.isProxy && chairSh.proxyData
-            ? chairSh.proxyData
-            : chairSh || validShareholders[0] || (data.shareholders || [])[0];
-      }
+      rep =
+        (chairPerson as any)?.isProxy && (chairPerson as any).proxyData
+          ? (chairPerson as any).proxyData
+          : chairPerson || validShareholders[0] || (data.shareholders || [])[0];
     } else {
-      rep = data.manualRepresentative || validShareholders[0] || (data.shareholders || [])[0];
+      rep = validShareholders[0] || (data.shareholders || [])[0] || (data.oldManagementItems || [])[0];
     }
   }
 

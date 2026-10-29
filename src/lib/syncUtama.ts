@@ -120,7 +120,7 @@ export const formatAppearersForRups = (data: CompanyData): SyncAppearer[] => {
     ? (data.shareholders || []).filter(s => (Number(s.sharesOwned) || 0) > 0)
     : (data.shareholders || []);
   
-  if (data.representativeType === 'MANUAL' && data.manualRepresentative.name) {
+  if (data.representativeType === 'MANUAL' && data.manualRepresentative?.name) {
     const representedParties = validShareholders.filter(s => s.isPresent !== false);
     appearers.push({
       id: generateRandomId(),
@@ -131,8 +131,14 @@ export const formatAppearersForRups = (data: CompanyData): SyncAppearer[] => {
       mewakili: representedParties.map(s => s.name)
     });
   } else if (data.representativeType === 'EXISTING' && data.authorizedRepresentativeId) {
-    const rep = validShareholders.find(s => s.id === data.authorizedRepresentativeId) || 
-                data.finalShareholders?.find(s => s.id === data.authorizedRepresentativeId);
+    const allCandidates = [
+      ...validShareholders,
+      ...(data.finalShareholders || []),
+      ...(data.shareholders || []),
+      ...(data.oldManagementItems || []),
+      ...(data.newManagementItems || [])
+    ];
+    const rep = allCandidates.find(s => s.id === data.authorizedRepresentativeId || (s.name && s.name.toUpperCase() === data.authorizedRepresentativeId?.toUpperCase()));
     if (rep) {
       const representedParties = validShareholders.filter(s => s.isPresent !== false && s.id !== rep.id);
       const isRepPresent = validShareholders.some(s => s.id === rep.id && s.isPresent !== false);

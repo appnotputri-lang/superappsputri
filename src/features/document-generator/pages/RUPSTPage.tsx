@@ -17,7 +17,7 @@ import { compareCompanyDocumentDiff } from '../../../lib/diffUtils';
 import { DocumentGenerationService } from '../../../services/DocumentGenerationService';
 import { DocumentStatusBadge } from '../../../../components/DocumentStatusBadge';
 import { AhuSection, AhuLabel, AhuInput, AhuSelect, AhuMasaJabatanSelector } from '../../../../App';
-import { INITIAL_STATE } from '../../../domain/company/initialCompanyData';
+import { INITIAL_STATE, INITIAL_MANUAL_REP } from '../../../domain/company/initialCompanyData';
 import { DocumentDraftService, UnifiedDraftItem } from '../../../services/DocumentDraftService';
 import { DocumentDraftListView, DownloadOption } from '../components/DocumentDraftListView';
 import JSZip from 'jszip';
@@ -230,7 +230,7 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
 
   const updateManualRep = (updates: any) => {
     updateData({
-      manualRepresentative: { ...(data.manualRepresentative || {}), ...updates }
+      manualRepresentative: { ...(data.manualRepresentative || INITIAL_MANUAL_REP), ...updates }
     });
   };
 
@@ -309,12 +309,21 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
         isProxy: false,
         proxyData: undefined,
         isShareholder: false,
-        isManagement: true
+        isManagement: true,
+        rawManagement: m
       });
     });
 
     return list;
   }, [data.shareholders, data.oldManagementItems, data.originalTotalShares]);
+
+  const selectedRepValue = useMemo(() => {
+    if (!data.authorizedRepresentativeId) return '';
+    const match = combinedStakeholders.find(
+      s => s.id === data.authorizedRepresentativeId || (s.name && s.name.trim().toLowerCase() === (data.authorizedRepresentativeId || '').trim().toLowerCase())
+    );
+    return match ? match.id : data.authorizedRepresentativeId;
+  }, [data.authorizedRepresentativeId, combinedStakeholders]);
 
   const shCount = useMemo(() => combinedStakeholders.filter(s => s.isShareholder && s.sharesOwned > 0).length, [combinedStakeholders]);
   const dirCount = useMemo(() => combinedStakeholders.filter(s => s.roles.some((r: string) => /direktur|direksi/i.test(r))).length, [combinedStakeholders]);
@@ -2199,90 +2208,80 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                 </h3>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Pemberian Kuasa Notariil <span className="text-red-500">*</span>
-                </label>
-                
-                {data.rupstType === 'sirkuler' ? (
-                  <div className="space-y-3">
-                    <p className="text-xs text-slate-500 italic">
-                      * Pada RUPST Sirkuler, penerima kuasa wajib dari pemegang saham yang memiliki saham.
-                    </p>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Pilih Pemegang Saham Penerima Kuasa</label>
-                      <div className="relative">
-                        <select
-                          value={data.authorizedRepresentativeId || ''}
-                          onChange={e => updateData({ authorizedRepresentativeId: e.target.value, representativeType: 'EXISTING' })}
-                          className="w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-600 appearance-none bg-white pr-10"
-                        >
-                          <option value="">-- Pilih Pemegang Saham --</option>
-                          {(data.shareholders || [])
-                            .filter((s: any) => (Number(s.sharesOwned) || 0) > 0)
-                            .map((s: any) => (
-                              <option key={s.id} value={s.id}>{s.name} ({formatInputNumber(s.sharesOwned)} Saham)</option>
-                            ))}
-                        </select>
-                        <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    Pemberian Kuasa Notariil <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex flex-wrap gap-4 mt-1">
+                    <label className="flex items-center gap-2 text-sm text-slate-800 font-semibold cursor-pointer select-none">
+                      <input
+                        type="radio"
+                        checked={data.representativeType !== 'MANUAL'}
+                        onChange={() => updateData({ representativeType: 'EXISTING' })}
+                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>Pilih dari Para Pihak (Pemegang Saham / Direksi / Komisaris)</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-slate-800 font-semibold cursor-pointer select-none">
+                      <input
+                        type="radio"
+                        checked={data.representativeType === 'MANUAL'}
+                        onChange={() => updateData({ 
+                          representativeType: 'MANUAL',
+                          manualRepresentative: data.manualRepresentative && data.manualRepresentative.name ? data.manualRepresentative : { ...INITIAL_MANUAL_REP }
+                        })}
+                        className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span>Input Manual (Kuasa Khusus)</span>
+                    </label>
+                  </div>
+                </div>
+
+                {data.representativeType !== 'MANUAL' ? (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-600 uppercase mb-1.5">
+                      Pilih Penerima Kuasa (Pemegang Saham, Direktur, atau Komisaris)
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={selectedRepValue}
+                        onChange={e => updateData({ authorizedRepresentativeId: e.target.value, representativeType: 'EXISTING' })}
+                        className="w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-600 appearance-none bg-white pr-10 shadow-2xs"
+                      >
+                        <option value="">-- Pilih Penerima Kuasa --</option>
+                        {combinedStakeholders.map((s: any) => {
+                          const rolesText = s.roles && s.roles.length > 0 ? s.roles.join(', ') : (s.sharesOwned > 0 ? 'Pemegang Saham' : 'Pengurus');
+                          const sharesText = s.sharesOwned > 0 ? ` (${formatInputNumber(s.sharesOwned)} Saham)` : '';
+                          return (
+                            <option key={s.id} value={s.id}>
+                              {s.name} - {rolesText}{sharesText}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     </div>
+                    <p className="text-xs text-slate-500 mt-2">
+                      {isSirkuler 
+                        ? 'Penerima kuasa dapat dipilih dari jajaran Direktur, Komisaris, maupun Pemegang Saham untuk menghadap Notaris dan menandatangani Akta Pernyataan Keputusan Sirkuler.'
+                        : 'Penerima kuasa dapat dipilih dari jajaran Direktur, Komisaris, maupun Pemegang Saham untuk menghadap Notaris membuat Akta RUPST.'}
+                    </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    <div className="flex gap-4">
-                      <label className="flex items-center gap-2 text-sm text-slate-800 font-semibold cursor-pointer select-none">
-                        <input
-                          type="radio"
-                          checked={data.representativeType === 'EXISTING'}
-                          onChange={() => updateData({ representativeType: 'EXISTING' })}
-                          className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span>Pilih dari Para Pihak</span>
-                      </label>
-                      <label className="flex items-center gap-2 text-sm text-slate-800 font-semibold cursor-pointer select-none">
-                        <input
-                          type="radio"
-                          checked={data.representativeType === 'MANUAL'}
-                          onChange={() => updateData({ representativeType: 'MANUAL' })}
-                          className="w-4 h-4 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span>Input Manual</span>
-                      </label>
+                  <div className="p-4 border border-slate-200 rounded-xl bg-slate-50 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Data Kuasa (Input Manual)</h4>
+                      <span className="text-[11px] text-slate-500">Penerima kuasa khusus di luar pihak internal perseroan</span>
                     </div>
-
-                    {data.representativeType === 'EXISTING' ? (
-                      <div>
-                        <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Pilih Pemegang Saham</label>
-                        <div className="relative">
-                          <select
-                            value={data.authorizedRepresentativeId || ''}
-                            onChange={e => updateData({ authorizedRepresentativeId: e.target.value })}
-                            className="w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-600 appearance-none bg-white pr-10"
-                          >
-                            <option value="">-- Pilih Pemegang Saham --</option>
-                            {(data.shareholders || [])
-                              .filter((s: any) => (Number(s.sharesOwned) || 0) > 0)
-                              .map((s: any) => (
-                                <option key={s.id} value={s.id}>{s.name} ({formatInputNumber(s.sharesOwned)} Saham)</option>
-                              ))}
-                          </select>
-                          <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="p-4 border border-slate-200 rounded-xl bg-slate-50 space-y-3">
-                        <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Data Kuasa (Manual)</h4>
-                        <ShareholderEditor
-                          shareholder={data.manualRepresentative!}
-                          onChange={updates => updateManualRep(updates)}
-                          hideManagement
-                          hideFinancials
-                          totalSharesAllowed={0}
-                          otherAllocated={0}
-                        />
-                      </div>
-                    )}
+                    <ShareholderEditor
+                      shareholder={data.manualRepresentative || (INITIAL_MANUAL_REP as any)}
+                      onChange={updates => updateManualRep(updates)}
+                      hideManagement
+                      hideFinancials
+                      totalSharesAllowed={0}
+                      otherAllocated={0}
+                    />
                   </div>
                 )}
               </div>

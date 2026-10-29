@@ -1111,16 +1111,31 @@ export function generateSirkulerLaporanBlocks(data: CompanyData): Block[] {
   currentDecisionIdx++;
 
   // 6. Kuasa
-  // Di RUPST Sirkuler, apabila bukan pemegang saham tidak ada di keputusan sirkuler ataupun akta
-  const validShs = (data.shareholders || []).filter(s => (Number(s.sharesOwned) || 0) > 0);
-  const foundSh = validShs.find((s) => s.id === data.authorizedRepresentativeId) ||
-                  validShs[0] ||
-                  shareholders[0];
+  const allCandidates = [
+    ...(data.shareholders || []),
+    ...(data.oldManagementItems || []),
+    ...(data.newManagementItems || [])
+  ];
 
-  const repName = (foundSh?.name || "............................").toUpperCase();
-  const salutation = foundSh?.salutation || "Tuan";
+  let repText = "";
+  if (data.representativeType === "MANUAL" && data.manualRepresentative?.name) {
+    const rep = data.manualRepresentative;
+    const repName = (rep.name || "").toUpperCase();
+    const salutation = rep.salutation || "Tuan";
+    const tglAngka = rep.birthDate ? formatDateRupst(rep.birthDate) : "...";
+    const details = formatPersonDetails(rep, tglAngka, "", false, false, true);
+    repText = `Memberikan kuasa kepada ${salutation} ${repName}, ${details}, untuk melakukan segala tindakan yang diperlukan sehubungan dengan hasil keputusan ini, termasuk namun tidak terbatas pada pengurusan pelaporan kepada instansi yang berwenang.`;
+  } else {
+    const foundPerson = allCandidates.find(
+      (s: any) =>
+        s.id === data.authorizedRepresentativeId ||
+        (s.name && s.name.trim().toUpperCase() === (data.authorizedRepresentativeId || "").trim().toUpperCase())
+    ) || (data.shareholders || [])[0] || (data.oldManagementItems || [])[0];
 
-  const repText = `Memberikan kuasa kepada ${salutation} ${repName} tersebut diatas, untuk melakukan segala tindakan yang diperlukan sehubungan dengan hasil keputusan ini, termasuk namun tidak terbatas pada pengurusan pelaporan kepada instansi yang berwenang.`;
+    const repName = (foundPerson?.name || "............................").toUpperCase();
+    const salutation = foundPerson?.salutation || "Tuan";
+    repText = `Memberikan kuasa kepada ${salutation} ${repName} tersebut diatas, untuk melakukan segala tindakan yang diperlukan sehubungan dengan hasil keputusan ini, termasuk namun tidak terbatas pada pengurusan pelaporan kepada instansi yang berwenang.`;
+  }
 
   blocks.push({
     type: "numbered",

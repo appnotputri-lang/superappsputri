@@ -502,12 +502,22 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   });
 
   // Resolution 6 (Kuasa) Helper (Common for both)
+  const allCandidates = [
+    ...(data.shareholders || []),
+    ...(data.oldManagementItems || []),
+    ...(data.newManagementItems || [])
+  ];
   const rep =
     data.representativeType === "MANUAL"
       ? data.manualRepresentative
-      : data.shareholders.find((s) => s.id === data.authorizedRepresentativeId);
+      : (allCandidates.find(
+          (s: any) =>
+            s.id === data.authorizedRepresentativeId ||
+            (s.name && s.name.trim().toUpperCase() === (data.authorizedRepresentativeId || "").trim().toUpperCase())
+        ) || null);
+
   let repRuns: FormatToken[] = [];
-  if (data.representativeType === "MANUAL" && rep) {
+  if (data.representativeType === "MANUAL" && rep && rep.name) {
     const repName = (rep.name || "").toUpperCase();
     const salutation = rep.salutation || "Tuan";
     const tglAngka = rep.birthDate ? formatDateRupst(rep.birthDate) : "...";
@@ -524,11 +534,11 @@ export const generateRupstBlocks = (data: CompanyData): Block[] => {
   } else {
     const repName = rep
       ? rep.name.toUpperCase()
-      : (data.meetingChair || "RAJANDRAN SHUNMUGAM").toUpperCase();
-    const foundSh = data.shareholders.find(
-      (s) => s.name.toUpperCase() === repName,
+      : (data.meetingChair || ((data.shareholders || [])[0]?.name) || "RAJANDRAN SHUNMUGAM").toUpperCase();
+    const foundPerson = allCandidates.find(
+      (s: any) => (s.name || "").trim().toUpperCase() === repName,
     );
-    const salutation = foundSh?.salutation || "Tuan";
+    const salutation = foundPerson?.salutation || (rep as any)?.salutation || "Tuan";
     repRuns = [
       { text: `Memberikan kuasa kepada ` },
       { text: `${salutation} ` },
