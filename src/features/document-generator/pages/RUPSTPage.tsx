@@ -1000,8 +1000,8 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                     onChange={e => updateData({ rupstType: e.target.value as any })}
                     className="w-full border border-slate-200 rounded-lg px-4 py-3 text-sm bg-white text-slate-800 font-semibold shadow-2xs focus:border-blue-600 focus:ring-1 focus:ring-blue-600 appearance-none pr-10"
                   >
-                    <option value="sirkuler">Keputusan Para Pemegang Saham Sebagai Pengganti RUPST (Sirkuler / Pasal 91 UU PT)</option>
-                    <option value="rapat">Rapat Umum Pemegang Saham Tahunan (RUPST Biasa / Fisik / Hibrid)</option>
+                    <option value="sirkuler">SIRKULER</option>
+                    <option value="rapat">RUPS</option>
                   </select>
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
