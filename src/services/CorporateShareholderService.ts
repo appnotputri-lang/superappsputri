@@ -24,13 +24,13 @@ export interface CorporateStakeholderParty {
 
 export class CorporateShareholderService {
   /**
-   * Normalizes company name by removing PT/CV prefixes, punctuation, and extra whitespace
+   * Normalizes company name by removing PT/CV prefixes, salutations, punctuation, and extra whitespace
    */
   static normalizeCorporateName(name?: string): string {
     if (!name) return '';
     return name
       .toUpperCase()
-      .replace(/\b(PT|PT\.|P\.T\.|P\.T|PERSEROAN TERBATAS|CV|CV\.|KOPERASI|YAYASAN)\b/gi, '')
+      .replace(/\b(TUAN|NYONYA|NONA|BAPAK|IBU|BPK|PT|PT\.|P\.T\.|P\.T|PERSEROAN TERBATAS|CV|CV\.|KOPERASI|YAYASAN)\b/gi, '')
       .replace(/[^A-Z0-9]/g, '')
       .trim();
   }
@@ -304,9 +304,10 @@ export class CorporateShareholderService {
     const updates: Partial<Shareholder> = {
       ...sh,
       shareholderType: 'BADAN_HUKUM',
+      salutation: '' as any,
       isManagement: false,
       managementPosition: undefined,
-      name: (profile.companyName || sh.name || '').toUpperCase().trim(),
+      name: (profile.companyName || sh.name || '').replace(/^(TUAN|NYONYA|NONA|BAPAK|IBU|BPK)\s+/i, '').toUpperCase().trim(),
       legalEntityType: profile.companyType || sh.legalEntityType || 'PT Persekutuan Modal',
       npwp: profile.npwp || sh.npwp || '',
       address: targetAddress,
@@ -385,14 +386,20 @@ export class CorporateShareholderService {
 
     if (updated.proxyData && (updated.proxyData.name || updated.proxyData.nik)) {
       const px = updated.proxyData;
-      if (!updated.guardianName && px.name) updated.guardianName = px.name.toUpperCase().trim();
-      if (!updated.guardianNik && px.nik) updated.guardianNik = px.nik;
-      if (!updated.guardianSalutation && px.salutation) updated.guardianSalutation = px.salutation;
-      if (!updated.guardianBirthCity && px.birthCity) updated.guardianBirthCity = px.birthCity;
-      if (!updated.guardianBirthDate && px.birthDate) updated.guardianBirthDate = px.birthDate;
-      if (!updated.guardianOccupation && px.occupation) updated.guardianOccupation = px.occupation;
-      if (!updated.guardianAddress && px.address) updated.guardianAddress = px.address;
-      if (!updated.representativePosition && px.occupation) updated.representativePosition = px.occupation;
+      updated.guardianName = (px.name || '').toUpperCase().trim();
+      updated.guardianNik = px.nik || '';
+      updated.guardianSalutation = px.salutation || 'Tuan';
+      updated.guardianBirthCity = px.birthCity || '';
+      updated.guardianBirthDate = px.birthDate || '';
+      updated.guardianOccupation = px.position || px.occupation || '';
+      updated.guardianAddress = px.address ? { ...px.address } : undefined;
+      updated.representativePosition = px.position || px.occupation || (px.representationType === 'KUASA' ? 'Kuasa Direksi' : 'Direktur');
+      updated.representativeName = (px.name || '').toUpperCase().trim();
+      updated.guardianNationality = px.nationality || 'Indonesia';
+      updated.guardianNationalityType = px.nationalityType || 'WNI';
+      updated.guardianPassportNumber = px.passportNumber || '';
+      updated.guardianKitasNumber = px.kitasNumber || '';
+      updated.guardianKitasType = px.kitasType || 'NONE';
       updated.isProxy = true;
     } else if (updated.guardianName && !updated.proxyData) {
       updated.proxyData = {

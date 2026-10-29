@@ -154,6 +154,7 @@ export interface Shareholder {
   amendmentDeeds?: AmendmentDeed[];
   representativePosition?: string;
   representativeId?: string;
+  representativeName?: string;
   
   // Acquisition details
   isAcquisition?: boolean;
@@ -179,6 +180,7 @@ export interface Shareholder {
   guardianOccupation?: string;
   guardianPassportNumber?: string;
   guardianKitasNumber?: string;
+  guardianKitasType?: 'KITAS' | 'KITAP' | 'NONE';
 
   // Proxy / Kuasa fields (for RUPS LB)
   isProxy?: boolean;       // true = pemegang saham dikuasakan ke orang lain

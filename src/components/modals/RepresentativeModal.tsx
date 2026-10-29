@@ -1,9 +1,10 @@
 import React from 'react';
-import { X, UserCheck, FileText, AlertCircle, Building2, CheckCircle2 } from 'lucide-react';
+import { X, UserCheck, FileText, AlertCircle, Building2, CheckCircle2, Search, Loader2 } from 'lucide-react';
 import { IndoRegionSelector } from '../../../components/AddressFields';
 import { Shareholder, CompanyProfile } from '../../../types';
 import { CompanyService } from '../../services/CompanyService';
 import { CorporateShareholderService, CorporateStakeholderParty } from '../../services/CorporateShareholderService';
+import { PersonService } from '../../services/PersonService';
 
 export interface ProxyData {
   salutation: 'Tuan' | 'Nyonya' | 'Nona';
@@ -87,6 +88,12 @@ const ProxyInputModal: React.FC<Props> = ({
 }) => {
   const isCorporate = CorporateShareholderService.checkIsCorporateShareholder(shareholder);
 
+  const cleanDisplayName = React.useMemo(() => {
+    return (shareholderName || shareholder?.name || '')
+      .replace(/^(TUAN|NYONYA|NONA|BAPAK|IBU|BPK)\s+/i, '')
+      .trim();
+  }, [shareholderName, shareholder?.name]);
+
   const [form, setForm] = React.useState<ProxyData>(() => ({
     ...emptyProxy(),
     representationType: isCorporate ? 'DIREKTUR_PT_LAIN' : (initialData?.representationType || 'KUASA'),
@@ -94,43 +101,107 @@ const ProxyInputModal: React.FC<Props> = ({
     address: { ...emptyProxy().address, ...(initialData?.address || {}) },
   }));
 
+  const [directoryProfiles, setDirectoryProfiles] = React.useState<CompanyProfile[]>([]);
+  const [loadingDirectory, setLoadingDirectory] = React.useState<boolean>(false);
+  const [loadingParentProfile, setLoadingParentProfile] = React.useState<boolean>(false);
   const [activeProfileId, setActiveProfileId] = React.useState<string>('');
   const [showManualCompanySearch, setShowManualCompanySearch] = React.useState<boolean>(false);
   const [fullParentProfile, setFullParentProfile] = React.useState<CompanyProfile | null>(null);
   const [selectedPartyMissingNote, setSelectedPartyMissingNote] = React.useState<string>('');
+  const [selectedPartySuccessNote, setSelectedPartySuccessNote] = React.useState<string>('');
+  const [selectedStakeholderId, setSelectedStakeholderId] = React.useState<string>('');
+
+  // Master people search state
+  const [peopleSearchQuery, setPeopleSearchQuery] = React.useState<string>('');
+  const [peopleSearchResults, setPeopleSearchResults] = React.useState<any[]>([]);
+  const [isSearchingPeople, setIsSearchingPeople] = React.useState<boolean>(false);
+  const [showPeopleSearch, setShowPeopleSearch] = React.useState<boolean>(false);
+
+  // Fetch client directory if profiles prop is empty
+  React.useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+    if (profiles.length === 0 && directoryProfiles.length === 0) {
+      setLoadingDirectory(true);
+      CompanyService.getClientDirectory({ clientType: 'PT', limit: 'all' })
+        .then(entries => {
+          if (!isMounted) return;
+          const mapped: CompanyProfile[] = (entries || []).map(d => ({
+            id: d.clientId || d.id,
+            companyName: d.companyName,
+            clientType: d.clientType || 'PT',
+            companyType: d.companyType || 'PT_LOKAL',
+            domicile: d.domicile,
+            establishmentDeedNumber: d.establishmentDeedNumber,
+            establishmentDeedDate: d.establishmentDeedDate,
+            establishmentSkNumber: d.establishmentSkNumber,
+            establishmentSkDate: d.establishmentSkDate,
+            establishmentNotary: d.establishmentNotary,
+            updatedAt: d.updatedAt,
+            isArchived: d.isArchived,
+            npwp: d.npwp,
+          } as CompanyProfile));
+          setDirectoryProfiles(mapped);
+        })
+        .catch(err => {
+          console.error("Error loading PT directory in RepresentativeModal:", err);
+        })
+        .finally(() => {
+          if (isMounted) setLoadingDirectory(false);
+        });
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, profiles.length, directoryProfiles.length]);
+
+  // Combine prop profiles and directoryProfiles
+  const combinedProfiles = React.useMemo(() => {
+    const list: CompanyProfile[] = [...profiles];
+    const seen = new Set(list.map(p => p.id));
+    directoryProfiles.forEach(dp => {
+      if (!seen.has(dp.id)) {
+        seen.add(dp.id);
+        list.push(dp);
+      }
+    });
+    return list;
+  }, [profiles, directoryProfiles]);
 
   // Available profiles strictly excluding the meeting company
   const availableCorporateProfiles = React.useMemo(() => {
     return CorporateShareholderService.filterAvailableCorporateProfiles(
-      profiles,
+      combinedProfiles,
       excludeCompanyIdOrName
     );
-  }, [profiles, excludeCompanyIdOrName]);
+  }, [combinedProfiles, excludeCompanyIdOrName]);
 
   // Auto-find matching corporate profile for this shareholder
   const autoParentProfile = React.useMemo(() => {
+    const targetSh = shareholder || { name: cleanDisplayName };
     return CorporateShareholderService.findMatchingCorporateProfile(
-      shareholder,
-      profiles,
+      targetSh,
+      combinedProfiles,
       excludeCompanyIdOrName
     );
-  }, [shareholder, profiles, excludeCompanyIdOrName]);
+  }, [shareholder, cleanDisplayName, combinedProfiles, excludeCompanyIdOrName]);
 
   React.useEffect(() => {
-    if (autoParentProfile) {
+    if (autoParentProfile && !activeProfileId) {
       setActiveProfileId(autoParentProfile.id);
-    } else {
-      setActiveProfileId('');
     }
-  }, [autoParentProfile]);
+  }, [autoParentProfile, activeProfileId]);
 
   React.useEffect(() => {
     let isMounted = true;
     if (activeProfileId) {
+      setLoadingParentProfile(true);
       CompanyService.getCompanyProfile(activeProfileId).then(p => {
         if (isMounted) setFullParentProfile(p);
       }).catch(err => {
         console.error("Error fetching parent company profile:", err);
+      }).finally(() => {
+        if (isMounted) setLoadingParentProfile(false);
       });
     } else {
       setFullParentProfile(null);
@@ -140,7 +211,7 @@ const ProxyInputModal: React.FC<Props> = ({
     };
   }, [activeProfileId]);
 
-  const parentProfile = fullParentProfile || (activeProfileId ? profiles.find(p => p.id === activeProfileId) || null : autoParentProfile);
+  const parentProfile = fullParentProfile || (activeProfileId ? combinedProfiles.find(p => p.id === activeProfileId) || null : autoParentProfile);
 
   // Extract stakeholders (Direksi, Komisaris, Pemegang Saham) from parent profile
   const parentStakeholders = React.useMemo<CorporateStakeholderParty[]>(() => {
@@ -161,8 +232,13 @@ const ProxyInputModal: React.FC<Props> = ({
         address: { ...emptyProxy().address, ...(initialData?.address || {}) },
       });
       setSelectedPartyMissingNote('');
+      setSelectedPartySuccessNote('');
+      setSelectedStakeholderId('');
+      setPeopleSearchQuery('');
+      setPeopleSearchResults([]);
+      setShowPeopleSearch(false);
     }
-  }, [isOpen, shareholderName, isCorporate]);
+  }, [isOpen, cleanDisplayName, isCorporate]);
 
   if (!isOpen) return null;
 
@@ -175,11 +251,16 @@ const ProxyInputModal: React.FC<Props> = ({
   const isWna = form.nationalityType === 'WNA' || form.isForeign;
 
   const handleApplyStakeholder = (party: CorporateStakeholderParty) => {
+    setSelectedStakeholderId(party.id);
     if (party.missingFields.length > 0) {
       setSelectedPartyMissingNote(`Catatan: Data ${party.name} di Master Klien belum memiliki: ${party.missingFields.join(', ')}. Silakan lengkapi formulir di bawah ini.`);
+      setSelectedPartySuccessNote('');
     } else {
       setSelectedPartyMissingNote('');
+      setSelectedPartySuccessNote(`✓ Data ${party.name} (${party.position}) berhasil dimuat dari Data Klien PT ${parentProfile?.companyName || ''}.`);
     }
+
+    const pos = party.position || party.occupation || (party.roleCategory === 'PEMEGANG_SAHAM' ? 'WIRASWASTA' : 'Direktur');
 
     update({
       salutation: party.salutation || 'Tuan',
@@ -187,7 +268,7 @@ const ProxyInputModal: React.FC<Props> = ({
       nik: party.nik || '',
       birthCity: party.birthCity || '',
       birthDate: party.birthDate || '',
-      occupation: party.position || party.occupation || (party.roleCategory === 'PEMEGANG_SAHAM' ? 'WIRASWASTA' : 'Direktur'),
+      occupation: form.representationType === 'DIREKTUR_PT_LAIN' ? pos : (party.occupation || pos),
       nationalityType: party.nationalityType || 'WNI',
       isForeign: party.nationalityType === 'WNA',
       nationality: party.nationality || (party.nationalityType === 'WNA' ? 'WNA' : 'Indonesia'),
@@ -206,6 +287,93 @@ const ProxyInputModal: React.FC<Props> = ({
         postalCode: party.address?.postalCode || '',
       }
     });
+  };
+
+  const handleApplyAttendee = (party: any, indexKey: string) => {
+    setSelectedStakeholderId(indexKey);
+    setSelectedPartySuccessNote(`✓ Data ${party.name} berhasil dimuat dari Peserta Rapat.`);
+    setSelectedPartyMissingNote('');
+
+    update({
+      salutation: party.salutation || 'Tuan',
+      name: (party.name || '').toUpperCase().trim(),
+      nik: party.nik || '',
+      birthCity: party.birthCity || '',
+      birthDate: party.birthDate || '',
+      occupation: party.occupation || (form.representationType === 'DIREKTUR_PT_LAIN' ? 'Direktur' : 'Kuasa Direksi'),
+      nationalityType: party.nationalityType || 'WNI',
+      isForeign: party.isForeign || false,
+      nationality: party.nationality || '',
+      passportNumber: party.passportNumber || '',
+      kitasNumber: party.kitasNumber || '',
+      kitasType: party.kitasType || 'NONE',
+      hasKitas: party.hasKitas || false,
+      address: {
+        fullAddress: party.address?.fullAddress || '',
+        rt: party.address?.rt || '',
+        rw: party.address?.rw || '',
+        kelurahan: party.address?.kelurahan || '',
+        kecamatan: party.address?.kecamatan || '',
+        city: party.address?.city || '',
+        province: party.address?.province || '',
+        postalCode: party.address?.postalCode || '',
+      }
+    });
+  };
+
+  const handleApplyPersonFromMaster = (p: any) => {
+    setSelectedStakeholderId(p.personId || p.id || 'PERSON_SEARCH');
+    setSelectedPartySuccessNote(`✓ Data ${p.name} berhasil dimuat dari Master Data Klien.`);
+    setSelectedPartyMissingNote('');
+
+    const isForeign = p.nationalityType === 'WNA' || p.isForeign;
+    update({
+      salutation: p.salutation || 'Tuan',
+      name: (p.name || '').toUpperCase().trim(),
+      nik: p.nik || '',
+      birthCity: p.birthCity || '',
+      birthDate: p.birthDate || '',
+      occupation: form.representationType === 'DIREKTUR_PT_LAIN' 
+        ? (p.position || 'Direktur')
+        : (p.occupation || 'Kuasa Direksi'),
+      nationalityType: isForeign ? 'WNA' : 'WNI',
+      isForeign: isForeign,
+      nationality: p.nationality || (isForeign ? 'WNA' : 'Indonesia'),
+      passportNumber: p.passportNumber || '',
+      kitasNumber: p.kitasNumber || '',
+      kitasType: p.kitasType || 'NONE',
+      hasKitas: p.hasKitas || false,
+      address: {
+        fullAddress: p.address?.fullAddress || '',
+        rt: p.address?.rt || '',
+        rw: p.address?.rw || '',
+        kelurahan: p.address?.kelurahan || '',
+        kecamatan: p.address?.kecamatan || '',
+        city: p.address?.city || '',
+        province: p.address?.province || '',
+        postalCode: p.address?.postalCode || '',
+      }
+    });
+    setPeopleSearchResults([]);
+    setPeopleSearchQuery('');
+    setShowPeopleSearch(false);
+  };
+
+  const handlePeopleSearch = async (query: string) => {
+    setPeopleSearchQuery(query);
+    if (!query || query.trim().length < 2) {
+      setPeopleSearchResults([]);
+      return;
+    }
+    setIsSearchingPeople(true);
+    try {
+      const res = await PersonService.searchPeople(query, 8);
+      setPeopleSearchResults(res || []);
+    } catch (err) {
+      console.error("Error searching people:", err);
+    } finally {
+      setIsSearchingPeople(false);
+    }
   };
 
   const handleSave = () => {
@@ -238,7 +406,7 @@ const ProxyInputModal: React.FC<Props> = ({
               </h2>
               <p className="text-[10px] text-slate-500 mt-0.5">
                 {isCorporate ? 'Badan Hukum PT: ' : 'Kuasa dari: '}
-                <span className="font-bold text-blue-700 uppercase">{shareholderName}</span>
+                <span className="font-bold text-blue-700 uppercase">{cleanDisplayName}</span>
               </p>
             </div>
           </div>
@@ -250,6 +418,219 @@ const ProxyInputModal: React.FC<Props> = ({
         {/* Body */}
         <div className="p-6 overflow-y-auto flex-1 space-y-4">
           <p className="text-xs text-red-500">Kotak isian yang bertanda * wajib diisi</p>
+
+          {/* ── STATUS KONEKSI PROFIL PT (DATA KLIEN) ── */}
+          {isCorporate && (
+            <div className="bg-blue-50/70 border border-blue-200 rounded-lg p-3.5 space-y-2.5">
+              {(loadingDirectory || loadingParentProfile) && (
+                <div className="flex items-center gap-2 text-xs text-blue-700 py-1">
+                  <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                  <span>Memuat data PT dan pihak-pihak terkait dari Master Klien...</span>
+                </div>
+              )}
+
+              {parentProfile && !loadingParentProfile && (
+                <div className="bg-blue-100/70 p-3 rounded-lg border border-blue-200 space-y-1.5 text-xs text-blue-900">
+                  <div className="flex justify-between items-center">
+                    <span className="font-extrabold uppercase flex items-center gap-1.5">
+                      <Building2 className="w-4 h-4 text-blue-700" /> PT Terhubung: {parentProfile.companyName}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowManualCompanySearch(prev => !prev)}
+                      className="text-[11px] text-blue-600 underline hover:text-blue-800 font-bold cursor-pointer"
+                    >
+                      {showManualCompanySearch ? 'Batal' : 'Ganti Profil PT'}
+                    </button>
+                  </div>
+                  <div className="text-[11px] text-slate-600 grid grid-cols-2 gap-1 pt-1 border-t border-blue-200/60">
+                    <span>Kedudukan: <b>{parentProfile.domicile || parentProfile.oldDomicile || 'Belum diisi'}</b></span>
+                    <span>Akta Pendirian: <b>{parentProfile.establishmentDeedNumber ? `No. ${parentProfile.establishmentDeedNumber}` : 'Belum diisi'}</b></span>
+                    <span className="col-span-2 truncate">SK Kemenkumham: <b>{parentProfile.establishmentSkNumber || 'Belum diisi'}</b></span>
+                  </div>
+                </div>
+              )}
+
+              {/* Tampilkan pencarian manual PT jika diinginkan, atau jika autoParentProfile tidak ditemukan */}
+              {(!parentProfile || showManualCompanySearch) && (
+                <div>
+                  <label className="block text-[11px] font-bold text-blue-900 mb-1">
+                    Hubungkan ke Profil PT Pemegang Saham (dari Master Data Klien):
+                  </label>
+                  <select
+                    value={activeProfileId}
+                    onChange={e => {
+                      setActiveProfileId(e.target.value);
+                      setShowManualCompanySearch(false);
+                    }}
+                    className="w-full px-3 py-2 border border-blue-300 rounded outline-none text-xs bg-white focus:border-blue-500 font-bold text-blue-900 cursor-pointer"
+                  >
+                    <option value="">-- Cari & Pilih Profil PT dari Database ({availableCorporateProfiles.length} PT Tersedia) --</option>
+                    {availableCorporateProfiles.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.companyName} ({p.domicile || 'Indonesia'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── PILIHAN PIHAK YANG MEWAKILI (DARI DATA KLIEN) ── */}
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50/50 border-2 border-blue-300 rounded-xl p-4 space-y-3 shadow-xs">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-black text-blue-950 uppercase tracking-wide flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-blue-700" />
+                Pilih Orang Sesuai Data Klien {parentProfile ? `PT ${parentProfile.companyName}` : ''}
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowPeopleSearch(prev => !prev)}
+                className="text-[11px] text-blue-700 hover:text-blue-900 font-bold flex items-center gap-1 cursor-pointer underline"
+              >
+                <Search className="w-3 h-3" />
+                {showPeopleSearch ? 'Tutup Pencarian' : 'Cari Master Orang'}
+              </button>
+            </div>
+
+            {/* Dropdown Pemilihan Pihak dari Profil PT */}
+            <div>
+              <select
+                value={selectedStakeholderId}
+                onChange={e => {
+                  const val = e.target.value;
+                  setSelectedStakeholderId(val);
+                  if (val === 'MANUAL') {
+                    setSelectedPartyMissingNote('');
+                    setSelectedPartySuccessNote('');
+                  } else if (val.startsWith('ATT_')) {
+                    const idx = parseInt(val.replace('ATT_', ''), 10);
+                    if (availableParties && availableParties[idx]) {
+                      handleApplyAttendee(availableParties[idx], val);
+                    }
+                  } else if (val) {
+                    const party = parentStakeholders.find(p => p.id === val);
+                    if (party) {
+                      handleApplyStakeholder(party);
+                    }
+                  }
+                }}
+                className="w-full px-3.5 py-2.5 border-2 border-blue-400 hover:border-blue-500 rounded-lg outline-none text-xs bg-white focus:border-blue-700 font-bold text-blue-950 focus:ring-2 focus:ring-blue-200 cursor-pointer transition-all"
+              >
+                <option value="">-- Klik Disini untuk Memilih Pihak yang Mewakili --</option>
+                {direksiList.length > 0 && (
+                  <optgroup label="👔 Dewan Direksi PT (Berdasarkan Data Klien)">
+                    {direksiList.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} — {p.position} {p.isComplete ? '✓ (Lengkap)' : '⚠️ (Perlu Lengkapi Data)'}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {komisarisList.length > 0 && (
+                  <optgroup label="👔 Dewan Komisaris PT">
+                    {komisarisList.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} — {p.position} {p.isComplete ? '✓ (Lengkap)' : '⚠️ (Perlu Lengkapi Data)'}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {pemegangSahamList.length > 0 && (
+                  <optgroup label="👤 Pemegang Saham PT (Perorangan)">
+                    {pemegangSahamList.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} — Pemegang Saham {p.isComplete ? '✓ (Lengkap)' : '⚠️ (Perlu Lengkapi Data)'}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {availableParties && availableParties.length > 0 && (
+                  <optgroup label="👥 Peserta / Pengurus Rapat Lainnya">
+                    {availableParties.map((p, idx) => (
+                      <option key={`att-${idx}`} value={`ATT_${idx}`}>
+                        {p.name} ({p.occupation || 'Peserta Rapat'})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                <option value="MANUAL">✏️ Input Manual (Ketik Sendiri / Pihak Luar)</option>
+              </select>
+            </div>
+
+            {/* Quick search Master People Database */}
+            {showPeopleSearch && (
+              <div className="p-3 bg-white border border-blue-200 rounded-lg space-y-2 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700">
+                    Cari Orang dari Database Master Klien:
+                  </span>
+                  {isSearchingPeople && (
+                    <span className="text-[10px] text-blue-600 animate-pulse font-semibold flex items-center gap-1">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Mencari...
+                    </span>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  placeholder="Ketik minimal 2 huruf nama atau NIK..."
+                  value={peopleSearchQuery}
+                  onChange={e => handlePeopleSearch(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-slate-300 rounded text-xs bg-slate-50 focus:bg-white focus:border-blue-500 outline-none"
+                  autoFocus
+                />
+                {peopleSearchResults.length > 0 && (
+                  <div className="max-h-36 overflow-y-auto border border-slate-200 rounded-md divide-y divide-slate-100">
+                    {peopleSearchResults.map((p, i) => (
+                      <button
+                        key={p.personId || p.nik || i}
+                        type="button"
+                        onClick={() => handleApplyPersonFromMaster(p)}
+                        className="w-full text-left p-2 hover:bg-blue-50 transition-colors flex justify-between items-center text-xs cursor-pointer"
+                      >
+                        <div>
+                          <span className="font-bold text-slate-800">{p.salutation ? p.salutation + ' ' : ''}{p.name}</span>
+                          <span className="text-[10px] text-slate-500 block">NIK: {p.nik || '-'} | {p.occupation || 'Wiraswasta'}</span>
+                        </div>
+                        <span className="text-[10px] bg-blue-600 text-white font-bold px-2.5 py-1 rounded shadow-xs">Pilih</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {peopleSearchQuery.trim().length >= 2 && !isSearchingPeople && peopleSearchResults.length === 0 && (
+                  <p className="text-[10px] text-slate-400 italic">Tidak ditemukan orang dengan kata kunci tersebut.</p>
+                )}
+              </div>
+            )}
+
+            {/* Notification & Feedback Alerts */}
+            {selectedPartySuccessNote && (
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-xs flex items-center gap-2 font-medium">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{selectedPartySuccessNote}</span>
+              </div>
+            )}
+
+            {selectedPartyMissingNote && (
+              <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs flex items-start gap-2 font-medium">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>{selectedPartyMissingNote}</span>
+              </div>
+            )}
+
+            {parentProfile && parentStakeholders.length === 0 && !loadingParentProfile && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 font-medium space-y-1">
+                <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  Data Pihak Belum Terdaftar di PT {parentProfile.companyName}
+                </div>
+                <p className="text-[11px] leading-relaxed">
+                  Data Direksi, Dewan Komisaris, dan Pemegang Saham untuk <b>PT {parentProfile.companyName}</b> belum tersimpan di Master Klien. Anda dapat mengisi identitas pihak yang mewakili secara manual di bawah ini, atau menggunakan tombol <b>Cari Master Orang</b>.
+                </p>
+              </div>
+            )}
+          </div>
 
           {/* ── SELEKTOR KAPASITAS / REPRESENTASI ── */}
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-2">
@@ -318,179 +699,6 @@ const ProxyInputModal: React.FC<Props> = ({
               <p className="text-[10px] text-orange-600 mt-1.5">
                 Akan tercetak: "berdasarkan Surat Kuasa tertanggal [tanggal ini]"
               </p>
-            </div>
-          )}
-
-          {/* ── SELEKTOR DARI PROFIL PT PEMEGANG SAHAM (DATA KLIEN) ── */}
-          <div className="bg-blue-50/70 border border-blue-200 rounded-lg p-4 space-y-3">
-            {parentProfile && (
-              <div className="bg-blue-100/70 p-3 rounded-lg border border-blue-200 space-y-1.5 text-xs text-blue-900">
-                <div className="flex justify-between items-center">
-                  <span className="font-extrabold uppercase flex items-center gap-1.5">
-                    <Building2 className="w-4 h-4 text-blue-700" /> PT Terhubung: {parentProfile.companyName}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowManualCompanySearch(prev => !prev)}
-                    className="text-[11px] text-blue-600 underline hover:text-blue-800 font-bold cursor-pointer"
-                  >
-                    {showManualCompanySearch ? 'Batal' : 'Ganti Profil PT'}
-                  </button>
-                </div>
-                <div className="text-[11px] text-slate-600 grid grid-cols-2 gap-1 pt-1 border-t border-blue-200/60">
-                  <span>Kedudukan: <b>{parentProfile.domicile || parentProfile.oldDomicile || 'Belum diisi'}</b></span>
-                  <span>Akta Pendirian: <b>{parentProfile.establishmentDeedNumber ? `No. ${parentProfile.establishmentDeedNumber}` : 'Belum diisi'}</b></span>
-                  <span className="col-span-2 truncate">SK Kemenkumham: <b>{parentProfile.establishmentSkNumber || 'Belum diisi'}</b></span>
-                </div>
-              </div>
-            )}
-
-            {/* Tampilkan pencarian manual PT jika diinginkan, atau jika autoParentProfile tidak ditemukan */}
-            {(!parentProfile || showManualCompanySearch) && (
-              <div>
-                <label className="block text-[11px] font-bold text-blue-900 mb-1">
-                  Hubungkan ke Profil PT Pemegang Saham (dari Master Data Klien):
-                </label>
-                <select
-                  value={activeProfileId}
-                  onChange={e => {
-                    setActiveProfileId(e.target.value);
-                    setShowManualCompanySearch(false);
-                  }}
-                  className="w-full px-3 py-2 border border-blue-300 rounded outline-none text-xs bg-white focus:border-blue-500 font-bold text-blue-900"
-                >
-                  <option value="">-- Cari & Pilih Profil PT dari Database --</option>
-                  {availableCorporateProfiles.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.companyName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* List Stakeholders dari Master Klien */}
-            {parentProfile ? (
-              parentStakeholders.length > 0 ? (
-                <div className="space-y-2">
-                  <label className="block text-[11px] font-bold text-blue-900 flex items-center gap-1.5">
-                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
-                    Ambil Data Pihak dari PT {parentProfile.companyName}:
-                  </label>
-                  <select
-                    onChange={e => {
-                      const val = e.target.value;
-                      if (val && val !== 'MANUAL') {
-                        const party = parentStakeholders.find(p => p.id === val);
-                        if (party) {
-                          handleApplyStakeholder(party);
-                        }
-                      }
-                    }}
-                    className="w-full px-3 py-2 border-2 border-blue-400 rounded-lg outline-none text-xs bg-white focus:border-blue-700 font-bold text-blue-950 focus:ring-2 focus:ring-blue-100"
-                    defaultValue=""
-                  >
-                    <option value="">-- Pilih Pihak yang Mewakili (Direksi, Komisaris, Pemegang Saham) --</option>
-                    {direksiList.length > 0 && (
-                      <optgroup label="Dewan Direksi (Direksi)">
-                        {direksiList.map(p => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} — {p.position} {p.isComplete ? '✓ (Lengkap)' : '⚠️ (Perlu Lengkapi Data)'}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                    {komisarisList.length > 0 && (
-                      <optgroup label="Dewan Komisaris">
-                        {komisarisList.map(p => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} — {p.position} {p.isComplete ? '✓ (Lengkap)' : '⚠️ (Perlu Lengkapi Data)'}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                    {pemegangSahamList.length > 0 && (
-                      <optgroup label="Pemegang Saham PT (Perorangan)">
-                        {pemegangSahamList.map(p => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} — Pemegang Saham {p.isComplete ? '✓ (Lengkap)' : '⚠️ (Perlu Lengkapi Data)'}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                    <option value="MANUAL">-- Kuasa Direksi / Pihak Lainnya (Input Manual) --</option>
-                  </select>
-
-                  {selectedPartyMissingNote && (
-                    <div className="p-2.5 bg-amber-50 border border-amber-200 rounded text-amber-800 text-[11px] flex items-start gap-1.5 font-medium">
-                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                      <span>{selectedPartyMissingNote}</span>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 font-medium space-y-1">
-                  <div className="flex items-center gap-1.5 font-bold text-amber-900">
-                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                    Pemberitahuan Data Belum Lengkap
-                  </div>
-                  <p className="text-[11px] leading-relaxed">
-                    Data Direksi, Dewan Komisaris, dan Pemegang Saham untuk <b>PT {parentProfile.companyName}</b> belum tersedia di Master Data Klien. Silakan isi data pihak yang mewakili secara manual pada formulir di bawah ini, atau lengkapi data pada menu <b>Profil Perusahaan / Master Klien</b>.
-                  </p>
-                </div>
-              )
-            ) : null}
-          </div>
-
-          {/* Atau ambil dari pihak rapat lainnya jika kuasa biasa */}
-          {form.representationType !== 'DIREKTUR_PT_LAIN' && availableParties && availableParties.length > 0 && (
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
-              <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
-                <span className="inline-block w-2 h-2 rounded-full bg-slate-400"></span>
-                Atau Ambil dari Pihak/Peserta Rapat Lainnya:
-              </label>
-              <select
-                onChange={e => {
-                  const idxStr = e.target.value;
-                  if (idxStr !== '') {
-                    const party = availableParties[parseInt(idxStr, 10)];
-                    update({
-                      salutation: party.salutation || 'Tuan',
-                      name: party.name || '',
-                      nik: party.nik || '',
-                      birthCity: party.birthCity || '',
-                      birthDate: party.birthDate || '',
-                      occupation: party.occupation || '',
-                      nationalityType: party.nationalityType || 'WNI',
-                      isForeign: party.isForeign || false,
-                      nationality: party.nationality || '',
-                      passportNumber: party.passportNumber || '',
-                      kitasNumber: party.kitasNumber || '',
-                      kitasType: party.kitasType || 'NONE',
-                      hasKitas: party.hasKitas || false,
-                      address: {
-                        fullAddress: party.address?.fullAddress || '',
-                        rt: party.address?.rt || '',
-                        rw: party.address?.rw || '',
-                        kelurahan: party.address?.kelurahan || '',
-                        kecamatan: party.address?.kecamatan || '',
-                        city: party.address?.city || '',
-                        province: party.address?.province || '',
-                        postalCode: party.address?.postalCode || '',
-                      }
-                    });
-                  }
-                }}
-                className="w-full px-3 py-1.5 border border-slate-300 rounded outline-none text-xs bg-white focus:border-slate-500 font-medium"
-                defaultValue=""
-              >
-                <option value="">-- Pilih Pihak / Pengurus --</option>
-                {availableParties.map((p, idx) => (
-                  <option key={idx} value={idx}>
-                    {p.name} ({p.occupation || 'Pihak'})
-                  </option>
-                ))}
-              </select>
             </div>
           )}
 

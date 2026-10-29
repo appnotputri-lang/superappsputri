@@ -187,10 +187,15 @@ export const GlobalModalManager: React.FC<GlobalModalManagerProps> = (props) => 
           self.findIndex(t => t.name.trim().toUpperCase() === item.name.trim().toUpperCase()) === index
         );
 
+        const isCorporate = CorporateShareholderService.checkIsCorporateShareholder(sh);
+        const cleanShareholderName = isCorporate
+          ? (sh.name || '').replace(/^(TUAN|NYONYA|NONA|BAPAK|IBU|BPK)\s+/i, '').trim()
+          : `${sh.salutation ? sh.salutation + ' ' : ''}${sh.name}`;
+
         return (
           <ProxyInputModal
             isOpen={true}
-            shareholderName={`${sh.salutation} ${sh.name}`}
+            shareholderName={cleanShareholderName}
             initialData={sh.proxyData}
             availableParties={availableParties}
             shareholder={sh}

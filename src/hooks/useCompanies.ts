@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { CompanyProfile } from '../../types';
 import { CompanyService, ClientDirectoryPageOptions, ClientDirectoryPageResult } from '../services/CompanyService';
 import { useAuthContext } from '../contexts/AuthContext';
@@ -44,6 +44,12 @@ export function useCompanies() {
       setLoading(false);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user && profiles.length === 0 && !loading) {
+      refresh();
+    }
+  }, [user, refresh, profiles.length, loading]);
 
   const getProfile = useCallback(async (clientId: string): Promise<CompanyProfile | null> => {
     return await CompanyService.getCompanyProfile(clientId);
