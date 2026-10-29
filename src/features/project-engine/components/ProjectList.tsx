@@ -406,22 +406,23 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     if (!category) return [];
 
     if (category === 'BODY_LEGAL') {
+      const commonServices = ['Input NIB', 'Perbaikan Data AHU', 'Buka Blokir'];
       if (clientTypeGroup === 'PT') {
-        return ['Pendirian PT', 'RUPS T', 'RUPS LB'];
+        return ['Pendirian PT', 'RUPS T', 'RUPS LB', ...commonServices];
       }
       if (clientTypeGroup === 'CV') {
-        return ['Pendirian CV', 'Perubahan CV', 'Pembubaran CV'];
+        return ['Pendirian CV', 'Perubahan CV', 'Pembubaran CV', ...commonServices];
       }
       if (clientTypeGroup === 'FIRMA') {
-        return ['Pendirian Firma', 'Perubahan Firma', 'Pembubaran Firma'];
+        return ['Pendirian Firma', 'Perubahan Firma', 'Pembubaran Firma', ...commonServices];
       }
       if (clientTypeGroup === 'YAYASAN') {
-        return ['Pendirian Yayasan', 'Perubahan Yayasan', 'Pembubaran Yayasan', 'Rapat Pembina', 'Rapat Pengurus', 'Rapat Pengawas'];
+        return ['Pendirian Yayasan', 'Perubahan Yayasan', 'Pembubaran Yayasan', 'Rapat Pembina', 'Rapat Pengurus', 'Rapat Pengawas', ...commonServices];
       }
       if (clientTypeGroup === 'PERKUMPULAN') {
-        return ['Pendirian Perkumpulan', 'Perubahan Perkumpulan', 'Pembubaran Perkumpulan', 'Rapat Anggota', 'Rapat Pengurus'];
+        return ['Pendirian Perkumpulan', 'Perubahan Perkumpulan', 'Pembubaran Perkumpulan', 'Rapat Anggota', 'Rapat Pengurus', ...commonServices];
       }
-      return [];
+      return ['Pendirian PT', 'RUPS T', 'RUPS LB', ...commonServices];
     }
 
     if (category === 'PPAT') {
@@ -555,6 +556,15 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
     }
 
     if (category === 'BODY_LEGAL') {
+      if (type === 'Input NIB' || type === 'input_nib') {
+        return 'input_nib';
+      }
+      if (type === 'Perbaikan Data AHU' || type === 'perbaikan_data_ahu') {
+        return 'perbaikan_data_ahu';
+      }
+      if (type === 'Buka Blokir' || type === 'buka_blokir') {
+        return 'buka_blokir';
+      }
       if (type === 'Pendirian PT') {
         return 'pendirian_pt';
       }
@@ -1570,25 +1580,6 @@ export default function ProjectList({ onSelectProject, currentUser }: ProjectLis
                       className="w-full px-4 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all font-mono"
                     />
                   </div>
-                </div>
-
-                {/* Staff Penanggung Jawab */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
-                    Staff Penanggung Jawab (Assigned To)
-                  </label>
-                  <select
-                    value={newProjectData.assignedTo}
-                    onChange={(e) => setNewProjectData({ ...newProjectData, assignedTo: e.target.value })}
-                    className="w-full px-4 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all"
-                  >
-                    <option value="">-- Pilih Staff (Opsional) --</option>
-                    {staffList.map((staff) => (
-                      <option key={staff.uid} value={staff.uid}>
-                        {staff.name}
-                      </option>
-                    ))}
-                  </select>
                 </div>
 
                 {/* Catatan Inisialisasi */}

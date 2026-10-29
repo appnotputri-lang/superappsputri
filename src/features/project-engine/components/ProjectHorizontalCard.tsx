@@ -95,6 +95,12 @@ const formatShortDate = (rawTime: any): string => {
 
 const getCategoryBadge = (jobType: string, projectType?: string) => {
   const combined = ((jobType || '') + ' ' + (projectType || '')).toLowerCase();
+  if (combined.includes('nib')) {
+    return { badge: '🟠', bg: 'bg-orange-100 text-orange-700 border-orange-200' };
+  }
+  if (combined.includes('ahu') || combined.includes('blokir')) {
+    return { badge: '🔴', bg: 'bg-rose-100 text-rose-700 border-rose-200' };
+  }
   if (combined.includes('rups')) {
     return { badge: '🟣', bg: 'bg-purple-100 text-purple-700 border-purple-200' };
   }

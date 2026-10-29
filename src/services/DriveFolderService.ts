@@ -164,7 +164,10 @@ export class DriveFolderService {
       'pendirian': 'Akta Pendirian',
       'rupslb': 'RUPS LB',
       'rupst': 'RUPST',
-      'rupst_public': 'RUPST Terbuka'
+      'rupst_public': 'RUPST Terbuka',
+      'input_nib': 'Input NIB',
+      'perbaikan_data_ahu': 'Perbaikan Data AHU',
+      'buka_blokir': 'Buka Blokir'
     };
 
     const label = typeLabels[jobType] || 'Project';

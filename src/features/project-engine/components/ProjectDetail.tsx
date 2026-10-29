@@ -3386,7 +3386,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                 <Sparkles className="w-4 h-4" />
               </button>
             )}
-            {isPT && project.jobType !== 'pendirian_pt' && (
+            {isPT && !['pendirian_pt', 'input_nib', 'perbaikan_data_ahu', 'buka_blokir'].includes(project.jobType) && (
               <>
                 {(() => {
                   const path = getRedirectPath(project.jobType);

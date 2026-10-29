@@ -92,6 +92,36 @@ const DEFAULT_PEMBUBARAN_CV_STEPS = [
   "Selesai"
 ];
 
+const DEFAULT_INPUT_NIB_STEPS = [
+  "Pengumpulan Dokumen Legalitas & KBLI",
+  "Pengecekan Akses OSS RBA",
+  "Input Data Usaha & Kegiatan Usaha (KBLI)",
+  "Verifikasi Kelengkapan & Persyaratan Dasar",
+  "Submit Permohonan NIB OSS",
+  "NIB Terbit",
+  "Selesai"
+];
+
+const DEFAULT_PERBAIKAN_DATA_AHU_STEPS = [
+  "Pemeriksaan Data Perseroan di AHU Online",
+  "Pengumpulan Dokumen Pendukung & Akta",
+  "Penyusunan Surat Permohonan / Berita Acara Perbaikan",
+  "Pengajuan Permohonan Perbaikan Data ke Ditjen AHU",
+  "Verifikasi & Validasi Pejabat AHU",
+  "Data AHU Berhasil Diperbaiki / Terbit Bukti Perbaikan",
+  "Selesai"
+];
+
+const DEFAULT_BUKA_BLOKIR_STEPS = [
+  "Identifikasi Alasan & Riwayat Pemblokiran (AHU / OSS)",
+  "Pengumpulan Dokumen Pemenuhan Kewajiban",
+  "Penyusunan Surat Permohonan Pembukaan Blokir",
+  "Pengajuan Permohonan Buka Blokir ke Instansi Terkait",
+  "Verifikasi & Klarifikasi Berkas",
+  "Pencabutan Status Blokir / Konfirmasi Buka Blokir",
+  "Selesai"
+];
+
 const DEFAULT_PPAT_STEPS = [
   "Data Pihak",
   "Data Objek",
@@ -195,6 +225,24 @@ export const STATIC_DEFAULT_WORKFLOWS: Workflow[] = [
     name: "Sirkuler RUPS LB",
     steps: DEFAULT_RUPSLB_STEPS,
     description: "Alur kerja Keputusan Sirkuler RUPS LB yang mencakup penyusunan keputusan sirkuler sebagai pengganti RUPS, penelaahan, penandatanganan sirkuler oleh para pemegang saham, dan pengarsipan."
+  },
+  {
+    id: "input_nib",
+    name: "Input NIB",
+    steps: DEFAULT_INPUT_NIB_STEPS,
+    description: "Alur kerja pendaftaran dan penginputan NIB (Nomor Induk Berusaha) melalui sistem OSS RBA."
+  },
+  {
+    id: "perbaikan_data_ahu",
+    name: "Perbaikan Data AHU",
+    steps: DEFAULT_PERBAIKAN_DATA_AHU_STEPS,
+    description: "Alur kerja permohonan perbaikan atau sinkronisasi data perseroan pada sistem AHU Online Kemenkumham."
+  },
+  {
+    id: "buka_blokir",
+    name: "Buka Blokir",
+    steps: DEFAULT_BUKA_BLOKIR_STEPS,
+    description: "Alur kerja permohonan pembukaan blokir akses atau status perseroan di Ditjen AHU atau OSS."
   }
 ];
 
@@ -228,6 +276,19 @@ export class WorkflowService {
     if (id === 'ppat' || id === 'akta_ppat' || id.includes('ppat')) {
       return STATIC_DEFAULT_WORKFLOWS.find((w) => w.id === 'akta_ppat') || null;
     }
+
+    if (id === 'input_nib' || pType === 'input nib' || pType.includes('input nib') || title.includes('input nib')) {
+      return STATIC_DEFAULT_WORKFLOWS.find((w) => w.id === 'input_nib') || null;
+    }
+
+    if (id === 'perbaikan_data_ahu' || pType === 'perbaikan data ahu' || pType.includes('perbaikan data') || title.includes('perbaikan data')) {
+      return STATIC_DEFAULT_WORKFLOWS.find((w) => w.id === 'perbaikan_data_ahu') || null;
+    }
+
+    if (id === 'buka_blokir' || pType === 'buka blokir' || pType.includes('buka blokir') || title.includes('buka blokir')) {
+      return STATIC_DEFAULT_WORKFLOWS.find((w) => w.id === 'buka_blokir') || null;
+    }
+
     return STATIC_DEFAULT_WORKFLOWS.find((w) => w.id.toLowerCase() === id) || null;
   }
 
