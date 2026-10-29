@@ -28,6 +28,7 @@ import CompositionEditor from '@/components/CompositionEditor';
 import ManagementEditor from '@/components/ManagementEditor';
 import { generateRUPSTDocx } from '../../../lib/generateRUPSTDocx';
 import { generateRUPSTAktaDocx } from '../../../lib/generateRUPSTAktaDocx';
+import DraftAktaRUPST from '../../../DraftAktaRUPST';
 import { generateSirkulerLaporanDocx } from '../../../lib/generateSirkulerLaporanDocx';
 import { generateRUPSTPernyataanDocx } from '../../../lib/generateRUPSTPernyataanDocx';
 import { generateWordDoc } from '../../../../utils/docxGenerator';
@@ -818,10 +819,11 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                 { id: 'section-identitas', title: 'Identitas PT' },
                 { id: 'section-keputusan', title: 'Bentuk Keputusan' },
                 { id: 'section-agenda', title: 'Agenda & Keuangan' },
-                { id: 'section-rapat', title: isSirkuler ? 'Data Akta' : 'Data Rapat' },
+                { id: 'section-rapat', title: isSirkuler ? 'Data Rapat & Akta' : 'Data Rapat & Akta' },
                 ...(!isSirkuler ? [{ id: 'section-pimpinan', title: 'Pimpinan Rapat' }] : []),
                 { id: 'section-pihak', title: isSirkuler ? 'Pemegang Saham' : 'Para Pihak' },
                 { id: 'section-kuasa', title: 'Kuasa' },
+                { id: 'section-draft-akta', title: 'Draft Akta' },
                 { id: 'section-dokumen', title: 'Dokumen' },
               ].map((step, idx, arr) => (
                 <React.Fragment key={step.id}>
@@ -1678,7 +1680,7 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
               </div>
             </div>
 
-            {/* SECTION 4: DATA RAPAT */}
+            {/* SECTION 4: DATA RAPAT & AKTA (Diselaraskan dengan RUPS LB) */}
             <div id="section-rapat" className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-6 space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2.5">
@@ -1686,238 +1688,300 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                     4
                   </div>
                   <h3 className="text-base font-bold text-slate-800 tracking-tight">
-                    {isSirkuler ? 'Data Akta & Keputusan Sirkuler' : 'Data Rapat & Nomor Akta'}
+                    {isSirkuler ? 'Data Keputusan Sirkuler & Akta Notaris' : 'Data Rapat & Akta Notaris'}
                   </h3>
                 </div>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const res = await handleManualSync('RUPST', data);
-                    if (res && (typeof res === 'boolean' ? res : res.success)) {
-                      const finalOrder = (res as any).orderNumber || data.draftAktaRupsOrderNumber;
-                      const finalDeed = (res as any).deedNumber || data.draftAktaRupsNumber;
-                      const projId = data.id || (currentEditingRupstId && currentEditingRupstId !== 'new' ? currentEditingRupstId : null);
-                      if (projId && user) {
-                        try {
-                          await setDoc(doc(db, currentCollectionName, projId), sanitizeForFirestore({
-                            ...data,
-                            draftAktaRupsOrderNumber: finalOrder,
-                            updatedAt: new Date().toISOString()
-                          }), { merge: true });
-                        } catch (e) {
-                          console.warn("Auto-saving RUPST project after sync error:", e);
-                        }
-                      }
-                      alert(`Nomor Akta ${finalDeed || ''} berhasil disimpan ke Buku Daftar Akta!\nNomor Urut Akta: ${finalOrder || ''}`);
-                    }
-                  }}
-                  disabled={isSyncing}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase px-4 py-2 rounded-lg shadow-xs transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50 self-start sm:self-auto"
-                  title="Simpan nomor akta RUPST ini ke Buku Daftar Akta Notaris"
-                >
-                  {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BookOpen className="w-3.5 h-3.5" />}
-                  <span>Simpan Nomor Akta ke Buku Akta</span>
-                </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* Nomor Akta RUPST */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Nomor Akta RUPST
-                  </label>
-                  <div className="flex gap-2">
+              {/* Data Penyelenggaraan Rapat / Keputusan Sirkuler */}
+              {isSirkuler ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Tanggal Keputusan Sirkuler */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Tanggal Keputusan Sirkuler <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={data.signingDate || ''}
+                      onChange={e => updateData({ signingDate: e.target.value })}
+                      className="w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                    />
+                  </div>
+
+                  {/* Tempat Penandatanganan */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Tempat Penandatanganan <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
-                      value={data.draftAktaRupsNumber || ''}
-                      onChange={e => updateData({ draftAktaRupsNumber: e.target.value })}
-                      placeholder="Contoh: 08"
-                      className="flex-1 border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                      value={data.signingPlace || ''}
+                      onChange={e => updateData({ signingPlace: e.target.value })}
+                      placeholder="Contoh: Jakarta"
+                      className="w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                     />
-                    <button
-                      type="button"
-                      onClick={handleFetchLatestNumbers}
-                      disabled={isFetchingNumbers}
-                      className="px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg transition-colors flex items-center justify-center cursor-pointer disabled:opacity-50"
-                      title="Ambil Nomor Terakhir"
-                    >
-                      <RefreshCw className={`w-4 h-4 ${isFetchingNumbers ? 'animate-spin' : ''}`} />
-                    </button>
                   </div>
-                </div>
 
-                {/* Nomor Urut Akta RUPST */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Nomor Urut Akta RUPST
-                  </label>
-                  <div className="flex gap-2">
+                  {/* Nomor Laporan Keuangan */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Nomor Laporan Keuangan
+                    </label>
                     <input
                       type="text"
-                      value={data.draftAktaRupsOrderNumber || ''}
-                      onChange={e => updateData({ draftAktaRupsOrderNumber: e.target.value })}
-                      placeholder="Contoh: 001"
-                      className="flex-1 border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                      value={data.rupstFinancialReportNumber || ''}
+                      onChange={e => updateData({ rupstFinancialReportNumber: e.target.value })}
+                      placeholder="Contoh: LP/25/2024"
+                      className="w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                     />
-                    <button
-                      type="button"
-                      onClick={handleFetchLatestNumbers}
-                      disabled={isFetchingNumbers}
-                      className="px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg transition-colors flex items-center justify-center cursor-pointer disabled:opacity-50"
-                      title="Hitung Nomor Urut Sesuai Buku Akta"
-                    >
-                      <RefreshCw className={`w-4 h-4 ${isFetchingNumbers ? 'animate-spin' : ''}`} />
-                    </button>
                   </div>
                 </div>
-
-                {/* Tanggal Akta / Keputusan */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    {data.rupstType === 'sirkuler' ? 'Tanggal Keputusan Sirkuler' : 'Tanggal Akta RUPST'}
-                  </label>
-                  <input
-                    type="date"
-                    value={data.rupstType === 'sirkuler' ? (data.signingDate || data.draftAktaRupsDate || '') : (data.draftAktaRupsDate || '')}
-                    onChange={e => {
-                      if (data.rupstType === 'sirkuler') {
-                        updateData({ signingDate: e.target.value, draftAktaRupsDate: e.target.value });
-                      } else {
-                        updateData({ draftAktaRupsDate: e.target.value });
-                      }
-                    }}
-                    className="w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-                  />
-                </div>
-
-                {/* Jam Rapat */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Jam Rapat / Waktu Akta
-                  </label>
-                  <input
-                    type="time"
-                    value={data.draftAktaRupsTime || data.meetingStartTime || ''}
-                    onChange={e => updateData({ draftAktaRupsTime: e.target.value, meetingStartTime: e.target.value })}
-                    className="w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-                  />
-                </div>
-
-                {/* Nomor Laporan Keuangan */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Nomor Laporan Keuangan
-                  </label>
-                  <input
-                    type="text"
-                    value={data.rupstFinancialReportNumber || ''}
-                    onChange={e => updateData({ rupstFinancialReportNumber: e.target.value })}
-                    placeholder="Contoh: LP/25/2024"
-                    className="w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-                  />
-                </div>
-
-                {/* Tempat Rapat */}
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                    Tempat Rapat <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={data.signingPlace || ''}
-                    onChange={e => updateData({ signingPlace: e.target.value })}
-                    placeholder="Contoh: Jakarta"
-                    className="w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
-                  />
-                </div>
-              </div>
-
-              {/* Additional fields for physical rapat */}
-              {data.rupstType === 'rapat' && (
-                <div className="pt-3 border-t border-slate-100 space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Tanggal Rapat */}
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Nomor Pemanggilan RUPST</label>
-                      <input
-                        type="text"
-                        value={data.rupstInvitationNumber || ''}
-                        onChange={e => updateData({ rupstInvitationNumber: e.target.value })}
-                        placeholder="Nomor pemanggilan..."
-                        className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-800 focus:border-blue-600"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Tanggal Pemanggilan RUPST</label>
-                      <input
-                        type="date"
-                        value={data.rupstInvitationDate || ''}
-                        onChange={e => updateData({ rupstInvitationDate: e.target.value })}
-                        className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-800 focus:border-blue-600"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Waktu Selesai Rapat</label>
-                      <input
-                        type="time"
-                        value={data.meetingEndTime || data.rupstMeetingEndTime || ''}
-                        onChange={e => updateData({ meetingEndTime: e.target.value, rupstMeetingEndTime: e.target.value })}
-                        className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-800 focus:border-blue-600"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Hari/Tanggal Rapat Fisik</label>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Tanggal Rapat <span className="text-red-500">*</span>
+                      </label>
                       <input
                         type="date"
                         value={data.signingDate || ''}
                         onChange={e => updateData({ signingDate: e.target.value })}
-                        className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-800 focus:border-blue-600"
+                        className="w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                      />
+                    </div>
+
+                    {/* Waktu Rapat (Mulai) */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Waktu Rapat (Mulai)
+                      </label>
+                      <input
+                        type="time"
+                        value={data.meetingStartTime || ''}
+                        onChange={e => updateData({ meetingStartTime: e.target.value })}
+                        className="w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                      />
+                    </div>
+
+                    {/* Waktu Selesai Rapat */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Waktu Selesai Rapat <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="time"
+                        value={data.meetingEndTime || data.rupstMeetingEndTime || ''}
+                        onChange={e => updateData({ meetingEndTime: e.target.value, rupstMeetingEndTime: e.target.value })}
+                        className="w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                      />
+                    </div>
+
+                    {/* Tempat Rapat */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Tempat Rapat <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={data.signingPlace || ''}
+                        onChange={e => updateData({ signingPlace: e.target.value })}
+                        placeholder="Contoh: Jakarta"
+                        className="w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                      />
+                    </div>
+
+                    {/* Nomor Laporan Keuangan */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Nomor Laporan Keuangan
+                      </label>
+                      <input
+                        type="text"
+                        value={data.rupstFinancialReportNumber || ''}
+                        onChange={e => updateData({ rupstFinancialReportNumber: e.target.value })}
+                        placeholder="Contoh: LP/25/2024"
+                        className="w-full border border-slate-200 rounded-lg px-3.5 py-2.5 text-sm font-semibold text-slate-800 focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
-                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Ketentuan AD Pimpinan Rapat</span>
-                      <div className="flex gap-2">
+
+                  {/* Surat Pemanggilan RUPST & Ketentuan AD */}
+                  <div className="pt-3 border-t border-slate-100 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Nomor Pemanggilan RUPST</label>
                         <input
                           type="text"
-                          placeholder="Pasal (cth: 9)"
-                          value={data.rupstAdArticle || ''}
-                          onChange={e => updateData({ rupstAdArticle: e.target.value })}
-                          className="w-1/2 border border-slate-200 rounded-md px-2.5 py-1.5 text-xs bg-white"
+                          value={data.rupstInvitationNumber || data.invitationNumber || ''}
+                          onChange={e => updateData({ rupstInvitationNumber: e.target.value, invitationNumber: e.target.value })}
+                          placeholder="Contoh: 001/UND-RUPST/..."
+                          className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-800 focus:border-blue-600"
                         />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Tanggal Pemanggilan RUPST</label>
                         <input
-                          type="text"
-                          placeholder="Ayat (cth: 4)"
-                          value={data.rupstAdParagraph || ''}
-                          onChange={e => updateData({ rupstAdParagraph: e.target.value })}
-                          className="w-1/2 border border-slate-200 rounded-md px-2.5 py-1.5 text-xs bg-white"
+                          type="date"
+                          value={data.rupstInvitationDate || data.invitationDate || ''}
+                          onChange={e => updateData({ rupstInvitationDate: e.target.value, invitationDate: e.target.value })}
+                          className="w-full border border-slate-200 rounded-lg px-3.5 py-2 text-sm text-slate-800 focus:border-blue-600"
                         />
                       </div>
                     </div>
-                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
-                      <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Ketentuan AD Kuorum</span>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="Pasal (cth: 10)"
-                          value={data.rupstQuorumArticle || ''}
-                          onChange={e => updateData({ rupstQuorumArticle: e.target.value })}
-                          className="w-1/2 border border-slate-200 rounded-md px-2.5 py-1.5 text-xs bg-white"
-                        />
-                        <input
-                          type="text"
-                          placeholder="Ayat (cth: 1)"
-                          value={data.rupstQuorumParagraph || ''}
-                          onChange={e => updateData({ rupstQuorumParagraph: e.target.value })}
-                          className="w-1/2 border border-slate-200 rounded-md px-2.5 py-1.5 text-xs bg-white"
-                        />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                        <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Ketentuan AD Pimpinan Rapat</span>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Pasal (cth: 9)"
+                            value={data.rupstAdArticle || ''}
+                            onChange={e => updateData({ rupstAdArticle: e.target.value })}
+                            className="w-1/2 border border-slate-200 rounded-md px-2.5 py-1.5 text-xs bg-white"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Ayat (cth: 4)"
+                            value={data.rupstAdParagraph || ''}
+                            onChange={e => updateData({ rupstAdParagraph: e.target.value })}
+                            className="w-1/2 border border-slate-200 rounded-md px-2.5 py-1.5 text-xs bg-white"
+                          />
+                        </div>
+                      </div>
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                        <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Ketentuan AD Kuorum</span>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Pasal (cth: 10)"
+                            value={data.rupstQuorumArticle || ''}
+                            onChange={e => updateData({ rupstQuorumArticle: e.target.value })}
+                            className="w-1/2 border border-slate-200 rounded-md px-2.5 py-1.5 text-xs bg-white"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Ayat (cth: 1)"
+                            value={data.rupstQuorumParagraph || ''}
+                            onChange={e => updateData({ rupstQuorumParagraph: e.target.value })}
+                            className="w-1/2 border border-slate-200 rounded-md px-2.5 py-1.5 text-xs bg-white"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               )}
+
+              {/* OPSI DRAFT AKTA — Persis Form & Logika RUPS LB */}
+              <div className="pt-4 border-t border-slate-200">
+                <div className="p-4 bg-slate-50/90 border border-slate-200 rounded-xl space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+                    <span className="text-xs font-bold text-[#1b449c] uppercase tracking-wider flex items-center gap-1.5">
+                      📝 DRAF AKTA NOTARIS
+                    </span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const res = await handleManualSync('RUPST', data);
+                        if (res && (typeof res === 'boolean' ? res : res.success)) {
+                          const finalOrder = (res as any).orderNumber || data.draftAktaRupsOrderNumber;
+                          const finalDeed = (res as any).deedNumber || data.draftAktaRupsNumber;
+                          const projId = data.id || (currentEditingRupstId && currentEditingRupstId !== 'new' ? currentEditingRupstId : null);
+                          if (projId && user) {
+                            try {
+                              await setDoc(doc(db, currentCollectionName, projId), sanitizeForFirestore({
+                                ...data,
+                                draftAktaRupsOrderNumber: finalOrder,
+                                updatedAt: new Date().toISOString()
+                              }), { merge: true });
+                            } catch (e) {
+                              console.warn("Auto-saving RUPST project after sync error:", e);
+                            }
+                          }
+                          alert(`Nomor Akta ${finalDeed || ''} berhasil disimpan ke Buku Daftar Akta!\nNomor Urut Akta: ${finalOrder || ''}`);
+                        }
+                      }}
+                      disabled={isSyncing}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase px-3.5 py-1.5 rounded-lg shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50 self-start sm:self-auto"
+                      title="Simpan nomor akta RUPST ini ke Buku Daftar Akta Notaris"
+                    >
+                      {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BookOpen className="w-3.5 h-3.5" />}
+                      <span>Simpan Nomor Akta ke Buku Akta</span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Nomor Akta */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Nomor Akta
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={data.draftAktaRupsNumber || ''}
+                          onChange={e => updateData({ draftAktaRupsNumber: e.target.value })}
+                          placeholder="Contoh: 12"
+                          className="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold text-slate-800 bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleFetchLatestNumbers}
+                          disabled={isFetchingNumbers}
+                          className="p-2 bg-[#1b449c] hover:bg-[#13327d] text-white rounded-lg transition-all disabled:opacity-50 flex items-center justify-center cursor-pointer shadow-xs"
+                          title="Ambil Nomor Terakhir dari Buku Akta"
+                        >
+                          {isFetchingNumbers ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Nomor Urut Akta */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Nomor Urut Akta
+                      </label>
+                      <input
+                        type="text"
+                        value={data.draftAktaRupsOrderNumber || ''}
+                        onChange={e => updateData({ draftAktaRupsOrderNumber: e.target.value })}
+                        placeholder="Contoh: 001"
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold text-slate-800 bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                      />
+                    </div>
+
+                    {/* Tanggal Akta */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Tanggal Akta
+                      </label>
+                      <input
+                        type="date"
+                        value={data.draftAktaRupsDate || ''}
+                        onChange={e => updateData({ draftAktaRupsDate: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold text-slate-800 bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                      />
+                    </div>
+
+                    {/* Jam Akta */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Jam Akta
+                      </label>
+                      <input
+                        type="time"
+                        value={data.draftAktaRupsTime || ''}
+                        onChange={e => updateData({ draftAktaRupsTime: e.target.value })}
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold text-slate-800 bg-white focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* SECTION 5: PIMPINAN RAPAT (HANYA UNTUK RAPAT FISIK/HYBRID, DISEMBUNYIKAN PADA SIRKULER TAHUNAN) */}
@@ -2287,11 +2351,24 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
               </div>
             </div>
 
+            {/* SECTION: DRAFT AKTA RUPST */}
+            <div id="section-draft-akta" className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-6 space-y-4">
+              <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-sm">
+                  {isSirkuler ? 7 : 8}
+                </div>
+                <h3 className="text-base font-bold text-slate-800 tracking-tight">
+                  Draft Akta RUPST Notariil
+                </h3>
+              </div>
+              <DraftAktaRUPST companyData={mergedData} />
+            </div>
+
             {/* SECTION: DOKUMEN KELUARAN */}
             <div id="section-dokumen" className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-6 space-y-4">
               <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
                 <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-sm">
-                  {isSirkuler ? 7 : 8}
+                  {isSirkuler ? 8 : 9}
                 </div>
                 <h3 className="text-base font-bold text-slate-800 tracking-tight">
                   Dokumen Keluaran

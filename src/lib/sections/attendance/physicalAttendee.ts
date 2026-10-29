@@ -234,6 +234,26 @@ export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAtte
     }
   });
 
+  // Include attending Direksi & Komisaris from oldManagementItems in RUPST Biasa
+  if (!isSirkuler && oldManagementItems) {
+    oldManagementItems.forEach((m: any) => {
+      if (m.isPresent !== false) {
+        const mName = (m.name || "").trim();
+        if (mName && !attendees.some(a => a.name.toUpperCase() === mName.toUpperCase())) {
+          attendees.push({
+            type: "PERSON",
+            name: mName,
+            salutation: m.salutation || "Tuan",
+            sourceObj: m,
+            ownShares: null,
+            management: { position: m.position || "Direktur" },
+            representations: [],
+          });
+        }
+      }
+    });
+  }
+
   if (isSirkuler) {
     attendees.forEach((att) => {
       att.management = null;

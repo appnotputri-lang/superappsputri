@@ -6,6 +6,7 @@ import { CompanyProfile, KbliItem, Shareholder, ManagementItem, AmendmentDeed } 
 import { ClientSnapshot, Project } from '../domain/project/Project';
 import { mapCompanyProfileToPendirian } from '../domain/company/mappers/companyProfileToPendirian';
 import { mapCompanyProfileToCV } from '../domain/company/mappers/companyProfileToCV';
+import { extractManagementFromSource } from '../domain/company/mappers/extractManagement';
 
 export interface ClientSyncSelection {
   // DATA PERUSAHAAN
@@ -711,7 +712,7 @@ export function syncClientMasterToFormData(
 
   // 6. PENGURUS
   if (selection.direksi || selection.komisaris || selection.oldManagement) {
-    const rawMgmt = client.oldManagementItems || (client as any).managementItems || [];
+    const rawMgmt = extractManagementFromSource(client);
     result.oldManagementItems = rawMgmt.map((m: any) => ({ ...m }));
   }
   if (selection.newManagement) {

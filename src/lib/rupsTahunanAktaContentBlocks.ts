@@ -65,8 +65,8 @@ export type Block =
 export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
   const blocks: Block[] = [];
 
-  const hasCustomDeedDate = !!(data.draftAktaRupsDate || data.notaryDate);
-  const effectiveNotaryDate = data.draftAktaRupsDate || data.notaryDate || "";
+  const hasCustomDeedDate = !!(data.draftAktaRupsDate || data.notaryDate || data.signingDate);
+  const effectiveNotaryDate = data.draftAktaRupsDate || data.notaryDate || data.signingDate || "";
 
   let effectiveNotaryNumber = (
     data.draftAktaRupsNumber ||
@@ -94,8 +94,8 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       ? formatDateStr(effectiveNotaryDate)
       : "............................";
 
-  const hasCustomDeedTime = !!data.draftAktaRupsTime;
-  const effectiveNotaryTime = data.draftAktaRupsTime || "";
+  const hasCustomDeedTime = !!(data.draftAktaRupsTime || data.aktaStartTime || data.meetingStartTime);
+  const effectiveNotaryTime = data.draftAktaRupsTime || data.aktaStartTime || data.meetingStartTime || "";
 
   const jamStr =
     hasCustomDeedTime && effectiveNotaryTime

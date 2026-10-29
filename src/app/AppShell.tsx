@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom';
 import { mapCompanyProfileToPendirian } from '../domain/company/mappers/companyProfileToPendirian';
 import { mapPartiesToShareholdersAndManagement } from '../domain/project/mappers/partyToShareholder';
+import { extractManagementFromSource } from '../domain/company/mappers/extractManagement';
 import { INITIAL_STATE, INITIAL_ADDRESS, INITIAL_MANUAL_REP, INITIAL_RESOLUTIONS } from "../domain/company/initialCompanyData";
 import { TAB_TO_PATH, PATH_TO_TAB, resolveSidebarTab } from "../constants/tabs";
 import { AppLayout, SidebarTabId } from './layout/AppLayout';
@@ -423,7 +424,7 @@ profileFetch: skipped
 profileSource: clientSnapshot
 readCount: 0`);
 
-              const currentManagement = snap.oldManagementItems || snap.newManagementItems || snap.managementItems || [];
+              const currentManagement = extractManagementFromSource(snap);
               updateData({
                 ...INITIAL_STATE,
                 ...snap,
@@ -469,7 +470,7 @@ readCount: 1`);
 
               const fullProfile = await CompanyService.getCompanyProfile(targetClientId);
               if (fullProfile) {
-                const currentManagement = fullProfile.oldManagementItems || fullProfile.newManagementItems || (fullProfile as any).managementItems || [];
+                const currentManagement = extractManagementFromSource(fullProfile);
                 updateData({
                   ...INITIAL_STATE,
                   ...fullProfile,
@@ -514,7 +515,7 @@ profileSource: ${snap && snap.companyName ? 'clientSnapshot (partial fallback)' 
 readCount: ${targetClientId ? 1 : 0}`);
 
             if (snap && snap.companyName) {
-              const currentManagement = snap.oldManagementItems || snap.newManagementItems || snap.managementItems || [];
+              const currentManagement = extractManagementFromSource(snap);
               updateData({
                 ...INITIAL_STATE,
                 ...snap,
@@ -611,7 +612,12 @@ readCount: ${targetClientId ? 1 : 0}`);
 
   const syncCompanyDataToRupst = async (selectedProfile: CompanyProfile) => {
     if (!selectedProfile) return;
-    const baseData = { ...INITIAL_STATE, ...selectedProfile };
+    const mgmt = extractManagementFromSource(selectedProfile);
+    const baseData = { 
+      ...INITIAL_STATE, 
+      ...selectedProfile,
+      oldManagementItems: mgmt
+    };
     setData(baseData);
     alert(`Data perseroan "${selectedProfile.companyName}" berhasil disinkronkan ke form RUPST!`);
   };

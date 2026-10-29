@@ -5,6 +5,7 @@ import { generateRupsBlocks } from './lib/rupsContentBlocks';
 
 interface RUPSDocumentPreviewProps {
   data: CompanyData;
+  customBlocks?: any[];
 }
 
 const DashedDivider = ({ text, className = "" }: { text: string, className?: string }) => (
@@ -19,8 +20,8 @@ const DashedDivider = ({ text, className = "" }: { text: string, className?: str
   </div>
 );
 
-export const RUPSDocumentPreview: React.FC<RUPSDocumentPreviewProps> = ({ data }) => {
-  const blocks = useMemo(() => generateRupsBlocks(data), [data]);
+export const RUPSDocumentPreview: React.FC<RUPSDocumentPreviewProps> = ({ data, customBlocks }) => {
+  const blocks = useMemo(() => customBlocks || generateRupsBlocks(data), [data, customBlocks]);
   
   // Collect all lines
   const allLines: { element: React.ReactNode }[] = [];
