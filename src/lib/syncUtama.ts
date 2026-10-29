@@ -138,15 +138,30 @@ export const formatAppearersForRups = (data: CompanyData): SyncAppearer[] => {
       });
     }
   } else {
-    data.shareholders.filter(s => s.isPresent !== false && !s.isProxy).forEach(s => {
-      appearers.push({
-        id: generateRandomId(),
-        name: s.name,
-        role: 'Self',
-        bertindakSebagai: 'Diri Sendiri',
-        grantors: [],
-        mewakili: [s.name]
-      });
+    (validShareholders || []).filter(s => s.isPresent !== false).forEach(s => {
+      if (s.isProxy) {
+        const repName = s.guardianName || s.representativeName || s.proxyData?.name || '';
+        if (repName) {
+          const isDir = s.proxyData?.representationType === 'DIREKTUR_PT_LAIN';
+          appearers.push({
+            id: generateRandomId(),
+            name: repName,
+            role: 'Proxy',
+            bertindakSebagai: isDir ? `Direktur ${s.name}` : `Kuasa ${s.name}`,
+            grantors: [{ id: s.id, name: s.name }],
+            mewakili: [s.name]
+          });
+        }
+      } else {
+        appearers.push({
+          id: generateRandomId(),
+          name: s.name,
+          role: 'Self',
+          bertindakSebagai: 'Diri Sendiri',
+          grantors: [],
+          mewakili: [s.name]
+        });
+      }
     });
   }
 

@@ -4,7 +4,8 @@ import {
   FileText, FileCode, ArrowRight, Info, AlertCircle, Trash, Check, X,
   SlidersHorizontal, ChevronLeft, HelpCircle, RefreshCw, Send, CheckCircle2, AlertTriangle, Briefcase, FileBadge,
   UserPlus, ShieldAlert, KeyRound, Building, Building2, RotateCcw, PlusCircle, ExternalLink, ArrowLeft,
-  History, Archive, Coins, Users, FileSignature, CheckSquare, XCircle, Search, Calendar, Play, ArrowRightLeft, TrendingUp, MapPin, UserCheck, ShieldCheck
+  History, Archive, Coins, Users, FileSignature, CheckSquare, XCircle, Search, Calendar, Play, ArrowRightLeft, TrendingUp, MapPin, UserCheck, ShieldCheck,
+  BookOpen
 } from 'lucide-react';
 import { db } from '../../../lib/firebase';
 import { doc, setDoc, deleteDoc, getDoc, collection, onSnapshot, query } from 'firebase/firestore';
@@ -680,6 +681,32 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                 >
                   <RefreshCw className={`w-3.5 h-3.5 text-blue-600 ${isPullingClient ? 'animate-spin' : ''}`} />
                   <span>Sync Data Klien</span>
+                </button>
+
+                {/* SIMPAN KE BUKU AKTA BUTTON */}
+                <button
+                  type="button"
+                  disabled={isSyncing}
+                  onClick={async () => {
+                    const success = await handleManualSync('RUPST', data);
+                    if (success) {
+                      alert(`Nomor Akta ${data.draftAktaRupsNumber || ''} berhasil disimpan ke Buku Daftar Akta!`);
+                    }
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase h-10 px-4 rounded-lg shadow-sm transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  title="Simpan nomor akta RUPST ini ke Buku Daftar Akta Notaris"
+                >
+                  {isSyncing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <BookOpen className="w-4 h-4" />
+                      <span>Simpan ke Buku Akta</span>
+                    </>
+                  )}
                 </button>
 
                 {/* SIMPAN RUPST BUTTON */}
@@ -1591,13 +1618,30 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
 
             {/* SECTION 4: DATA RAPAT */}
             <div id="section-rapat" className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-6 space-y-5">
-              <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-sm">
-                  4
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-sm">
+                    4
+                  </div>
+                  <h3 className="text-base font-bold text-slate-800 tracking-tight">
+                    Data Rapat & Nomor Akta
+                  </h3>
                 </div>
-                <h3 className="text-base font-bold text-slate-800 tracking-tight">
-                  Data Rapat
-                </h3>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const success = await handleManualSync('RUPST', data);
+                    if (success) {
+                      alert(`Nomor Akta ${data.draftAktaRupsNumber || ''} berhasil disimpan ke Buku Daftar Akta!`);
+                    }
+                  }}
+                  disabled={isSyncing}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase px-4 py-2 rounded-lg shadow-xs transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50 self-start sm:self-auto"
+                  title="Simpan nomor akta RUPST ini ke Buku Daftar Akta Notaris"
+                >
+                  {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BookOpen className="w-3.5 h-3.5" />}
+                  <span>Simpan Nomor Akta ke Buku Akta</span>
+                </button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -2582,6 +2626,30 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                                       {p.rupstType === 'sirkuler' ? 'AKTA SIRKULER RUPST' : 'AKTA RUPST'}
                                     </span>
                                     <span className="text-[10px] text-slate-400 lowercase font-medium mt-0.5">.docx</span>
+                                  </div>
+                                </button>
+
+                                {/* Simpan ke Buku Akta */}
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    setRupstDropdownId(null);
+                                    try {
+                                      const rowData = { ...INITIAL_STATE, ...p } as any;
+                                      const success = await handleManualSync('RUPST', rowData);
+                                      if (success) {
+                                        alert(`Nomor Akta ${p.draftAktaRupsNumber || ''} berhasil disimpan ke Buku Daftar Akta!`);
+                                      }
+                                    } catch (err: any) {
+                                      alert('Gagal menyimpan ke Buku Akta: ' + (err?.message || 'Terjadi kesalahan'));
+                                    }
+                                  }}
+                                  className="w-full px-4 py-2 text-emerald-700 hover:bg-emerald-50 text-xs font-bold flex items-center gap-2.5 uppercase tracking-wide border-b border-slate-100 cursor-pointer"
+                                >
+                                  <BookOpen className="w-4 h-4 text-emerald-600 shrink-0" />
+                                  <div className="flex flex-col text-left">
+                                    <span className="leading-tight">Simpan ke Buku Akta</span>
+                                    <span className="text-[10px] text-slate-400 lowercase font-medium mt-0.5">register notaris</span>
                                   </div>
                                 </button>
 

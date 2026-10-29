@@ -309,11 +309,11 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
   }, [data.selectedProfileId, data.representativeType, updateData]);
 
   const handleManualSync = useCallback(async (type: 'PENDIRIAN' | 'RUPSLB' | 'RUPST', deedData: any) => {
-    const deedNumber = type === 'PENDIRIAN' ? deedData.nomorAkta : deedData.draftAktaRupsNumber;
-    const deedDate = type === 'PENDIRIAN' ? deedData.tanggal : deedData.draftAktaRupsDate;
+    const deedNumber = type === 'PENDIRIAN' ? deedData.nomorAkta : (deedData.draftAktaRupsNumber || deedData.nomorAkta);
+    const deedDate = type === 'PENDIRIAN' ? (deedData.tanggal || deedData.deedDate) : (deedData.draftAktaRupsDate || deedData.signingDate || deedData.tanggalAkta);
 
     if (!deedNumber || !deedDate) {
-      alert("Nomor Akta dan Tanggal Akta harus diisi sebelum sinkronisasi.");
+      alert("Nomor Akta dan Tanggal Akta harus diisi sebelum menyimpan ke Buku Akta.");
       return false;
     }
 
@@ -331,7 +331,7 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
 
       const syncData = {
         deedNumber,
-        orderNumber: type === 'PENDIRIAN' ? (deedData as any).nomorUrut : (deedData as any).draftAktaRupsOrderNumber,
+        orderNumber: type === 'PENDIRIAN' ? (deedData as any).nomorUrut : ((deedData as any).draftAktaRupsOrderNumber || (deedData as any).nomorUrut || ''),
         deedDate,
         clientName,
         deedTitle: getDeedTitle(type, deedData, rawClientName),
@@ -341,7 +341,7 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
       return true;
     } catch (error) {
       console.error("Sync failed:", error);
-      alert("Gagal sinkronisasi ke Aplikasi Utama.");
+      alert("Gagal menyimpan ke Buku Daftar Akta: " + (error instanceof Error ? error.message : "Terjadi kesalahan"));
       return false;
     } finally {
       setIsSyncing(false);
