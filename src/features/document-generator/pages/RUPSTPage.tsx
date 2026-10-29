@@ -155,6 +155,7 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
   const [freshClientForModal, setFreshClientForModal] = useState<CompanyProfile | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [stakeholderTab, setStakeholderTab] = useState<'all' | 'sh' | 'dir' | 'kom'>('all');
+  const isSirkuler = data.rupstType === 'sirkuler';
 
   const currentEditingRupstId = editingRupstId;
   const setCurrentEditingRupstId = setEditingRupstId;
@@ -320,6 +321,9 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
   const komCount = useMemo(() => combinedStakeholders.filter(s => s.roles.some((r: string) => /komisaris/i.test(r))).length, [combinedStakeholders]);
 
   const displayedStakeholders = useMemo(() => {
+    if (isSirkuler) {
+      return combinedStakeholders.filter(s => s.isShareholder && s.sharesOwned > 0);
+    }
     if (stakeholderTab === 'sh') {
       return combinedStakeholders.filter(s => s.isShareholder && s.sharesOwned > 0);
     }
@@ -330,7 +334,7 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
       return combinedStakeholders.filter(s => s.roles.some((r: string) => /komisaris/i.test(r)));
     }
     return combinedStakeholders;
-  }, [stakeholderTab, combinedStakeholders]);
+  }, [isSirkuler, stakeholderTab, combinedStakeholders]);
 
   // Save handler
   const handleSaveRupst = async () => {
@@ -1931,7 +1935,7 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
               )}
             </div>
 
-            {/* SECTION 6: DAFTAR PEMEGANG SAHAM, DIREKSI, DAN DEWAN KOMISARIS (READ-ONLY TABLE) */}
+            {/* SECTION 6: DAFTAR PEMEGANG SAHAM (SIRKULER) ATAU PEMEGANG SAHAM, DIREKSI, KOMISARIS (RAPAT) */}
             <div id="section-pihak" className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-6 space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2.5">
@@ -1939,45 +1943,58 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                     6
                   </div>
                   <h3 className="text-base font-bold text-slate-800 tracking-tight">
-                    Daftar Pemegang Saham, Direksi, dan Dewan Komisaris
+                    {isSirkuler ? 'Daftar Pemegang Saham (Para Pihak Sirkuler)' : 'Daftar Pemegang Saham, Direksi, dan Dewan Komisaris'}
                   </h3>
                 </div>
                 
-                <button
-                  type="button"
-                  onClick={() => {
-                    const newList = (data.shareholders || []).map((s: any) => ({ ...s, isPresent: true }));
-                    updateData({ shareholders: newList });
-                  }}
-                  className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 uppercase tracking-wide cursor-pointer self-start sm:self-auto"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Tandai Semua Hadir</span>
-                </button>
+                {!isSirkuler && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newList = (data.shareholders || []).map((s: any) => ({ ...s, isPresent: true }));
+                      updateData({ shareholders: newList });
+                    }}
+                    className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 uppercase tracking-wide cursor-pointer self-start sm:self-auto"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Tandai Semua Hadir</span>
+                  </button>
+                )}
               </div>
 
-              {/* Filter Tabs: Semua, Pemegang Saham, Direksi, Komisaris */}
-              <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
-                {[
-                  { key: 'all', label: `Semua (${combinedStakeholders.length})` },
-                  { key: 'sh', label: `Pemegang Saham (${shCount})` },
-                  { key: 'dir', label: `Direksi (${dirCount})` },
-                  { key: 'kom', label: `Komisaris (${komCount})` }
-                ].map(tab => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => setStakeholderTab(tab.key as any)}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all uppercase cursor-pointer select-none ${
-                      stakeholderTab === tab.key
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+              {/* Filter Tabs: Disembunyikan pada Sirkuler Tahunan karena wajib seluruh pemegang saham */}
+              {isSirkuler ? (
+                <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+                  <span className="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold uppercase tracking-wider">
+                    Pemegang Saham Wajib 100% Menyetujui & TTD
+                  </span>
+                  <span className="text-xs text-slate-500 font-semibold ml-1">
+                    ({shCount} Pemegang Saham)
+                  </span>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+                  {[
+                    { key: 'all', label: `Semua (${combinedStakeholders.length})` },
+                    { key: 'sh', label: `Pemegang Saham (${shCount})` },
+                    { key: 'dir', label: `Direksi (${dirCount})` },
+                    { key: 'kom', label: `Komisaris (${komCount})` }
+                  ].map(tab => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setStakeholderTab(tab.key as any)}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all uppercase cursor-pointer select-none ${
+                        stakeholderTab === tab.key
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Modern Minimalist Table (Read-Only: No edit/delete per row) */}
               <div className="border border-slate-200 rounded-xl overflow-x-auto">
@@ -1988,15 +2005,15 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                       <th className="p-3">NAMA LENGKAP</th>
                       <th className="p-3">JABATAN DALAM PERSEROAN</th>
                       <th className="p-3">JUMLAH SAHAM</th>
-                      <th className="p-3 text-center w-28">KEHADIRAN</th>
+                      {!isSirkuler && <th className="p-3 text-center w-28">KEHADIRAN</th>}
                       <th className="p-3 text-center">DIKUASAKAN</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-150">
                     {displayedStakeholders.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="p-6 text-center text-slate-400 italic">
-                          Tidak ada data yang sesuai dengan filter ini.
+                        <td colSpan={isSirkuler ? 5 : 6} className="p-6 text-center text-slate-400 italic">
+                          {isSirkuler ? 'Tidak ada data pemegang saham.' : 'Tidak ada data yang sesuai dengan filter ini.'}
                         </td>
                       </tr>
                     ) : (
@@ -2046,31 +2063,33 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
                               <span className="text-slate-400">-</span>
                             )}
                           </td>
+                          {!isSirkuler && (
+                            <td className="p-3 text-center">
+                              {person.isShareholder ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newList = (data.shareholders || []).map((s: any) =>
+                                      s.id === person.id ? { ...s, isPresent: !s.isPresent } : s
+                                    );
+                                    updateData({ shareholders: newList });
+                                  }}
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-colors cursor-pointer select-none ${
+                                    person.isPresent 
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100' 
+                                      : 'bg-slate-100 text-slate-400 border border-slate-200 hover:bg-slate-200'
+                                  }`}
+                                >
+                                  <span className={`w-1.5 h-1.5 rounded-full ${person.isPresent ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
+                                  <span>{person.isPresent ? 'Hadir' : 'Tidak'}</span>
+                                </button>
+                              ) : (
+                                <span className="text-slate-400 text-xs">-</span>
+                              )}
+                            </td>
+                          )}
                           <td className="p-3 text-center">
-                            {person.isShareholder ? (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newList = (data.shareholders || []).map((s: any) =>
-                                    s.id === person.id ? { ...s, isPresent: !s.isPresent } : s
-                                  );
-                                  updateData({ shareholders: newList });
-                                }}
-                                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-colors cursor-pointer select-none ${
-                                  person.isPresent 
-                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100' 
-                                    : 'bg-slate-100 text-slate-400 border border-slate-200 hover:bg-slate-200'
-                                }`}
-                              >
-                                <span className={`w-1.5 h-1.5 rounded-full ${person.isPresent ? 'bg-emerald-500' : 'bg-slate-400'}`}></span>
-                                <span>{person.isPresent ? 'Hadir' : 'Tidak'}</span>
-                              </button>
-                            ) : (
-                              <span className="text-slate-400 text-xs">-</span>
-                            )}
-                          </td>
-                          <td className="p-3 text-center">
-                            {person.isShareholder && person.isPresent ? (
+                            {person.isShareholder && (isSirkuler || person.isPresent) ? (
                               (() => {
                                 const isCorp = CorporateShareholderService.checkIsCorporateShareholder(person);
                                 const repName = person.guardianName || (person.isProxy && person.proxyData?.name) || '';
@@ -2131,7 +2150,11 @@ export const RUPSTPage: React.FC<RUPSTPageProps> = ({
               {/* Bottom alert banner */}
               <div className="p-3.5 bg-blue-50/60 border border-blue-200/60 rounded-xl flex items-center gap-2.5 text-xs text-blue-800 font-medium">
                 <Info className="w-4 h-4 text-blue-600 shrink-0" />
-                <span>Daftar pemegang saham, direksi, dan dewan komisaris disinkronkan dari profil perseroan pada Master Klien. Kehadiran dan hak suara dihitung otomatis untuk kuorum.</span>
+                <span>
+                  {isSirkuler
+                    ? 'Keputusan Sirkuler wajib disetujui dan ditandatangani oleh seluruh pemegang saham (100% hak suara sah) sesuai Pasal 91 UU PT.'
+                    : 'Daftar pemegang saham, direksi, dan dewan komisaris disinkronkan dari profil perseroan pada Master Klien. Kehadiran dan hak suara dihitung otomatis untuk kuorum.'}
+                </span>
               </div>
             </div>
 
