@@ -344,7 +344,7 @@ const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyDa
   const previewData = previewTransferId ? transferDataMap[previewTransferId] : null;
 
   return (
-    <div className="w-full flex flex-col gap-8">
+    <div className="w-full flex flex-col gap-5">
       {activeTransfers.map((transfer, index) => {
         const currentData = transferDataMap[transfer.id] || initialData;
         const fromName = transfer.fromName || companyData?.shareholders?.find(s => s && s.id === transfer.fromShareholderId)?.name || 'Pemilik Saham';
@@ -352,10 +352,10 @@ const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyDa
         const transferTypeLabel = transfer.type || (transfer as any)?.transferType || (currentData.tipeAkta === 'Hibah' ? 'Hibah' : 'AJB');
         
         return (
-          <div key={transfer.id} className="w-full pb-8 border-b border-slate-200 last:border-b-0">
-            <div className="flex items-center mb-4 bg-slate-50 px-4 py-3 rounded-lg border border-slate-200 shadow-xs">
+          <div key={transfer.id} className="w-full pb-5 border-b border-slate-200 last:border-b-0">
+            <div className="flex items-center mb-3 bg-slate-50 px-3.5 py-2.5 rounded-lg border border-slate-200 shadow-xs">
               <h3 className="font-bold text-slate-700 text-[13px] flex items-center gap-2">
-                 <span className="bg-[#3b5998] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold">{index + 1}</span>
+                 <span className="bg-[#3b5998] text-white w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-semibold">{index + 1}</span>
                  {transferTypeLabel} - {fromName} kepada {toName}
               </h3>
             </div>

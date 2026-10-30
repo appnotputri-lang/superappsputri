@@ -19,29 +19,29 @@ interface FormContentProps {
 export const Section = ({ title, defaultOpen = true, children }: { title: string, defaultOpen?: boolean, children: React.ReactNode }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
-    <div className="bg-white border border-gray-200 shadow-sm mb-6 rounded-md overflow-hidden">
+    <div className="bg-white border border-slate-200/90 shadow-xs mb-4 rounded-lg overflow-hidden">
        <div 
-         className="flex justify-between items-center px-6 py-4 cursor-pointer bg-slate-50 border-b border-gray-200 hover:bg-slate-100 transition-colors"
+         className="flex justify-between items-center px-4 py-2.5 cursor-pointer bg-slate-50/90 border-b border-slate-200 hover:bg-slate-100/80 transition-colors select-none"
          onClick={() => setIsOpen(!isOpen)}
        >
           <div className="flex items-center">
-             <div className="w-1.5 h-5 bg-[#3b5998] mr-3 rounded-sm"></div>
-             <h2 className="font-bold text-[#3b5998] text-sm uppercase tracking-wide">{title}</h2>
+             <div className="w-1.5 h-4 bg-[#3b5998] mr-2.5 rounded-xs"></div>
+             <h2 className="font-bold text-[#3b5998] text-[13px] uppercase tracking-wide">{title}</h2>
           </div>
-          {isOpen ? <ChevronUp size={20} className="text-gray-500" /> : <ChevronDown size={20} className="text-gray-500" />}
+          {isOpen ? <ChevronUp size={16} className="text-slate-500" /> : <ChevronDown size={16} className="text-slate-500" />}
        </div>
        {isOpen && (
-         <div className="p-6">
+         <div className="p-4 sm:p-5">
            {children}
          </div>
        )}
     </div>
-  )
-}
+  );
+};
 
-export const FieldRow = ({ label, children, required = false }: { label: string, children: React.ReactNode, required?: boolean }) => (
-  <div className="flex flex-col gap-1 py-3 border-b border-gray-100 last:border-0 last:pb-0 font-sans">
-    <label className="text-sm text-gray-700 font-medium">
+export const FieldRow = ({ label, children, required = false, className = "" }: { label: string, children: React.ReactNode, required?: boolean, className?: string }) => (
+  <div className={`flex flex-col gap-1 font-sans ${className}`}>
+    <label className="text-[12px] font-semibold text-slate-700 block">
       {label} {required && <span className="text-red-500">*</span>}
     </label>
     <div>{children}</div>
@@ -49,17 +49,23 @@ export const FieldRow = ({ label, children, required = false }: { label: string,
 );
 
 export const Input = ({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) => (
-  <input {...props} className={`w-full px-4 py-2.5 rounded border border-gray-300 bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition-all ${className || ''}`} />
+  <input 
+    {...props} 
+    className={`w-full h-9 px-3 py-1.5 rounded border border-slate-300 bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-[13px] text-slate-800 transition-all ${className || ''}`} 
+  />
 );
 
 export const Select = ({ className, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) => (
-  <select {...props} className={`w-full px-4 py-2.5 rounded border border-gray-300 bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition-all ${className || ''}`}>
+  <select 
+    {...props} 
+    className={`w-full h-9 px-3 py-1.5 rounded border border-slate-300 bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-[13px] text-slate-800 transition-all ${className || ''}`}
+  >
     {props.children}
   </select>
 );
 
 const AhuLabel = ({ label, required = false }: { label: string, required?: boolean }) => (
-  <label className="block text-sm text-gray-700 font-medium mb-1">
+  <label className="block text-[12px] font-semibold text-slate-700 mb-1">
     {label} {required && <span className="text-red-500">*</span>}
   </label>
 );
@@ -67,12 +73,15 @@ const AhuLabel = ({ label, required = false }: { label: string, required?: boole
 const AhuInput = ({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) => (
   <input 
     {...props} 
-    className={`w-full px-4 py-2.5 rounded border border-gray-300 bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition-all ${className}`} 
+    className={`w-full h-9 px-3 py-1.5 rounded border border-slate-300 bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-[13px] text-slate-800 transition-all ${className}`} 
   />
 );
 
 export const TextArea = ({ className, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
-  <textarea {...props} className={`w-full px-4 py-2.5 rounded border border-gray-300 bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition-all min-h-[100px] ${className || ''}`} />
+  <textarea 
+    {...props} 
+    className={`w-full px-3 py-2 rounded border border-slate-300 bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none text-[13px] text-slate-800 transition-all min-h-[80px] ${className || ''}`} 
+  />
 );
 
 export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integrated = false, companyData, transferId }) => {
@@ -300,9 +309,10 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
   return (
     <div className="w-full">
       {integrated && (
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800 flex items-center">
-             <span className="font-semibold mr-2">Info:</span> Data Perseroan, Saham, Pihak Pertama dan Pihak Kedua sudah ditarik secara otomatis dari Draft Notulen. Silakan lengkapi data tambahan di bawah ini untuk pembuatan Draft Akta {(data.tipeAkta || 'Jual Beli').toUpperCase()}.
-          </div>
+        <div className="mb-4 p-3 bg-blue-50/80 border border-blue-200 rounded-lg text-xs text-blue-800 flex items-center gap-2">
+           <span className="font-semibold shrink-0">Info:</span>
+           <span>Data Perseroan, Saham, Pihak Pertama dan Pihak Kedua sudah ditarik secara otomatis dari Draft Notulen. Silakan lengkapi data tambahan di bawah ini untuk pembuatan Draft Akta {(data.tipeAkta || 'Jual Beli').toUpperCase()}.</span>
+        </div>
       )}
 
       {/* 0. TIPE AKTA */}
@@ -327,50 +337,54 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
       
       {/* 1. DATA AKTA */}
       <Section title="Data Akta" defaultOpen={true}>
-        <div className="flex flex-col">
-          <div className="flex gap-4">
-            <div className="flex-[2]">
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+            <div className="md:col-span-6">
               <FieldRow label="Judul Akta">
                 <Input name="judulAkta" value={data.judulAkta || ''} onChange={onChange} placeholder="Contoh: Akta Jual Beli Saham" />
               </FieldRow>
             </div>
-            <div className="flex-1">
-              <AhuLabel label="Nomor Akta" />
-              <div className="flex gap-2">
-                <AhuInput name="nomorAkta" value={data.nomorAkta || ''} onChange={onChange} />
-                <button
-                  type="button"
-                  onClick={() => handleFetchLatestNumbers(data.tanggalAkta)}
-                  disabled={isFetchingNumbers}
-                  className="p-2 bg-[#3b5998] hover:bg-[#2d4373] text-white rounded-sm transition-all disabled:opacity-50"
-                  title="Ambil Nomor Terakhir"
-                >
-                  {isFetchingNumbers ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                </button>
-              </div>
+            <div className="md:col-span-3">
+              <FieldRow label="Nomor Akta">
+                <div className="flex gap-1.5">
+                  <Input name="nomorAkta" value={data.nomorAkta || ''} onChange={onChange} />
+                  <button
+                    type="button"
+                    onClick={() => handleFetchLatestNumbers(data.tanggalAkta)}
+                    disabled={isFetchingNumbers}
+                    className="px-2.5 h-9 bg-[#3b5998] hover:bg-[#2d4373] text-white rounded transition-all disabled:opacity-50 shrink-0 flex items-center justify-center cursor-pointer"
+                    title="Ambil Nomor Terakhir"
+                  >
+                    {isFetchingNumbers ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+                  </button>
+                </div>
+              </FieldRow>
             </div>
-            <div className="flex-1">
-              <AhuLabel label="Nomor Urut" />
-              <div className="flex gap-2">
-                <AhuInput name="nomorUrut" value={data.nomorUrut || ''} onChange={onChange} />
-                <button
-                  type="button"
-                  onClick={() => handleFetchLatestNumbers(data.tanggalAkta)}
-                  disabled={isFetchingNumbers}
-                  className="p-2 bg-[#3b5998] hover:bg-[#2d4373] text-white rounded-sm transition-all disabled:opacity-50"
-                  title="Ambil Nomor Terakhir"
-                >
-                  {isFetchingNumbers ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                </button>
-              </div>
+            <div className="md:col-span-3">
+              <FieldRow label="Nomor Urut">
+                <div className="flex gap-1.5">
+                  <Input name="nomorUrut" value={data.nomorUrut || ''} onChange={onChange} />
+                  <button
+                    type="button"
+                    onClick={() => handleFetchLatestNumbers(data.tanggalAkta)}
+                    disabled={isFetchingNumbers}
+                    className="px-2.5 h-9 bg-[#3b5998] hover:bg-[#2d4373] text-white rounded transition-all disabled:opacity-50 shrink-0 flex items-center justify-center cursor-pointer"
+                    title="Ambil Nomor Terakhir"
+                  >
+                    {isFetchingNumbers ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+                  </button>
+                </div>
+              </FieldRow>
             </div>
           </div>
-          <FieldRow label="Tanggal Akta">
-            <Input name="tanggalAkta" type="date" value={data.tanggalAkta || ''} onChange={onChange} />
-          </FieldRow>
-          <FieldRow label="Jam">
-            <Input name="jamAkta" type="time" value={data.jamAkta || ''} onChange={onChange} />
-          </FieldRow>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <FieldRow label="Tanggal Akta">
+              <Input name="tanggalAkta" type="date" value={data.tanggalAkta || ''} onChange={onChange} />
+            </FieldRow>
+            <FieldRow label="Jam">
+              <Input name="jamAkta" type="time" value={data.jamAkta || ''} onChange={onChange} />
+            </FieldRow>
+          </div>
         </div>
       </Section>
 
@@ -464,65 +478,81 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
 
       {/* 4. PIHAK PERTAMA */}
       <Section title={integrated ? `Status Persetujuan Pihak Pertama (${data.tipeAkta === 'Hibah' ? 'Pemberi Hibah' : 'Penjual'})` : `Pihak Pertama (${data.tipeAkta === 'Hibah' ? 'Pemberi Hibah' : 'Penjual'})`}>
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-3.5">
           {!integrated && (
-            <>
-              <FieldRow label="Nama">
-                <div className="flex gap-2">
-                  <select name="pihak1Gelar" value={data.pihak1Gelar} onChange={onChange} className="w-1/4 min-w-[100px] px-4 py-2.5 rounded border border-gray-300 bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition-all">
-                    <option value="Tuan">Tuan</option>
-                    <option value="Nyonya">Nyonya</option>
-                    <option value="Nona">Nona</option>
-                  </select>
-                  <Input name="pihak1Nama" value={data.pihak1Nama} onChange={onChange} className="flex-1 px-4 py-2.5 rounded border border-gray-300 bg-white focus:ring-2 focus:ring-blue-500/20 outline-none text-sm" />
-                </div>
-              </FieldRow>
-              <FieldRow label="Tempat Lahir">
-                <Input name="pihak1TempatLahir" value={data.pihak1TempatLahir} onChange={onChange} />
-              </FieldRow>
-              <FieldRow label="Tanggal Lahir">
-                <Input name="pihak1TanggalLahir" type="date" value={data.pihak1TanggalLahir} onChange={onChange} />
-              </FieldRow>
-              <FieldRow label="Pekerjaan">
-                <Input name="pihak1Pekerjaan" value={data.pihak1Pekerjaan} onChange={onChange} />
-              </FieldRow>
-              <FieldRow label="NIK">
-                <Input name="pihak1NIK" value={data.pihak1NIK} onChange={onChange} />
-              </FieldRow>
-              <FieldRow label="Alamat / Jalan / No">
-                <Input name="pihak1AlamatJalan" value={data.pihak1AlamatJalan} onChange={handleLocalChange} />
-              </FieldRow>
-              <FieldRow label="RT / RW">
-                <div className="flex gap-4">
-                  <div className="w-1/2 flex items-center gap-2">
-                    <span className="text-sm text-gray-500">RT</span>
-                    <Input name="pihak1RT" value={data.pihak1RT} onChange={handleLocalChange} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div className="md:col-span-2">
+                <FieldRow label="Nama">
+                  <div className="flex gap-2">
+                    <select name="pihak1Gelar" value={data.pihak1Gelar} onChange={onChange} className="w-28 h-9 px-3 py-1.5 rounded border border-slate-300 bg-white focus:ring-1 focus:ring-blue-500 outline-none text-[13px] text-slate-800">
+                      <option value="Tuan">Tuan</option>
+                      <option value="Nyonya">Nyonya</option>
+                      <option value="Nona">Nona</option>
+                    </select>
+                    <Input name="pihak1Nama" value={data.pihak1Nama} onChange={onChange} className="flex-1" />
                   </div>
-                  <div className="w-1/2 flex items-center gap-2">
-                    <span className="text-sm text-gray-500">RW</span>
-                    <Input name="pihak1RW" value={data.pihak1RW} onChange={handleLocalChange} />
-                  </div>
+                </FieldRow>
+              </div>
+              <div>
+                <FieldRow label="Tempat Lahir">
+                  <Input name="pihak1TempatLahir" value={data.pihak1TempatLahir} onChange={onChange} />
+                </FieldRow>
+              </div>
+              <div>
+                <FieldRow label="Tanggal Lahir">
+                  <Input name="pihak1TanggalLahir" type="date" value={data.pihak1TanggalLahir} onChange={onChange} />
+                </FieldRow>
+              </div>
+              <div>
+                <FieldRow label="Pekerjaan">
+                  <Input name="pihak1Pekerjaan" value={data.pihak1Pekerjaan} onChange={onChange} />
+                </FieldRow>
+              </div>
+              <div>
+                <FieldRow label="NIK">
+                  <Input name="pihak1NIK" value={data.pihak1NIK} onChange={onChange} />
+                </FieldRow>
+              </div>
+              <div className="md:col-span-2">
+                <FieldRow label="Alamat / Jalan / No">
+                  <Input name="pihak1AlamatJalan" value={data.pihak1AlamatJalan} onChange={handleLocalChange} />
+                </FieldRow>
+              </div>
+              <div>
+                <FieldRow label="RT">
+                  <Input name="pihak1RT" value={data.pihak1RT} onChange={handleLocalChange} />
+                </FieldRow>
+              </div>
+              <div>
+                <FieldRow label="RW">
+                  <Input name="pihak1RW" value={data.pihak1RW} onChange={handleLocalChange} />
+                </FieldRow>
+              </div>
+              <div className="md:col-span-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  <RegionSelects prefix="pihak1" data={data} onChange={(e) => handleLocalChange({ target: e.target } as any)} FieldRow={FieldRow} Select={Select} />
                 </div>
-              </FieldRow>
-              <RegionSelects prefix="pihak1" data={data} onChange={(e) => handleLocalChange({ target: e.target } as any)} FieldRow={FieldRow} Select={Select} />
+              </div>
           
-          <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-md">
-            <FieldRow label="Bertindak Sebagai (Opsi Utama)">
-              <Select name="appearer1Role" value={data.appearer1Role} onChange={onChange}>
-                <option value="Self">Diri Sendiri (Self)</option>
-                <option value="Proxy">Kuasa (Proxy)</option>
-                <option value="SelfAndProxy">Diri Sendiri & Kuasa (SelfAndProxy)</option>
-              </Select>
-            </FieldRow>
-          </div>
-            </>
+              <div className="md:col-span-2 mt-1 p-3 bg-slate-50 border border-slate-200 rounded-md">
+                <FieldRow label="Bertindak Sebagai (Opsi Utama)">
+                  <Select name="appearer1Role" value={data.appearer1Role} onChange={onChange}>
+                    <option value="Self">Diri Sendiri (Self)</option>
+                    <option value="Proxy">Kuasa (Proxy)</option>
+                    <option value="SelfAndProxy">Diri Sendiri & Kuasa (SelfAndProxy)</option>
+                  </Select>
+                </FieldRow>
+              </div>
+            </div>
           )}
 
-          <div className={`${integrated ? 'mt-2' : 'mt-8'} border border-[#eab308]/30 rounded-lg overflow-hidden bg-[#fefce8]`}>
-            <div className="px-4 py-3 border-b border-[#eab308]/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <h3 className="font-bold text-sm text-[#854d0e]">Status Persetujuan Istri/Suami / Kuasa</h3>
-              <div className="w-full md:w-80">
-                <Select name="pihak1StatusPersetujuan" value={data.pihak1StatusPersetujuan || ''} onChange={onChange}>
+          <div className={`${integrated ? 'mt-0' : 'mt-4'} border border-amber-300/70 rounded-lg overflow-hidden bg-amber-50/30 shadow-xs`}>
+            <div className="px-3.5 py-2.5 border-b border-amber-300/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-100/60">
+              <h3 className="font-bold text-[13px] text-amber-900 flex items-center gap-2">
+                Status Persetujuan Istri/Suami / Kuasa
+              </h3>
+              <div className="w-full sm:w-72">
+                <Select name="pihak1StatusPersetujuan" value={data.pihak1StatusPersetujuan || ''} onChange={onChange} className="bg-white">
                   <option value="">-- Pilih Status Persetujuan --</option>
                   <option value="Suami">Persetujuan Suami</option>
                   <option value="Istri">Persetujuan Istri</option>
@@ -533,69 +563,87 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
             </div>
             
             {(data.pihak1StatusPersetujuan === 'Suami' || data.pihak1StatusPersetujuan === 'Istri' || data.pihak1StatusPersetujuan === 'Kuasa') && (
-              <div className="p-4">
-                <div className="flex flex-col">
-                  <FieldRow label="Nama Pasangan / Pemberi Kuasa">
-                    <Input name="suamiNama" value={data.suamiNama} onChange={onChange} />
-                  </FieldRow>
-                  <FieldRow label="Tempat Lahir">
-                    <Input name="suamiTempatLahir" value={data.suamiTempatLahir} onChange={onChange} />
-                  </FieldRow>
-                  <FieldRow label="Tanggal Lahir">
-                    <Input name="suamiTanggalLahir" type="date" value={data.suamiTanggalLahir} onChange={onChange} />
-                  </FieldRow>
-                  <FieldRow label="Pekerjaan">
-                    <Input name="suamiPekerjaan" value={data.suamiPekerjaan} onChange={onChange} />
-                  </FieldRow>
-                  <FieldRow label="NIK">
-                    <Input name="suamiNIK" value={data.suamiNIK} onChange={onChange} />
-                  </FieldRow>
+              <div className="p-4 bg-white/80">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  <div className="md:col-span-2">
+                    <FieldRow label="Nama Pasangan / Pemberi Kuasa">
+                      <Input name="suamiNama" value={data.suamiNama} onChange={onChange} placeholder="Nama lengkap..." />
+                    </FieldRow>
+                  </div>
+                  <div>
+                    <FieldRow label="Tempat Lahir">
+                      <Input name="suamiTempatLahir" value={data.suamiTempatLahir} onChange={onChange} placeholder="Kota lahir..." />
+                    </FieldRow>
+                  </div>
+                  <div>
+                    <FieldRow label="Tanggal Lahir">
+                      <Input name="suamiTanggalLahir" type="date" value={data.suamiTanggalLahir} onChange={onChange} />
+                    </FieldRow>
+                  </div>
+                  <div>
+                    <FieldRow label="Pekerjaan">
+                      <Input name="suamiPekerjaan" value={data.suamiPekerjaan} onChange={onChange} placeholder="Contoh: Wiraswasta" />
+                    </FieldRow>
+                  </div>
+                  <div>
+                    <FieldRow label="NIK">
+                      <Input name="suamiNIK" value={data.suamiNIK} onChange={onChange} placeholder="16 digit NIK..." />
+                    </FieldRow>
+                  </div>
 
-                  <div className="flex items-center gap-2 mt-2 mb-4 px-1 py-3 bg-blue-50/50 rounded-md border border-blue-100">
-                    <input 
-                      type="checkbox" 
-                      id="suamiAlamatSama"
-                      name="suamiAlamatSama" 
-                      checked={data.suamiAlamatSama} 
-                      onChange={handleLocalChange}
-                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <label htmlFor="suamiAlamatSama" className="text-sm font-medium text-gray-700 cursor-pointer">
-                      Alamat sama dengan Pihak Pertama ({data.tipeAkta === 'Hibah' ? 'Pemberi Hibah' : 'Penjual'})
-                    </label>
+                  <div className="md:col-span-2">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-blue-50/70 rounded-md border border-blue-200/70">
+                      <input 
+                        type="checkbox" 
+                        id="suamiAlamatSama"
+                        name="suamiAlamatSama" 
+                        checked={data.suamiAlamatSama} 
+                        onChange={handleLocalChange}
+                        className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <label htmlFor="suamiAlamatSama" className="text-[12.5px] font-medium text-slate-700 cursor-pointer select-none">
+                        Alamat sama dengan Pihak Pertama ({data.tipeAkta === 'Hibah' ? 'Pemberi Hibah' : 'Penjual'})
+                      </label>
+                    </div>
                   </div>
 
                   {!data.suamiAlamatSama && (
                     <>
-                      <FieldRow label="Alamat / Jalan / No">
-                        <Input name="suamiAlamatJalan" value={data.suamiAlamatJalan} onChange={handleLocalChange} />
-                      </FieldRow>
-                      <FieldRow label="RT / RW">
-                        <div className="flex gap-4">
-                          <div className="w-1/2 flex items-center gap-2">
-                            <span className="text-sm text-gray-500">RT</span>
-                            <Input name="suamiRT" value={data.suamiRT} onChange={handleLocalChange} />
-                          </div>
-                          <div className="w-1/2 flex items-center gap-2">
-                            <span className="text-sm text-gray-500">RW</span>
-                            <Input name="suamiRW" value={data.suamiRW} onChange={handleLocalChange} />
-                          </div>
+                      <div className="md:col-span-2">
+                        <FieldRow label="Alamat / Jalan / No">
+                          <Input name="suamiAlamatJalan" value={data.suamiAlamatJalan} onChange={handleLocalChange} placeholder="Nama jalan, nomor rumah..." />
+                        </FieldRow>
+                      </div>
+                      <div>
+                        <FieldRow label="RT">
+                          <Input name="suamiRT" value={data.suamiRT} onChange={handleLocalChange} placeholder="001" />
+                        </FieldRow>
+                      </div>
+                      <div>
+                        <FieldRow label="RW">
+                          <Input name="suamiRW" value={data.suamiRW} onChange={handleLocalChange} placeholder="002" />
+                        </FieldRow>
+                      </div>
+                      <div className="md:col-span-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                          <RegionSelects prefix="suami" data={data} onChange={(e) => handleLocalChange({ target: e.target } as any)} FieldRow={FieldRow} Select={Select} />
                         </div>
-                      </FieldRow>
-                      <RegionSelects prefix="suami" data={data} onChange={(e) => handleLocalChange({ target: e.target } as any)} FieldRow={FieldRow} Select={Select} />
+                      </div>
                     </>
                   )}
                   
-                  <FieldRow label="Tanggal Surat Persetujuan dan Kuasa">
-                    <Input 
-                      name="tglPersetujuanSuami" 
-                      type="date" 
-                      value={data.tglPersetujuanSuami || data.tglSuratKuasa || ''} 
-                      onChange={(e) => {
-                        handleLocalChange(e, { tglSuratKuasa: e.target.value });
-                      }} 
-                    />
-                  </FieldRow>
+                  <div className="md:col-span-2">
+                    <FieldRow label="Tanggal Surat Persetujuan dan Kuasa">
+                      <Input 
+                        name="tglPersetujuanSuami" 
+                        type="date" 
+                        value={data.tglPersetujuanSuami || data.tglSuratKuasa || ''} 
+                        onChange={(e) => {
+                          handleLocalChange(e, { tglSuratKuasa: e.target.value });
+                        }} 
+                      />
+                    </FieldRow>
+                  </div>
                 </div>
               </div>
             )}
@@ -606,47 +654,61 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
       {/* 5. PIHAK KEDUA */}
       {!integrated && (
       <Section title={`Pihak Kedua (${data.tipeAkta === 'Hibah' ? 'Penerima Hibah' : 'Pembeli'})`}>
-        <div className="flex flex-col">
-          <FieldRow label="Nama">
-            <div className="flex gap-2">
-              <select name="pihak2Gelar" value={data.pihak2Gelar} onChange={onChange} className="w-1/4 min-w-[100px] px-4 py-2.5 rounded border border-gray-300 bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm transition-all">
-                <option value="Tuan">Tuan</option>
-                <option value="Nyonya">Nyonya</option>
-                <option value="Nona">Nona</option>
-              </select>
-              <Input name="pihak2Nama" value={data.pihak2Nama} onChange={onChange} className="flex-1 px-4 py-2.5 rounded border border-gray-300 bg-white focus:ring-2 focus:ring-blue-500/20 outline-none text-sm" />
-            </div>
-          </FieldRow>
-          <FieldRow label="Tempat Lahir">
-            <Input name="pihak2TempatLahir" value={data.pihak2TempatLahir} onChange={onChange} />
-          </FieldRow>
-          <FieldRow label="Tanggal Lahir">
-            <Input name="pihak2TanggalLahir" type="date" value={data.pihak2TanggalLahir} onChange={onChange} />
-          </FieldRow>
-          <FieldRow label="Pekerjaan">
-            <Input name="pihak2Pekerjaan" value={data.pihak2Pekerjaan} onChange={onChange} />
-          </FieldRow>
-          <FieldRow label="NIK">
-            <Input name="pihak2NIK" value={data.pihak2NIK} onChange={onChange} />
-          </FieldRow>
-          <FieldRow label="Alamat / Jalan / No">
-            <Input name="pihak2AlamatJalan" value={data.pihak2AlamatJalan} onChange={handleLocalChange} />
-          </FieldRow>
-          <FieldRow label="RT / RW">
-            <div className="flex gap-4">
-              <div className="w-1/2 flex items-center gap-2">
-                <span className="text-sm text-gray-500">RT</span>
-                <Input name="pihak2RT" value={data.pihak2RT} onChange={handleLocalChange} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <div className="md:col-span-2">
+            <FieldRow label="Nama">
+              <div className="flex gap-2">
+                <select name="pihak2Gelar" value={data.pihak2Gelar} onChange={onChange} className="w-28 h-9 px-3 py-1.5 rounded border border-slate-300 bg-white focus:ring-1 focus:ring-blue-500 outline-none text-[13px] text-slate-800">
+                  <option value="Tuan">Tuan</option>
+                  <option value="Nyonya">Nyonya</option>
+                  <option value="Nona">Nona</option>
+                </select>
+                <Input name="pihak2Nama" value={data.pihak2Nama} onChange={onChange} className="flex-1" />
               </div>
-              <div className="w-1/2 flex items-center gap-2">
-                <span className="text-sm text-gray-500">RW</span>
-                <Input name="pihak2RW" value={data.pihak2RW} onChange={handleLocalChange} />
-              </div>
+            </FieldRow>
+          </div>
+          <div>
+            <FieldRow label="Tempat Lahir">
+              <Input name="pihak2TempatLahir" value={data.pihak2TempatLahir} onChange={onChange} />
+            </FieldRow>
+          </div>
+          <div>
+            <FieldRow label="Tanggal Lahir">
+              <Input name="pihak2TanggalLahir" type="date" value={data.pihak2TanggalLahir} onChange={onChange} />
+            </FieldRow>
+          </div>
+          <div>
+            <FieldRow label="Pekerjaan">
+              <Input name="pihak2Pekerjaan" value={data.pihak2Pekerjaan} onChange={onChange} />
+            </FieldRow>
+          </div>
+          <div>
+            <FieldRow label="NIK">
+              <Input name="pihak2NIK" value={data.pihak2NIK} onChange={onChange} />
+            </FieldRow>
+          </div>
+          <div className="md:col-span-2">
+            <FieldRow label="Alamat / Jalan / No">
+              <Input name="pihak2AlamatJalan" value={data.pihak2AlamatJalan} onChange={handleLocalChange} />
+            </FieldRow>
+          </div>
+          <div>
+            <FieldRow label="RT">
+              <Input name="pihak2RT" value={data.pihak2RT} onChange={handleLocalChange} />
+            </FieldRow>
+          </div>
+          <div>
+            <FieldRow label="RW">
+              <Input name="pihak2RW" value={data.pihak2RW} onChange={handleLocalChange} />
+            </FieldRow>
+          </div>
+          <div className="md:col-span-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <RegionSelects prefix="pihak2" data={data} onChange={(e) => handleLocalChange({ target: e.target } as any)} FieldRow={FieldRow} Select={Select} />
             </div>
-          </FieldRow>
-          <RegionSelects prefix="pihak2" data={data} onChange={(e) => handleLocalChange({ target: e.target } as any)} FieldRow={FieldRow} Select={Select} />
+          </div>
 
-          <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-md">
+          <div className="md:col-span-2 mt-1 p-3 bg-slate-50 border border-slate-200 rounded-md">
             <FieldRow label="Bertindak Sebagai (Opsi Utama)">
               <Select name="appearer2Role" value={data.appearer2Role} onChange={onChange}>
                 <option value="Self">Diri Sendiri (Self)</option>
@@ -661,75 +723,90 @@ export const FormContent: React.FC<FormContentProps> = ({ data, onChange, integr
 
       {/* 6. DATA SAHAM */}
       <Section title={integrated ? "Data Tambahan Akta" : "Data Saham & Keputusan"}>
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-3.5">
           {!integrated && (
-            <>
-              <FieldRow label="Jumlah Saham Dimiliki Pihak Pertama (Lembar)">
-                <Input 
-                  name="pihak1SahamDimiliki" 
-                  type="text" 
-                  value={formatNumber(data.pihak1SahamDimiliki)} 
-                  onChange={handleNumberChange} 
-                />
-              </FieldRow>
-              <FieldRow label="Total Saham PT">
-                <Input 
-                  name="jumlahSahamPT" 
-                  type="text" 
-                  value={formatNumber(data.jumlahSahamPT)} 
-                  onChange={handleNumberChange} 
-                />
-              </FieldRow>
-              <FieldRow label={`Saham Di ${data.tipeAkta === 'Hibah' ? 'Hibahkan' : 'Jual'} (Lembar)`}>
-                <Input 
-                  name="jumlahSahamHibah" 
-                  type="text" 
-                  value={formatNumber(data.jumlahSahamHibah)} 
-                  onChange={handleNumberChange} 
-                />
-              </FieldRow>
-              {data.tipeAkta === 'Jual Beli' && (
-                <FieldRow label="Harga Jual Beli Saham (Rp)">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div>
+                <FieldRow label="Jumlah Saham Dimiliki Pihak Pertama (Lembar)">
                   <Input 
-                    name="hargaJualSaham" 
+                    name="pihak1SahamDimiliki" 
                     type="text" 
-                    value={formatNumber(data.hargaJualSaham)} 
+                    value={formatNumber(data.pihak1SahamDimiliki)} 
                     onChange={handleNumberChange} 
                   />
                 </FieldRow>
+              </div>
+              <div>
+                <FieldRow label="Total Saham PT">
+                  <Input 
+                    name="jumlahSahamPT" 
+                    type="text" 
+                    value={formatNumber(data.jumlahSahamPT)} 
+                    onChange={handleNumberChange} 
+                  />
+                </FieldRow>
+              </div>
+              <div>
+                <FieldRow label={`Saham Di ${data.tipeAkta === 'Hibah' ? 'Hibahkan' : 'Jual'} (Lembar)`}>
+                  <Input 
+                    name="jumlahSahamHibah" 
+                    type="text" 
+                    value={formatNumber(data.jumlahSahamHibah)} 
+                    onChange={handleNumberChange} 
+                  />
+                </FieldRow>
+              </div>
+              {data.tipeAkta === 'Jual Beli' && (
+                <div>
+                  <FieldRow label="Harga Jual Beli Saham (Rp)">
+                    <Input 
+                      name="hargaJualSaham" 
+                      type="text" 
+                      value={formatNumber(data.hargaJualSaham)} 
+                      onChange={handleNumberChange} 
+                    />
+                  </FieldRow>
+                </div>
               )}
-              <FieldRow label="Nilai Nominal Per Saham (Rp)">
-                <Input 
-                  name="nilaiNominalSaham" 
-                  type="text" 
-                  value={formatNumber(data.nilaiNominalSaham)} 
-                  onChange={handleNumberChange} 
-                />
-              </FieldRow>
-            </>
+              <div>
+                <FieldRow label="Nilai Nominal Per Saham (Rp)">
+                  <Input 
+                    name="nilaiNominalSaham" 
+                    type="text" 
+                    value={formatNumber(data.nilaiNominalSaham)} 
+                    onChange={handleNumberChange} 
+                  />
+                </FieldRow>
+              </div>
+            </div>
           )}
 
-          <FieldRow label="Tanggal Keputusan Sirkuler RUPS">
-            <Input name="tglSirkuler" type="date" value={data.tglSirkuler} onChange={onChange} />
-          </FieldRow>
-
-          <FieldRow label="Nama Pengadilan (Domisili)">
-            <Input name="namaPengadilan" value={data.namaPengadilan} onChange={onChange} />
-          </FieldRow>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            <div>
+              <FieldRow label="Tanggal Keputusan Sirkuler RUPS">
+                <Input name="tglSirkuler" type="date" value={data.tglSirkuler} onChange={onChange} />
+              </FieldRow>
+            </div>
+            <div>
+              <FieldRow label="Nama Pengadilan (Domisili)">
+                <Input name="namaPengadilan" value={data.namaPengadilan} onChange={onChange} />
+              </FieldRow>
+            </div>
+          </div>
         </div>
       </Section>
 
       {integrated && (
-        <div className="mt-8 flex justify-center pb-12">
+        <div className="mt-6 flex justify-center pb-6">
           <button 
             onClick={simpanKeUtama}
             disabled={isSaving}
-            className="w-full max-w-md bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg flex items-center justify-center gap-3 transition-all transform hover:scale-[1.02] active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed"
+            className="w-full max-w-sm bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 px-5 rounded-lg shadow-xs flex items-center justify-center gap-2 text-[12.5px] uppercase transition-all disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
           >
             {isSaving ? (
-              <Loader2 className="animate-spin" size={20} />
+              <Loader2 className="animate-spin" size={16} />
             ) : (
-              <Save size={20} />
+              <Save size={16} />
             )}
             SIMPAN KE BUKU DAFTAR AKTA
           </button>
