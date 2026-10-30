@@ -3825,14 +3825,6 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                 </div>
 
                 <div className="space-y-1">
-                  <span className="text-slate-400 font-semibold block text-[11px] uppercase tracking-wider">Ditugaskan Kepada</span>
-                  <div className="flex items-center gap-2 text-slate-800">
-                    <User className="w-4 h-4 text-slate-400" />
-                    <span className="font-medium">{project.assignedTo || 'Unassigned'}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
                   <span className="text-slate-400 font-semibold block text-[11px] uppercase tracking-wider">Tanggal Dibuat</span>
                   <div className="flex items-center gap-2 text-slate-800">
                     <Calendar className="w-4 h-4 text-slate-400" />

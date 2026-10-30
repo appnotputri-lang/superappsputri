@@ -429,29 +429,14 @@ export const AddActivityModal: React.FC<AddActivityModalProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Ditugaskan Kepada</label>
-                  <select
-                    value={taskAssignedTo}
-                    onChange={(e) => setTaskAssignedTo(e.target.value)}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none cursor-pointer"
-                  >
-                    {TEAM_MEMBERS.map(m => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Deadline</label>
-                  <input
-                    type="date"
-                    value={taskDeadline}
-                    onChange={(e) => setTaskDeadline(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none cursor-pointer"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Deadline</label>
+                <input
+                  type="date"
+                  value={taskDeadline}
+                  onChange={(e) => setTaskDeadline(e.target.value)}
+                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:bg-white focus:ring-2 focus:ring-sky-500 focus:outline-none cursor-pointer"
+                />
               </div>
 
               <div>
