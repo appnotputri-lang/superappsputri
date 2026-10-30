@@ -220,6 +220,39 @@ const calculateFinalShareholders = (currentData: any): any[] => {
     .filter((sh: any) => sh.sharesOwned > 0 || sh.isManagement || (sh.managementPosition && sh.managementPosition.length > 0));
 };
 
+class PageErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: any }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error('[PageErrorBoundary] Caught error:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 text-center bg-white border border-red-200 rounded-xl my-6 shadow-sm">
+          <div className="w-12 h-12 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
+            ⚠️
+          </div>
+          <h3 className="text-base font-bold text-slate-800 mb-1">Terjadi Kendala Memuat Form</h3>
+          <p className="text-xs text-red-500 font-mono mb-4">{this.state.error?.message || 'Error tidak terduga'}</p>
+          <button
+            onClick={() => this.setState({ hasError: false, error: null })}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold transition-all cursor-pointer"
+          >
+            Coba Lagi
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
   user,
   userProfile,
@@ -786,56 +819,58 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
       </div>
 
       {/* FORM FIELDS */}
-      <RUPSLBFormFields
-        user={user}
-        userProfile={userProfile}
-        projects={combinedProjects}
-        profiles={profiles}
-        editingProjectId={editingProjectId}
-        setEditingProjectId={setEditingProjectId}
-        activeProjectContext={activeProjectContext}
-        setActiveProjectContext={setActiveProjectContext}
-        setSelectedProjectId={setSelectedProjectId}
-        setActiveSidebarTab={setActiveSidebarTab}
-        data={data}
-        setData={setData}
-        updateData={updateData}
-        resetData={resetData}
-        mergedData={mergedData}
-        isSaving={isSaving}
-        setIsSaving={setIsSaving}
-        isSyncing={isSyncing}
-        handleManualSync={handleManualSync}
-        recordNotification={recordNotification}
-        isRupsPreview={isRupsPreview}
-        setIsRupsPreview={setIsRupsPreview}
-        handleExportWord={handleExportWord}
-        draftAktaRef={draftAktaRef}
-        isAddKbliModalOpen={isAddKbliModalOpen}
-        setIsAddKbliModalOpen={setIsAddKbliModalOpen}
-        kbliModalSearchTerm={kbliModalSearchTerm}
-        setKbliModalSearchTerm={setKbliModalSearchTerm}
-        kbliModalSearchResults={kbliModalSearchResults}
-        setKbliModalSearchResults={setKbliModalSearchResults}
-        kbliCurrentPage={kbliCurrentPage}
-        setKbliCurrentPage={setKbliCurrentPage}
-        kbliCheckedKblis={kbliCheckedKblis}
-        setKbliCheckedKblis={setKbliCheckedKblis}
-        performKbliModalSearch={performKbliModalSearch}
-        AutoSaveIndicatorComponent={AutoSaveIndicatorComponent}
-        openShareholderEditor={openShareholderEditor}
-        deleteShareholder={deleteShareholder}
-        rupstProjects={rupstProjects}
-        pendirianProjects={pendirianProjects}
-        handleFetchLatestNumbers={handleFetchLatestNumbers}
-        isFetchingNumbers={isFetchingNumbers}
-        handleOpenPullClientModal={handleOpenPullClientModal}
-        isPullingClient={isPullingClient}
-        updateAddress={updateAddress}
-        toggleResolution={toggleResolution}
-        updateManualRep={updateManualRep}
-        calculateFinalShareholders={calculateFinalShareholders}
-      />
+      <PageErrorBoundary>
+        <RUPSLBFormFields
+          user={user}
+          userProfile={userProfile}
+          projects={combinedProjects}
+          profiles={profiles}
+          editingProjectId={editingProjectId}
+          setEditingProjectId={setEditingProjectId}
+          activeProjectContext={activeProjectContext}
+          setActiveProjectContext={setActiveProjectContext}
+          setSelectedProjectId={setSelectedProjectId}
+          setActiveSidebarTab={setActiveSidebarTab}
+          data={data}
+          setData={setData}
+          updateData={updateData}
+          resetData={resetData}
+          mergedData={mergedData}
+          isSaving={isSaving}
+          setIsSaving={setIsSaving}
+          isSyncing={isSyncing}
+          handleManualSync={handleManualSync}
+          recordNotification={recordNotification}
+          isRupsPreview={isRupsPreview}
+          setIsRupsPreview={setIsRupsPreview}
+          handleExportWord={handleExportWord}
+          draftAktaRef={draftAktaRef}
+          isAddKbliModalOpen={isAddKbliModalOpen}
+          setIsAddKbliModalOpen={setIsAddKbliModalOpen}
+          kbliModalSearchTerm={kbliModalSearchTerm}
+          setKbliModalSearchTerm={setKbliModalSearchTerm}
+          kbliModalSearchResults={kbliModalSearchResults}
+          setKbliModalSearchResults={setKbliModalSearchResults}
+          kbliCurrentPage={kbliCurrentPage}
+          setKbliCurrentPage={setKbliCurrentPage}
+          kbliCheckedKblis={kbliCheckedKblis}
+          setKbliCheckedKblis={setKbliCheckedKblis}
+          performKbliModalSearch={performKbliModalSearch}
+          AutoSaveIndicatorComponent={AutoSaveIndicatorComponent}
+          openShareholderEditor={openShareholderEditor}
+          deleteShareholder={deleteShareholder}
+          rupstProjects={rupstProjects}
+          pendirianProjects={pendirianProjects}
+          handleFetchLatestNumbers={handleFetchLatestNumbers}
+          isFetchingNumbers={isFetchingNumbers}
+          handleOpenPullClientModal={handleOpenPullClientModal}
+          isPullingClient={isPullingClient}
+          updateAddress={updateAddress}
+          toggleResolution={toggleResolution}
+          updateManualRep={updateManualRep}
+          calculateFinalShareholders={calculateFinalShareholders}
+        />
+      </PageErrorBoundary>
 
       {/* Tarik Data Klien Terbaru Modal */}
       <PullClientDataModal

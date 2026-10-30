@@ -3,7 +3,7 @@ import React from 'react';
 import { jsx, jsxs, Fragment } from 'react/jsx-runtime';
 import { 
   RefreshCw, Loader2, Eye, Trash2, Search, Plus, TrendingUp, 
-  MapPin, UserPlus, History, FileText, Calendar, ChevronDown 
+  MapPin, UserPlus, History, FileText, Calendar, ChevronDown, ArrowRightLeft 
 } from 'lucide-react';
 import { AhuSection, AhuLabel, AhuInput, AhuSelect, AhuMasaJabatanSelector } from '../../../../App';
 import { MeetingFormShell } from '../../../components/MeetingFormShell';
@@ -96,6 +96,7 @@ export const RUPSLBFormFields: React.FC<RUPSLBFormFieldsProps> = (props) => {
   const oi = FileText;
   const cu = Calendar;
   const Ws = ChevronDown;
+  const RL = ArrowRightLeft;
 
   // Scope variables
   const {
