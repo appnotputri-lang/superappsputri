@@ -2419,8 +2419,21 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               });
             }
           });
-          const remainingOldManagers = uniqueOldManagers.filter(om => om && om.name && !dismissedNames.has(om.name.toUpperCase().trim()));
-          profileUpdate.newManagementItems = [...remainingOldManagers, ...managersToAppoint];
+          const appointedNames = new Set(managersToAppoint.map((a: any) => (a.name || '').toUpperCase().trim()));
+          const remainingOldManagers = uniqueOldManagers.filter(om => om && om.name && !dismissedNames.has(om.name.toUpperCase().trim()) && !appointedNames.has(om.name.toUpperCase().trim()));
+          
+          const combinedMgmt = [...remainingOldManagers, ...managersToAppoint];
+          const seenCombined = new Set<string>();
+          const dedupedMgmt: any[] = [];
+          combinedMgmt.forEach((m: any) => {
+            if (!m || !m.name) return;
+            const k = m.name.toUpperCase().trim();
+            if (!seenCombined.has(k)) {
+              seenCombined.add(k);
+              dedupedMgmt.push(m);
+            }
+          });
+          profileUpdate.newManagementItems = dedupedMgmt;
           console.warn("[Sync Management] Derived management from explicit appointments/dismissals.", profileUpdate.newManagementItems);
         } else {
           const activeMgmt = (workingShareholders || [])

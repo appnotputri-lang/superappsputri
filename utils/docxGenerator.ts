@@ -44,6 +44,28 @@ const cleanNameOfSalutation = (name: string): string => {
   return cleanName;
 };
 
+const deduplicateManagers = <T extends { name?: string; position?: string; [key: string]: any }>(managers: T[]): T[] => {
+  const map = new Map<string, T>();
+  for (const m of managers) {
+    if (!m || !m.name) continue;
+    const clean = cleanNameOfSalutation(m.name).trim().toUpperCase();
+    if (!clean) continue;
+    if (!map.has(clean)) {
+      map.set(clean, m);
+    } else {
+      const existing = map.get(clean)!;
+      const existingPos = (existing.position || "").trim().toUpperCase();
+      const newPos = (m.position || "").trim().toUpperCase();
+      if ((!existingPos || existingPos === "PENGURUS") && newPos && newPos !== "PENGURUS") {
+        map.set(clean, { ...existing, ...m, position: m.position });
+      } else {
+        map.set(clean, { ...m, ...existing });
+      }
+    }
+  }
+  return Array.from(map.values());
+};
+
 const getPosRank = (pos: string | undefined): number => {
   if (!pos) return 99;
   const p = pos.trim().toUpperCase();
@@ -1705,28 +1727,29 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
 
     // 8. Perubahan/Pengangkatan Pengurus
     if (data.resolutions.management || data.resolutions.reappointment) {
-      const oldManagers = [
+      const oldManagers = deduplicateManagers([
+        ...(data.oldManagementItems || []).map((om) => ({
+          ...om,
+          salutation: resolveSalutationForPerson(om.name, om.salutation, data),
+          position: om.position || "Pengurus"
+        })),
         ...data.shareholders.filter((s) => s.isManagement).map((s) => ({
           ...s,
           salutation: resolveSalutationForPerson(s.name, s.salutation, data),
           position: s.managementPosition || "Pengurus"
         })),
-        ...(data.oldManagementItems || []).map((om) => ({
-          ...om,
-          salutation: resolveSalutationForPerson(om.name, om.salutation, data)
-        })),
-      ];
+      ]);
 
       const hasExplicitDismissals = data.managementDismissals && data.managementDismissals.length > 0;
       const hasExplicitAppointments = data.managementAppointments && data.managementAppointments.length > 0;
 
-      let newManagers = [];
-      let managersToDismiss = [];
-      let managersToAppoint = [];
+      let newManagers: any[] = [];
+      let managersToDismiss: any[] = [];
+      let managersToAppoint: any[] = [];
 
       if (hasExplicitDismissals || hasExplicitAppointments) {
         if (hasExplicitDismissals) {
-          managersToDismiss = data.managementDismissals.map(d => {
+          managersToDismiss = deduplicateManagers(data.managementDismissals.map(d => {
             const person = findPersonDetailsByName(d.name);
             const salutation = resolveSalutationForPerson(d.name, d.salutation || person?.salutation, data);
             return {
@@ -1735,10 +1758,10 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
               salutation,
               position: d.position
             };
-          });
+          }));
         }
         if (hasExplicitAppointments) {
-          managersToAppoint = data.managementAppointments.map(a => {
+          managersToAppoint = deduplicateManagers(data.managementAppointments.map(a => {
             const person = findPersonDetailsByName(a.name);
             const salutation = resolveSalutationForPerson(a.name, a.salutation || person?.salutation, data);
             return {
@@ -1747,45 +1770,51 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
               salutation,
               position: a.position
             };
-          });
+          }));
         }
 
-        const dismissedNames = new Set((data.managementDismissals || []).map(d => d.name?.toUpperCase().trim()));
-        newManagers = [
-          ...oldManagers.filter(om => !dismissedNames.has(om.name?.toUpperCase().trim())),
+        const dismissedNames = new Set((data.managementDismissals || []).map(d => cleanNameOfSalutation(d.name || "").toUpperCase().trim()));
+        const appointedNames = new Set((data.managementAppointments || []).map(a => cleanNameOfSalutation(a.name || "").toUpperCase().trim()));
+        newManagers = deduplicateManagers([
+          ...oldManagers.filter(om => !dismissedNames.has(cleanNameOfSalutation(om.name || "").toUpperCase().trim()) &&
+                                     !appointedNames.has(cleanNameOfSalutation(om.name || "").toUpperCase().trim())),
           ...managersToAppoint
-        ];
+        ]);
       } else {
-        newManagers = [
+        const rawNew = [
+          ...(data.newManagementItems || []),
           ...(data.finalShareholders && data.finalShareholders.length > 0 ? data.finalShareholders : data.shareholders)
             .filter((s) => s.isManagement)
             .map((s) => ({ ...s, position: s.managementPosition || "Pengurus" })),
-          ...(data.newManagementItems || []),
         ];
+        newManagers = deduplicateManagers(rawNew);
 
         const changeType = data.managementChangeType || "ALL_DISMISSED";
         if (changeType === "PARTIAL_CHANGE") {
-          managersToDismiss = oldManagers.filter(
+          managersToDismiss = deduplicateManagers(oldManagers.filter(
             (om) =>
               !newManagers.some(
                 (nm) =>
-                  (nm.name || "").toUpperCase().trim() === (om.name || "").toUpperCase().trim() &&
+                  cleanNameOfSalutation(nm.name || "").toUpperCase().trim() === cleanNameOfSalutation(om.name || "").toUpperCase().trim() &&
                   (nm.position || "").toUpperCase().trim() === (om.position || "").toUpperCase().trim()
               )
-          );
-          managersToAppoint = newManagers.filter(
+          ));
+          managersToAppoint = deduplicateManagers(newManagers.filter(
             (nm) =>
               !oldManagers.some(
                 (om) =>
-                  (om.name || "").toUpperCase().trim() === (nm.name || "").toUpperCase().trim() &&
+                  cleanNameOfSalutation(om.name || "").toUpperCase().trim() === cleanNameOfSalutation(nm.name || "").toUpperCase().trim() &&
                   (om.position || "").toUpperCase().trim() === (nm.position || "").toUpperCase().trim()
               )
-          );
+          ));
         } else {
           managersToDismiss = oldManagers;
           managersToAppoint = newManagers;
         }
       }
+
+      managersToDismiss = deduplicateManagers(managersToDismiss);
+      managersToAppoint = deduplicateManagers(managersToAppoint);
 
       const mgmtBody: any[] = [];
 
@@ -1812,7 +1841,7 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
           if (p.includes("KOMISARIS")) return 4;
           return 5;
         };
-        const sortedManagersR = [...newManagers].sort((a, b) => getPriorityR(a.position) - getPriorityR(b.position));
+        const sortedManagersR = deduplicateManagers([...newManagers]).sort((a, b) => getPriorityR(a.position) - getPriorityR(b.position));
 
         sortedManagersR.forEach((m) => {
           mgmtBody.push(
@@ -2211,7 +2240,7 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
             })
           );
 
-          const sortedManagersC = [...newManagers].sort((a, b) => getPosRank(a.position) - getPosRank(b.position));
+          const sortedManagersC = deduplicateManagers([...newManagers]).sort((a, b) => getPosRank(a.position) - getPosRank(b.position));
 
           sortedManagersC.forEach((m) => {
             mgmtBody.push(
@@ -2687,28 +2716,29 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
     }
     // Perubahan/Pengangkatan Pengurus
     if (data.resolutions.management || data.resolutions.reappointment) {
-      const oldManagers = [
+      const oldManagers = deduplicateManagers([
+        ...(data.oldManagementItems || []).map((om) => ({
+          ...om,
+          salutation: resolveSalutationForPerson(om.name, om.salutation, data),
+          position: om.position || "Pengurus"
+        })),
         ...data.shareholders.filter((s) => s.isManagement).map((s) => ({
           ...s,
           salutation: resolveSalutationForPerson(s.name, s.salutation, data),
           position: s.managementPosition || "Pengurus"
         })),
-        ...(data.oldManagementItems || []).map((om) => ({
-          ...om,
-          salutation: resolveSalutationForPerson(om.name, om.salutation, data)
-        })),
-      ];
+      ]);
 
       const hasExplicitDismissals = data.managementDismissals && data.managementDismissals.length > 0;
       const hasExplicitAppointments = data.managementAppointments && data.managementAppointments.length > 0;
 
-      let newManagers = [];
-      let managersToDismiss = [];
-      let managersToAppoint = [];
+      let newManagers: any[] = [];
+      let managersToDismiss: any[] = [];
+      let managersToAppoint: any[] = [];
 
       if (hasExplicitDismissals || hasExplicitAppointments) {
         if (hasExplicitDismissals) {
-          managersToDismiss = data.managementDismissals.map(d => {
+          managersToDismiss = deduplicateManagers(data.managementDismissals.map(d => {
             const person = findPersonDetailsByName(d.name);
             const salutation = resolveSalutationForPerson(d.name, d.salutation || person?.salutation, data);
             return {
@@ -2717,10 +2747,10 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
               salutation,
               position: d.position
             };
-          });
+          }));
         }
         if (hasExplicitAppointments) {
-          managersToAppoint = data.managementAppointments.map(a => {
+          managersToAppoint = deduplicateManagers(data.managementAppointments.map(a => {
             const person = findPersonDetailsByName(a.name);
             const salutation = resolveSalutationForPerson(a.name, a.salutation || person?.salutation, data);
             return {
@@ -2729,45 +2759,51 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
               salutation,
               position: a.position
             };
-          });
+          }));
         }
 
-        const dismissedNames = new Set((data.managementDismissals || []).map(d => d.name?.toUpperCase().trim()));
-        newManagers = [
-          ...oldManagers.filter(om => !dismissedNames.has(om.name?.toUpperCase().trim())),
+        const dismissedNames = new Set((data.managementDismissals || []).map(d => cleanNameOfSalutation(d.name || "").toUpperCase().trim()));
+        const appointedNames = new Set((data.managementAppointments || []).map(a => cleanNameOfSalutation(a.name || "").toUpperCase().trim()));
+        newManagers = deduplicateManagers([
+          ...oldManagers.filter(om => !dismissedNames.has(cleanNameOfSalutation(om.name || "").toUpperCase().trim()) &&
+                                     !appointedNames.has(cleanNameOfSalutation(om.name || "").toUpperCase().trim())),
           ...managersToAppoint
-        ];
+        ]);
       } else {
-        newManagers = [
+        const rawNew = [
+          ...(data.newManagementItems || []),
           ...(data.finalShareholders && data.finalShareholders.length > 0 ? data.finalShareholders : data.shareholders)
             .filter((s) => s.isManagement)
             .map((s) => ({ ...s, position: s.managementPosition || "Pengurus" })),
-          ...(data.newManagementItems || []),
         ];
+        newManagers = deduplicateManagers(rawNew);
 
         const changeType = data.managementChangeType || "ALL_DISMISSED";
         if (changeType === "PARTIAL_CHANGE") {
-          managersToDismiss = oldManagers.filter(
+          managersToDismiss = deduplicateManagers(oldManagers.filter(
             (om) =>
               !newManagers.some(
                 (nm) =>
-                  (nm.name || "").toUpperCase().trim() === (om.name || "").toUpperCase().trim() &&
+                  cleanNameOfSalutation(nm.name || "").toUpperCase().trim() === cleanNameOfSalutation(om.name || "").toUpperCase().trim() &&
                   (nm.position || "").toUpperCase().trim() === (om.position || "").toUpperCase().trim()
               )
-          );
-          managersToAppoint = newManagers.filter(
+          ));
+          managersToAppoint = deduplicateManagers(newManagers.filter(
             (nm) =>
               !oldManagers.some(
                 (om) =>
-                  (om.name || "").toUpperCase().trim() === (nm.name || "").toUpperCase().trim() &&
+                  cleanNameOfSalutation(om.name || "").toUpperCase().trim() === cleanNameOfSalutation(nm.name || "").toUpperCase().trim() &&
                   (om.position || "").toUpperCase().trim() === (nm.position || "").toUpperCase().trim()
               )
-          );
+          ));
         } else {
           managersToDismiss = oldManagers;
           managersToAppoint = newManagers;
         }
       }
+
+      managersToDismiss = deduplicateManagers(managersToDismiss);
+      managersToAppoint = deduplicateManagers(managersToAppoint);
 
       const mgmtBody: any[] = [];
 
@@ -2793,7 +2829,7 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
           if (p.includes("KOMISARIS")) return 4;
           return 5;
         };
-        const sortedManagersR = [...newManagers].sort((a, b) => getPriorityR(a.position) - getPriorityR(b.position));
+        const sortedManagersR = deduplicateManagers([...newManagers]).sort((a, b) => getPriorityR(a.position) - getPriorityR(b.position));
 
         sortedManagersR.forEach((m) => {
           mgmtBody.push(
@@ -3143,7 +3179,7 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
             })
           );
 
-          const sortedManagersD = [...newManagers].sort((a, b) => getPosRank(a.position) - getPosRank(b.position));
+          const sortedManagersD = deduplicateManagers([...newManagers]).sort((a, b) => getPosRank(a.position) - getPosRank(b.position));
 
           sortedManagersD.forEach((m) => {
             mgmtBody.push(

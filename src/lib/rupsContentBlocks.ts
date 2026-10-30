@@ -1224,22 +1224,47 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
   if (data.resolutions.management || data.resolutions.reappointment) {
     const isReappointment = data.resolutions.reappointment;
 
-    const oldManagers = [
+    const deduplicateManagers = <T extends { name?: string; position?: string; [key: string]: any }>(managers: T[]): T[] => {
+      const map = new Map<string, T>();
+      for (const m of managers) {
+        if (!m || !m.name) continue;
+        const clean = stripSalutation(m.name).trim().toUpperCase();
+        if (!clean) continue;
+        if (!map.has(clean)) {
+          map.set(clean, m);
+        } else {
+          const existing = map.get(clean)!;
+          const existingPos = (existing.position || "").trim().toUpperCase();
+          const newPos = (m.position || "").trim().toUpperCase();
+          if ((!existingPos || existingPos === "PENGURUS") && newPos && newPos !== "PENGURUS") {
+            map.set(clean, { ...existing, ...m, position: m.position });
+          } else {
+            map.set(clean, { ...m, ...existing });
+          }
+        }
+      }
+      return Array.from(map.values());
+    };
+
+    const oldManagers = deduplicateManagers([
+      ...(data.oldManagementItems || []).map((om) => ({
+        ...om,
+        position: om.position || "Pengurus",
+      })),
       ...data.shareholders
         .filter((s) => s.isManagement)
         .map((s) => ({ ...s, position: s.managementPosition || "Pengurus" })),
-      ...(data.oldManagementItems || []),
-    ];
+    ]);
 
-    let newManagers = [
+    let newManagers = deduplicateManagers([
+      ...(data.newManagementItems || []),
       ...(data.finalShareholders && data.finalShareholders.length > 0
         ? data.finalShareholders
         : data.shareholders
       )
         .filter((s) => s.isManagement)
         .map((s) => ({ ...s, position: s.managementPosition || "Pengurus" })),
-      ...(data.newManagementItems || []),
-    ];
+    ]);
 
     if (isReappointment) {
       let oldExpiredDateStr = "16 Juni 2026";
@@ -1284,11 +1309,12 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         ],
       });
 
-      newManagers.sort(
+      const finalReappointed = deduplicateManagers(newManagers);
+      finalReappointed.sort(
         (a, b) => getPosRank(a.position) - getPosRank(b.position),
       );
 
-      newManagers.forEach((m) => {
+      finalReappointed.forEach((m) => {
         blocks.push({
           type: "management-list",
           position: m.position,
@@ -1335,9 +1361,9 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
             if (matchByNik) return matchByNik;
           }
           if (item.name && String(item.name).trim()) {
-            const cleanName = String(item.name).trim().toUpperCase();
+            const cleanName = stripSalutation(String(item.name)).trim().toUpperCase();
             const matchByName = candidatePeople.find(
-              (s) => s && s.name && String(s.name).trim().toUpperCase() === cleanName
+              (s) => s && s.name && stripSalutation(String(s.name)).trim().toUpperCase() === cleanName
             );
             if (matchByName) return matchByName;
           }
@@ -1345,7 +1371,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         };
 
         if (hasExplicitDismissals) {
-          managersToDismiss = data.managementDismissals.map((d) => {
+          managersToDismiss = deduplicateManagers(data.managementDismissals.map((d) => {
             const person = findPerson(d);
             return {
               ...person,
@@ -1353,10 +1379,10 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
               salutation: person?.salutation || d.salutation || 'Tuan',
               position: d.position,
             };
-          });
+          }));
         }
         if (hasExplicitAppointments) {
-          managersToAppoint = data.managementAppointments.map((a) => {
+          managersToAppoint = deduplicateManagers(data.managementAppointments.map((a) => {
             const person = findPerson(a);
             return {
               ...person,
@@ -1364,42 +1390,48 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
               salutation: person?.salutation || a.salutation || 'Tuan',
               position: a.position,
             };
-          });
+          }));
         }
 
         // If they used explicit lists, the NEW composition is:
-        // (Old Managers - Dismissed) + Appointed
+        // (Old Managers - Dismissed - Appointed) + Appointed
         const dismissedNames = new Set(
           (data.managementDismissals || []).map((d) =>
-            d.name?.toUpperCase().trim(),
+            stripSalutation(d.name || "").toUpperCase().trim(),
           ),
         );
-        newManagers = [
+        const appointedNames = new Set(
+          (data.managementAppointments || []).map((a) =>
+            stripSalutation(a.name || "").toUpperCase().trim(),
+          ),
+        );
+        newManagers = deduplicateManagers([
           ...oldManagers.filter(
-            (om) => !dismissedNames.has(om.name?.toUpperCase().trim()),
+            (om) => !dismissedNames.has(stripSalutation(om.name || "").toUpperCase().trim()) &&
+                    !appointedNames.has(stripSalutation(om.name || "").toUpperCase().trim()),
           ),
           ...managersToAppoint,
-        ];
+        ]);
       } else if (changeType === "PARTIAL_CHANGE") {
         // Logic from user: only dismiss those who leave or change position
-        managersToDismiss = oldManagers.filter(
+        managersToDismiss = deduplicateManagers(oldManagers.filter(
           (om) =>
             !newManagers.some(
               (nm) =>
-                nm.name.toUpperCase().trim() === om.name.toUpperCase().trim() &&
+                stripSalutation(nm.name || "").toUpperCase().trim() === stripSalutation(om.name || "").toUpperCase().trim() &&
                 nm.position.toUpperCase().trim() ===
                   om.position.toUpperCase().trim(),
             ),
-        );
-        managersToAppoint = newManagers.filter(
+        ));
+        managersToAppoint = deduplicateManagers(newManagers.filter(
           (nm) =>
             !oldManagers.some(
               (om) =>
-                om.name.toUpperCase().trim() === nm.name.toUpperCase().trim() &&
+                stripSalutation(om.name || "").toUpperCase().trim() === stripSalutation(nm.name || "").toUpperCase().trim() &&
                 om.position.toUpperCase().trim() ===
                   nm.position.toUpperCase().trim(),
             ),
-        );
+        ));
       } else {
         // ALL_DISMISSED
         managersToDismiss = oldManagers;
@@ -1678,11 +1710,12 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           ],
         });
 
-        newManagers.sort(
+        const finalManagers = deduplicateManagers(newManagers);
+        finalManagers.sort(
           (a, b) => getPosRank(a.position) - getPosRank(b.position),
         );
 
-        newManagers.forEach((m) => {
+        finalManagers.forEach((m) => {
           blocks.push({
             type: "management-list",
             position: m.position.toUpperCase(),

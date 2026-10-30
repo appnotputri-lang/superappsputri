@@ -649,78 +649,116 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
             <>
               {renderResolutionTitle("Persetujuan Perubahan/Pengangkatan Pengurus")}
               {(() => {
-                const oldManagers = [
+                const cleanName = (name: string): string => {
+                  if (!name) return "";
+                  let n = name.trim();
+                  const prefixRegex = /^(TUAN|NYONYA|NONA|NY\.?|TN\.?|IBU|BAPAK|SDR\.?|SDRI\.?)\s+/i;
+                  while (prefixRegex.test(n)) {
+                    n = n.replace(prefixRegex, "").trim();
+                  }
+                  return n;
+                };
+
+                const deduplicateManagers = <T extends { name?: string; position?: string; [key: string]: any }>(managers: T[]): T[] => {
+                  const map = new Map<string, T>();
+                  for (const m of managers) {
+                    if (!m || !m.name) continue;
+                    const clean = cleanName(m.name).toUpperCase();
+                    if (!clean) continue;
+                    if (!map.has(clean)) {
+                      map.set(clean, m);
+                    } else {
+                      const existing = map.get(clean)!;
+                      const existingPos = (existing.position || "").trim().toUpperCase();
+                      const newPos = (m.position || "").trim().toUpperCase();
+                      if ((!existingPos || existingPos === "PENGURUS") && newPos && newPos !== "PENGURUS") {
+                        map.set(clean, { ...existing, ...m, position: m.position });
+                      } else {
+                        map.set(clean, { ...m, ...existing });
+                      }
+                    }
+                  }
+                  return Array.from(map.values());
+                };
+
+                const oldManagers = deduplicateManagers([
+                  ...(data.oldManagementItems || []).map((om) => ({ ...om, position: om.position || "Pengurus", salutation: om.salutation || "Tuan" })),
                   ...data.shareholders.filter((s) => s.isManagement).map((s) => ({ ...s, position: s.managementPosition || "Pengurus", salutation: s.salutation || "Tuan" })),
-                  ...(data.oldManagementItems || []),
-                ];
+                ]);
 
                 const hasExplicitDismissals = data.managementDismissals && data.managementDismissals.length > 0;
                 const hasExplicitAppointments = data.managementAppointments && data.managementAppointments.length > 0;
 
-                let newManagers = [];
-                let managersToDismiss = [];
-                let managersToAppoint = [];
+                let newManagers: any[] = [];
+                let managersToDismiss: any[] = [];
+                let managersToAppoint: any[] = [];
                 const changeType = data.managementChangeType || "ALL_DISMISSED";
 
                 if (hasExplicitDismissals || hasExplicitAppointments) {
                   if (hasExplicitDismissals) {
-                    managersToDismiss = data.managementDismissals.map(d => {
-                      const person = data.shareholders?.find(s => s.name?.toUpperCase().trim() === d.name?.toUpperCase().trim());
+                    managersToDismiss = deduplicateManagers(data.managementDismissals.map(d => {
+                      const person = data.shareholders?.find(s => cleanName(s.name || '').toUpperCase() === cleanName(d.name || '').toUpperCase());
                       return {
                         ...person,
                         name: d.name,
                         salutation: d.salutation || "Tuan",
                         position: d.position
                       };
-                    });
+                    }));
                   }
                   if (hasExplicitAppointments) {
-                    managersToAppoint = data.managementAppointments.map(a => {
-                      const person = data.shareholders?.find(s => s.name?.toUpperCase().trim() === a.name?.toUpperCase().trim());
+                    managersToAppoint = deduplicateManagers(data.managementAppointments.map(a => {
+                      const person = data.shareholders?.find(s => cleanName(s.name || '').toUpperCase() === cleanName(a.name || '').toUpperCase());
                       return {
                         ...person,
                         name: a.name,
                         salutation: a.salutation || "Tuan",
                         position: a.position
                       };
-                    });
+                    }));
                   }
 
-                  const dismissedNames = new Set((data.managementDismissals || []).map(d => d.name?.toUpperCase().trim()));
-                  newManagers = [
-                    ...oldManagers.filter(om => !dismissedNames.has(om.name?.toUpperCase().trim())),
+                  const dismissedNames = new Set((data.managementDismissals || []).map(d => cleanName(d.name || "").toUpperCase()));
+                  const appointedNames = new Set((data.managementAppointments || []).map(a => cleanName(a.name || "").toUpperCase()));
+                  newManagers = deduplicateManagers([
+                    ...oldManagers.filter(om => !dismissedNames.has(cleanName(om.name || "").toUpperCase()) &&
+                                               !appointedNames.has(cleanName(om.name || "").toUpperCase())),
                     ...managersToAppoint
-                  ];
+                  ]);
                 } else {
-                  newManagers = [
+                  const rawNew = [
+                    ...(data.newManagementItems || []),
                     ...(data.finalShareholders && data.finalShareholders.length > 0 ? data.finalShareholders : data.shareholders)
                       .filter((s) => s.isManagement)
                       .map((s) => ({ ...s, position: s.managementPosition || "Pengurus", salutation: s.salutation || "Tuan" })),
-                    ...(data.newManagementItems || []),
                   ];
+                  newManagers = deduplicateManagers(rawNew);
 
                   if (changeType === "PARTIAL_CHANGE") {
-                    managersToDismiss = oldManagers.filter(
+                    managersToDismiss = deduplicateManagers(oldManagers.filter(
                       (om) =>
                         !newManagers.some(
                           (nm) =>
-                            (nm.name || "").toUpperCase().trim() === (om.name || "").toUpperCase().trim() &&
+                            cleanName(nm.name || "").toUpperCase() === cleanName(om.name || "").toUpperCase() &&
                             (nm.position || "").toUpperCase().trim() === (om.position || "").toUpperCase().trim()
                         )
-                    );
-                    managersToAppoint = newManagers.filter(
+                    ));
+                    managersToAppoint = deduplicateManagers(newManagers.filter(
                       (nm) =>
                         !oldManagers.some(
                           (om) =>
-                            (om.name || "").toUpperCase().trim() === (nm.name || "").toUpperCase().trim() &&
+                            cleanName(om.name || "").toUpperCase() === cleanName(nm.name || "").toUpperCase() &&
                             (om.position || "").toUpperCase().trim() === (nm.position || "").toUpperCase().trim()
                         )
-                    );
+                    ));
                   } else {
                     managersToDismiss = oldManagers;
                     managersToAppoint = newManagers;
                   }
                 }
+
+                managersToDismiss = deduplicateManagers(managersToDismiss);
+                managersToAppoint = deduplicateManagers(managersToAppoint);
 
                 const hasDirector = managersToAppoint.some(m => /direktur/i.test(m.position || ""));
                 const hasCommissioner = managersToAppoint.some(m => /komisaris/i.test(m.position || ""));
@@ -789,7 +827,7 @@ const DocumentPreview: React.FC<Props> = ({ data, showHeader = true, zoom = 1 })
                         <div style={{ textAlign: 'justify', paddingLeft: '0.3in', marginTop: '6pt', marginBottom: PARA_SPACING }}>
                           Sehingga susunan anggota Direksi dan Dewan Komisaris Perseroan menjadi sebagai berikut :
                         </div>
-                        {newManagers.map((m, mIdx) => (
+                        {deduplicateManagers(newManagers).map((m, mIdx) => (
                           <div key={mIdx} style={{ textAlign: 'justify', paddingLeft: '0.5in', textIndent: '-0.2in', marginBottom: '2pt' }}>
                             <span>-&nbsp;&nbsp;</span>
                             <strong>{(m.name || "").toUpperCase()}</strong> ditetapkan selaku {toTitleCase(m.position)} perseroan;
