@@ -91,7 +91,18 @@ export const MeetingFormShell: React.FC<MeetingFormShellProps> = ({
         markAllLabel={`Tandai Semua ${meetingType === 'luar_biasa' && actualData.documentType === 'CIRCULAR' ? 'Terlibat' : 'Hadir'}`} 
         nameColumnLabel={meetingType === 'tahunan' ? "Nama Pemegang Saham" : "Nama Pihak"} 
         showAksiColumn={meetingType === 'luar_biasa'} 
-        onAddParticipant={meetingType === 'luar_biasa' ? onAddParticipant : undefined} 
+        onAddParticipant={meetingType === 'luar_biasa' ? () => {
+          if (onAddParticipant) {
+            onAddParticipant();
+          } else if (openShareholderEditor) {
+            openShareholderEditor('lama', {
+              id: crypto.randomUUID(),
+              isOtherParty: true,
+              sharesOwned: 0,
+              isPresent: true
+            } as any);
+          }
+        } : undefined} 
         addParticipantLabel={meetingType === 'luar_biasa' ? (actualData.documentType === 'CIRCULAR' ? 'Tambah Pihak Lain' : 'Tambah Peserta Rapat') : undefined}
         openShareholderEditor={openShareholderEditor}
         deleteShareholder={deleteShareholder}

@@ -30,8 +30,20 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
   const { data, mergedData, updateData, setProxyModalOpenId } = useDocumentRuntime();
   const actualData = (mergedData || data) as any;
   const isCircular = actualData.rupstType === 'sirkuler' || actualData.documentType === 'CIRCULAR' || actualData.jobType === 'sirkuler' || actualData.jobType === 'sirkuler_rupslb';
+
+  const isPihakLain = (s: any) => {
+    if (s.isOtherParty) return true;
+    const isMgmt = (actualData.oldManagementItems || []).some(
+      (m: any) => (m.name || '').trim().toUpperCase() === (s.name || '').trim().toUpperCase()
+    );
+    if (showAksiColumn && (Number(s.sharesOwned) || 0) <= 0 && !isMgmt) {
+      return true;
+    }
+    return false;
+  };
+
   const shareholders = isCircular
-    ? (actualData.shareholders || []).filter((s: any) => (Number(s.sharesOwned) || 0) > 0)
+    ? (actualData.shareholders || []).filter((s: any) => (Number(s.sharesOwned) || 0) > 0 || isPihakLain(s))
     : (actualData.shareholders || []);
   return (
     <div className="space-y-4">
@@ -52,7 +64,10 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
           <button 
             type="button"
             onClick={() => {
-              const newList = shareholders.map(s => ({ ...s, isPresent: true }));
+              const ids = new Set(shareholders.map(s => s.id));
+              const newList = (actualData.shareholders || []).map((s: any) =>
+                ids.has(s.id) ? { ...s, isPresent: true } : s
+              );
               updateData({ shareholders: newList });
             }}
             className="text-[10px] bg-[#3b5998] text-white px-3 py-1 rounded-sm hover:bg-black transition-colors font-bold shadow-sm uppercase cursor-pointer"
@@ -76,6 +91,7 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
           <tbody>
             {shareholders.map((s, idx) => {
               const isCorp = CorporateShareholderService.checkIsCorporateShareholder(s);
+              const pihakLain = isPihakLain(s);
               const repName = s.guardianName || (s.isProxy && s.proxyData?.name) || '';
               const repPos = s.representativePosition || s.proxyData?.occupation || s.proxyData?.position || (isCorp ? 'Direktur' : 'Penerima Kuasa');
               const repSal = s.proxyData?.salutation || s.guardianSalutation || 'Tuan';
@@ -90,9 +106,20 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
                           Badan Hukum (PT)
                         </span>
                       )}
+                      {pihakLain && (
+                        <span className="inline-block mt-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[9px] rounded w-fit tracking-wide">
+                          Pihak Lain
+                        </span>
+                      )}
                     </div>
                   </td>
-                  <td className="p-2 border-r border-slate-200 font-semibold">{formatInputNumber(s.sharesOwned)} Saham</td>
+                  <td className="p-2 border-r border-slate-200 font-semibold">
+                    {pihakLain && (Number(s.sharesOwned) || 0) <= 0 ? (
+                      <span className="text-slate-400 text-[11px]">-</span>
+                    ) : (
+                      `${formatInputNumber(s.sharesOwned)} Saham`
+                    )}
+                  </td>
                   <td className="p-2 text-center border-r border-slate-200">
                     <input
                       type="checkbox"
@@ -100,13 +127,13 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
                       checked={s.isPresent || false}
                       onChange={e => {
                         const isChecked = e.target.checked;
-                        const newList = shareholders.map(item =>
+                        const newList = (actualData.shareholders || []).map((item: any) =>
                           item.id === s.id
                             ? {
                                 ...item,
                                 isPresent: isChecked,
-                                isProxy: isChecked ? (isCorp ? true : item.isProxy) : false,
-                                proxyData: isChecked ? item.proxyData : undefined
+                                isProxy: isChecked ? (isCorp ? true : (pihakLain ? false : item.isProxy)) : false,
+                                proxyData: isChecked ? (pihakLain ? undefined : item.proxyData) : undefined
                               }
                             : item
                         );
@@ -116,7 +143,9 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
                   </td>
                   <td className="p-2 text-center border-r border-slate-200">
                     {s.isPresent && (
-                      isCorp ? (
+                      pihakLain ? (
+                        <span className="text-slate-400 text-[11px]">-</span>
+                      ) : isCorp ? (
                         <span className="inline-block px-2 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold rounded">
                           Diwakili
                         </span>
@@ -126,7 +155,7 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
                           className="w-4 h-4 cursor-pointer accent-orange-600"
                           checked={s.isProxy || false}
                           onChange={e => {
-                            const newList = shareholders.map(item =>
+                            const newList = (actualData.shareholders || []).map((item: any) =>
                               item.id === s.id ? { ...item, isProxy: e.target.checked, proxyData: e.target.checked ? item.proxyData : undefined } : item
                             );
                             updateData({ shareholders: newList });
@@ -138,64 +167,68 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
                   </td>
                   <td className="p-2 text-center border-r border-slate-200">
                     {s.isPresent && (
-                      (() => {
-                        if (repName) {
-                          return (
-                            <div className="flex items-center justify-between gap-2 px-1">
-                              <span className={`text-[11px] font-bold uppercase truncate px-2 py-0.5 rounded border ${
-                                isCorp
-                                  ? 'text-blue-900 bg-blue-50 border-blue-200'
-                                  : 'text-orange-900 bg-orange-50 border-orange-200'
-                              }`}>
-                                {isCorp ? '🏢 ' : ''}{repSal} {repName} ({repPos})
-                              </span>
+                      pihakLain ? (
+                        <span className="text-slate-400 text-[10px]">-</span>
+                      ) : (
+                        (() => {
+                          if (repName) {
+                            return (
+                              <div className="flex items-center justify-between gap-2 px-1">
+                                <span className={`text-[11px] font-bold uppercase truncate px-2 py-0.5 rounded border ${
+                                  isCorp
+                                    ? 'text-blue-900 bg-blue-50 border-blue-200'
+                                    : 'text-orange-900 bg-orange-50 border-orange-200'
+                                }`}>
+                                  {isCorp ? '🏢 ' : ''}{repSal} {repName} ({repPos})
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setProxyModalOpenId(s.id);
+                                  }}
+                                  className="text-[9px] text-blue-600 hover:underline whitespace-nowrap cursor-pointer font-bold ml-1"
+                                >
+                                  Ubah
+                                </button>
+                              </div>
+                            );
+                          }
+
+                          if (isCorp) {
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newList = (actualData.shareholders || []).map((item: any) =>
+                                    item.id === s.id ? { ...item, isProxy: true } : item
+                                  );
+                                  updateData({ shareholders: newList });
+                                  setProxyModalOpenId(s.id);
+                                }}
+                                className="text-[10px] bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded transition-colors font-bold cursor-pointer shadow-xs"
+                              >
+                                + Pilih Wakil PT (Direksi/Komisaris)
+                              </button>
+                            );
+                          }
+
+                          if (s.isProxy) {
+                            return (
                               <button
                                 type="button"
                                 onClick={() => {
                                   setProxyModalOpenId(s.id);
                                 }}
-                                className="text-[9px] text-blue-600 hover:underline whitespace-nowrap cursor-pointer font-bold ml-1"
+                                className="text-[10px] bg-orange-500 text-white px-3 py-1 rounded hover:bg-orange-600 transition-colors font-bold cursor-pointer"
                               >
-                                Ubah
+                                + Isi Data Kuasa
                               </button>
-                            </div>
-                          );
-                        }
+                            );
+                          }
 
-                        if (isCorp) {
-                          return (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newList = shareholders.map(item =>
-                                  item.id === s.id ? { ...item, isProxy: true } : item
-                                );
-                                updateData({ shareholders: newList });
-                                setProxyModalOpenId(s.id);
-                              }}
-                              className="text-[10px] bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded transition-colors font-bold cursor-pointer shadow-xs"
-                            >
-                              + Pilih Wakil PT (Direksi/Komisaris)
-                            </button>
-                          );
-                        }
-
-                        if (s.isProxy) {
-                          return (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setProxyModalOpenId(s.id);
-                              }}
-                              className="text-[10px] bg-orange-500 text-white px-3 py-1 rounded hover:bg-orange-600 transition-colors font-bold cursor-pointer"
-                            >
-                              + Isi Data Kuasa
-                            </button>
-                          );
-                        }
-
-                        return <span className="text-slate-400 text-[10px]">-</span>;
-                      })()
+                          return <span className="text-slate-400 text-[10px]">-</span>;
+                        })()
+                      )
                     )}
                   </td>
                 {showAksiColumn && (

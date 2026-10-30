@@ -44,7 +44,7 @@ export const ShareholderModal: React.FC<ShareholderModalProps> = ({
     <Modal
       isOpen={Boolean(editingShareholder)}
       onClose={() => { if (!isSaving) { setEditingShareholder(null); setEditMode(null); } }}
-      title={editMode === 'pengganti' ? "Formulir Lengkap Pengganti / Pengurus Baru" : editMode === 'pengganti_saham' ? "Formulir Lengkap Penerima Peralihan Saham Baru" : "Tambah Pemegang Saham, Komisaris dan Direksi"}
+      title={editingShareholder?.isOtherParty ? "Formulir Lengkap Pihak Lain" : editMode === 'pengganti' ? "Formulir Lengkap Pengganti / Pengurus Baru" : editMode === 'pengganti_saham' ? "Formulir Lengkap Penerima Peralihan Saham Baru" : "Tambah Pemegang Saham, Komisaris dan Direksi"}
       maxWidth="max-w-4xl"
       headerColor="bg-white text-slate-800 border-b border-slate-200"
     >
@@ -74,8 +74,8 @@ export const ShareholderModal: React.FC<ShareholderModalProps> = ({
               hasTransferAgenda={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? false : data.resolutions?.shareholders}
               hasManagementAgenda={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? true : data.resolutions?.management}
               hasCapitalChange={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? false : (data.resolutions?.capitalBase || data.resolutions?.capitalPaid || data.resolutions?.capitalBaseDecrease || data.resolutions?.capitalPaidDecrease)}
-              hideFinancials={editMode === 'pengganti' || editMode === 'pengganti_saham' || editMode === 'baru'}
-              hideManagement={editMode === 'baru'}
+              hideFinancials={Boolean(editingShareholder?.isOtherParty) || editMode === 'pengganti' || editMode === 'pengganti_saham' || editMode === 'baru'}
+              hideManagement={Boolean(editingShareholder?.isOtherParty) || editMode === 'baru'}
               availableParties={(editMode === 'pengganti' || editMode === 'pengganti_saham' || editMode === 'baru') ? data.shareholders : undefined}
               profiles={profiles}
               excludeCompanyIdOrName={excludeCompanyIdOrName || data?.selectedProfileId || data?.id || data?.companyName}
