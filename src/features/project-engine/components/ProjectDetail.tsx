@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Project, DocumentReference, ClientSnapshot, ProjectChangeSnapshot, Party, PPATDocumentItem, PPATData } from '../../../domain/project/Project';
 import { ProjectService } from '../../../services/ProjectService';
@@ -92,7 +92,8 @@ import {
   Settings,
   Edit,
   Upload,
-  MoreVertical
+  MoreVertical,
+  Phone
 } from 'lucide-react';
 
 const getDocKinds = (jobType: string): { kind: 'notulen' | 'pernyataan' | 'akta' | 'pendirian'; label: string }[] => {
@@ -150,9 +151,78 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     }));
   };
   const [documents, setDocuments] = useState<DocumentReference[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [documentUploadKey, setDocumentUploadKey] = useState(0);
+
+  // Consolidated all project files (both uploaded and generated)
+  const allProjectFiles = useMemo(() => {
+    const list: {
+      id: string;
+      title: string;
+      subtitle?: string;
+      url?: string;
+      type?: string;
+      uploadedAt?: string;
+      isDrive?: boolean;
+      driveFileId?: string;
+    }[] = [];
+
+    const seenKeys = new Set<string>();
+
+    // 1. Files uploaded via ProjectDocumentUpload (project_uploaded_documents)
+    uploadedFiles.forEach(uf => {
+      const key = uf.driveFileId || uf.id;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        list.push({
+          id: uf.id,
+          title: uf.title || uf.fileName,
+          subtitle: uf.fileName !== uf.title ? uf.fileName : (uf.documentCategory?.replace(/_/g, ' ') || uf.type || 'Dokumen'),
+          url: uf.driveFileId ? `https://drive.google.com/file/d/${uf.driveFileId}/view` : undefined,
+          type: uf.mimeType || 'file',
+          uploadedAt: uf.uploadedAt,
+          isDrive: !!uf.driveFileId,
+          driveFileId: uf.driveFileId
+        });
+      }
+    });
+
+    // 2. Documents recorded on project (subcollection documents)
+    documents.forEach(d => {
+      const key = d.id || d.name;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        list.push({
+          id: d.id || key,
+          title: d.name,
+          subtitle: d.type?.toUpperCase() || 'Draft Dokumen',
+          url: d.url,
+          type: d.type,
+          uploadedAt: d.uploadedAt ? (typeof d.uploadedAt === 'string' ? d.uploadedAt : (d.uploadedAt as any).toDate?.()?.toISOString?.()) : undefined
+        });
+      }
+    });
+
+    // 3. PPAT documents if applicable
+    if (project?.ppatData?.documents) {
+      project.ppatData.documents.forEach(pDoc => {
+        if (!seenKeys.has(pDoc.id)) {
+          seenKeys.add(pDoc.id);
+          list.push({
+            id: pDoc.id,
+            title: pDoc.title,
+            subtitle: `Dokumen PPAT • ${pDoc.category || 'Akta'}`,
+            type: 'docx',
+            uploadedAt: pDoc.updatedAt || pDoc.createdAt
+          });
+        }
+      });
+    }
+
+    return list;
+  }, [uploadedFiles, documents, project?.ppatData?.documents]);
 
   // Related Projects and History
   const [relatedProjects, setRelatedProjects] = useState<Project[]>([]);
@@ -231,11 +301,76 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     'ringkasan' | 'tugas' | 'dokumen' | 'klien' | 'timeline' | 'catatan' | 'keuangan' | 'pengaturan'
   >('ringkasan');
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
+  const [isInfoStatusDropdownOpen, setIsInfoStatusDropdownOpen] = useState(false);
   const [isAssignStaffOpen, setIsAssignStaffOpen] = useState(false);
   const [isSetTargetOpen, setIsSetTargetOpen] = useState(false);
   const [newTargetDate, setNewTargetDate] = useState('');
   const [selectedStaffToAssign, setSelectedStaffToAssign] = useState('');
   const [staffList, setStaffList] = useState<{ uid: string; name: string }[]>([]);
+
+  const [isEditPicModalOpen, setIsEditPicModalOpen] = useState(false);
+  const [picTitleInput, setPicTitleInput] = useState('Bapak');
+  const [picNameInput, setPicNameInput] = useState('');
+  const [picPhoneInput, setPicPhoneInput] = useState('');
+  const [savingPic, setSavingPic] = useState(false);
+
+  const openEditPicModal = () => {
+    const currentTitle = project?.picTitle || project?.clientSnapshot?.picTitle || (client as any)?.picTitle || 'Bapak';
+    const currentName = project?.picName || project?.clientPic || project?.clientSnapshot?.picName || (client as any)?.picName || (client as any)?.contactPerson || '';
+    const currentPhone = project?.picPhone || project?.clientContact || project?.clientSnapshot?.picPhone || project?.clientSnapshot?.phoneNumber || (client as any)?.picPhone || (client as any)?.phoneNumber || '';
+    setPicTitleInput(currentTitle);
+    setPicNameInput(currentName);
+    setPicPhoneInput(currentPhone);
+    setIsEditPicModalOpen(true);
+  };
+
+  const handleSavePic = async () => {
+    if (!project) return;
+    setSavingPic(true);
+    try {
+      await ProjectService.updateProjectPic(project.projectId, {
+        picTitle: picTitleInput,
+        picName: picNameInput,
+        picPhone: picPhoneInput
+      });
+
+      setProject(prev => {
+        if (!prev) return null;
+        const baseSnapshot = prev.clientSnapshot || {
+          id: prev.clientId || projectId,
+          companyName: prev.title,
+          fullAddress: '',
+          authorizedCapital: 0,
+          paidUpCapital: 0,
+          shareholders: []
+        };
+        const updatedSnapshot: ClientSnapshot = {
+          ...baseSnapshot,
+          picTitle: picTitleInput,
+          picName: picNameInput,
+          picPhone: picPhoneInput,
+          phoneNumber: picPhoneInput || baseSnapshot.phoneNumber || ''
+        };
+        return {
+          ...prev,
+          picTitle: picTitleInput,
+          picName: picNameInput,
+          picPhone: picPhoneInput,
+          clientPic: picNameInput,
+          clientContact: picPhoneInput,
+          clientSnapshot: updatedSnapshot
+        };
+      });
+
+      setIsEditPicModalOpen(false);
+      setToast({ type: 'success', message: 'Data PIC berhasil disimpan!' });
+    } catch (err: any) {
+      console.error(err);
+      setToast({ type: 'error', message: 'Gagal memperbarui data PIC: ' + (err.message || 'Error') });
+    } finally {
+      setSavingPic(false);
+    }
+  };
 
   useEffect(() => {
     const unsub = ProjectService.listenToUserProfiles(
@@ -277,25 +412,90 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     }
   };
 
-  const handleQuickStatusChange = async (targetStep: string) => {
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [targetStatusToChange, setTargetStatusToChange] = useState('');
+  const [statusChangeNote, setStatusChangeNote] = useState('');
+
+  const openStatusChangeModal = (targetStep: string) => {
+    setIsStatusDropdownOpen(false);
+    setIsInfoStatusDropdownOpen(false);
+    setTargetStatusToChange(targetStep);
+    setStatusChangeNote('');
+    setIsStatusModalOpen(true);
+  };
+
+  const handleQuickStatusChange = (targetStep: string) => {
+    openStatusChangeModal(targetStep);
+  };
+
+  const handleConfirmStatusChange = async (targetStepParam?: string, noteParam?: string) => {
     if (!project) return;
-    if (StatusEngine.normalizeStep(targetStep) === StatusEngine.normalizeStep(project.status)) return;
+    const finalStep = targetStepParam || targetStatusToChange;
+    if (!finalStep) return;
+
+    if (StatusEngine.normalizeStep(finalStep) === StatusEngine.normalizeStep(project.status)) {
+      setToast({ type: 'info', message: 'Status yang dipilih sama dengan status saat ini.' });
+      setIsStatusModalOpen(false);
+      return;
+    }
+
+    const finalNote = (noteParam !== undefined ? noteParam : statusChangeNote).trim();
+    const commentToSave = finalNote || `Status proyek beralih dari '${project.status}' menuju '${finalStep}'.`;
+
+    const isCompletedStatus = 
+      finalStep.toLowerCase().includes('selesai') || 
+      finalStep.toLowerCase() === 'sp terbit' || 
+      finalStep.toLowerCase() === 'sp/sk terbit' || 
+      finalStep.toLowerCase() === 'nib terbit';
+    const hasDeedForm = ['rups_lb', 'sirkuler_rupslb', 'pendirian_pt'].includes(project?.jobType || '');
+
+    if (isCompletedStatus && hasDeedForm) {
+      if (!deedNumber.trim() || !deedDate || !notaryName.trim() || !notaryLocation.trim()) {
+        alert('Harap lengkapi Nomor Akta, Tanggal Akta, Nama Notaris, dan Kedudukan Notaris sebelum menyelesaikan proyek.');
+        return;
+      }
+    }
+
     setTransitioning(true);
     try {
+      if (isCompletedStatus && hasDeedForm) {
+        await syncDeedInfoAndClientProfile();
+      }
+
       await ProjectService.updateStatus(
         project.projectId,
-        targetStep,
+        finalStep,
         currentUserEmail || 'system',
-        'Status diperbarui dari tab Ringkasan',
+        commentToSave,
         false
       );
-      setProject(prev => prev ? ({ ...prev, status: targetStep, currentStep: targetStep }) : null);
+
+      // If user typed a custom note, record a distinct timeline entry for it
+      if (finalNote) {
+        try {
+          await ProjectService.addTimeline(project.projectId, {
+            status: finalStep,
+            title: `Catatan Status: ${finalStep.toUpperCase()}`,
+            description: finalNote,
+            createdBy: currentUserEmail || 'staff_notaris'
+          });
+        } catch (tlErr) {
+          console.warn("Could not save additional note timeline:", tlErr);
+        }
+      }
+
+      setProject(prev => prev ? ({ ...prev, status: finalStep, currentStep: finalStep }) : null);
+      setIsStatusModalOpen(false);
+      setStatusChangeNote('');
       setToast({
         type: 'success',
-        message: `Status berhasil diubah ke ${targetStep.toUpperCase()}`
+        message: `Status berhasil diubah ke ${finalStep.toUpperCase()}`
       });
       await fetchProjectFullDetails();
     } catch (err: any) {
+      if (err?.message === 'SYNC_CANCELLED_BY_USER') {
+        return;
+      }
       setToast({
         type: 'error',
         message: err.message || 'Gagal mengubah status proyek'
@@ -1367,6 +1567,20 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       
       setTasks(finalTasks);
       setDocuments(docList || []);
+
+      // Fetch uploaded documents from project_uploaded_documents
+      try {
+        const upSnap = await getDocs(
+          query(
+            collection(db, 'project_uploaded_documents'),
+            where('projectId', '==', projectId)
+          )
+        );
+        const upDocs = upSnap.docs.map(d => ({ id: d.id, ...d.data() } as UploadedDocument));
+        setUploadedFiles(upDocs);
+      } catch (e) {
+        console.warn("Could not fetch project_uploaded_documents:", e);
+      }
 
       const relatedList: Project[] = [];
       if (relatedSnap) {
@@ -2936,10 +3150,10 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       setProjectNote('');
       // Reload project details to show updated timeline and comments
       await fetchProjectFullDetails();
-      alert('Catatan tambahan berhasil disimpan!');
+      setToast({ type: 'success', message: 'Catatan proyek berhasil disimpan ke Timeline!' });
     } catch (err: any) {
       console.error(err);
-      alert(`Gagal menyimpan catatan: ${err.message || 'Error tidak dikenal'}`);
+      setToast({ type: 'error', message: `Gagal menyimpan catatan: ${err.message || 'Error tidak dikenal'}` });
     } finally {
       setSavingProjectNote(false);
     }
@@ -3570,7 +3784,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             { id: 'ringkasan', label: 'Ringkasan', icon: LayoutDashboard },
             { id: 'tugas', label: `Tugas & Checklist`, icon: CheckSquare },
             { id: 'dokumen', label: `Dokumen (${documents.length})`, icon: FileText },
-            { id: 'klien', label: 'Klien & Personil', icon: Users },
+            { id: 'klien', label: 'Data Klien', icon: Building2 },
             { id: 'timeline', label: 'Timeline', icon: Calendar },
             { id: 'catatan', label: 'Catatan', icon: Edit3 },
             { id: 'keuangan', label: 'Invoice & Keuangan', icon: Landmark },
@@ -3969,23 +4183,48 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                       </div>
                     </div>
 
-                    {/* Item 2: Ditugaskan Kepada */}
+                    {/* Item 2: Data PIC */}
                     <div className="flex items-start gap-3">
                       <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0 border border-teal-100">
                         <User className="w-4 h-4" />
                       </div>
                       <div className="space-y-0.5">
-                        <span className="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">Ditugaskan Kepada</span>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-slate-800 text-[13px]">{project.assignedTo || 'Unassigned'}</span>
-                          <button
-                            type="button"
-                            onClick={() => setIsAssignStaffOpen(true)}
-                            className="text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-md border border-blue-200 transition-all cursor-pointer"
-                          >
-                            + Tetapkan
-                          </button>
-                        </div>
+                        <span className="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">Data PIC</span>
+                        {(() => {
+                          const picTitle = project.picTitle || project.clientSnapshot?.picTitle || (client as any)?.picTitle || '';
+                          const picName = project.picName || project.clientPic || project.clientSnapshot?.picName || (client as any)?.picName || (client as any)?.contactPerson || '';
+                          const picPhone = project.picPhone || project.clientContact || project.clientSnapshot?.picPhone || project.clientSnapshot?.phoneNumber || (client as any)?.picPhone || (client as any)?.phoneNumber || '';
+                          const displayName = picName ? `${picTitle ? `${picTitle} ` : ''}${picName}` : null;
+
+                          return (
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`font-bold text-[13px] ${displayName ? 'text-slate-800' : 'text-slate-400'}`}>
+                                  {displayName || 'Belum diatur'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={openEditPicModal}
+                                  className="text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-md border border-blue-200 transition-all cursor-pointer"
+                                >
+                                  {displayName ? 'Ubah PIC' : '+ Set PIC'}
+                                </button>
+                              </div>
+                              {picPhone && (
+                                <a
+                                  href={`https://wa.me/${picPhone.replace(/[^0-9]/g, '').replace(/^0/, '62')}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[11px] text-teal-700 font-semibold hover:underline flex items-center gap-1 transition-colors"
+                                  title="Hubungi PIC via WhatsApp"
+                                >
+                                  <Phone className="w-3 h-3 text-teal-600" />
+                                  <span>{picPhone}</span>
+                                </a>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
 
@@ -4015,13 +4254,13 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                         <div className="relative">
                           <button
                             type="button"
-                            onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
+                            onClick={() => setIsInfoStatusDropdownOpen(!isInfoStatusDropdownOpen)}
                             className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 flex items-center gap-1.5 uppercase transition-all cursor-pointer shadow-2xs"
                           >
                             <span>{project.status.toUpperCase()}</span>
                             <ChevronDown className="w-3 h-3 text-amber-600" />
                           </button>
-                          {isStatusDropdownOpen && (
+                          {isInfoStatusDropdownOpen && (
                             <div className="absolute left-0 top-full mt-1.5 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-30 py-1.5 max-h-60 overflow-y-auto">
                               <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
                                 Pilih Status Cepat
@@ -4033,7 +4272,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                                     key={step}
                                     type="button"
                                     onClick={() => {
-                                      setIsStatusDropdownOpen(false);
+                                      setIsInfoStatusDropdownOpen(false);
                                       handleQuickStatusChange(step);
                                     }}
                                     className={`w-full text-left px-3 py-1.5 text-xs font-semibold hover:bg-blue-50 transition-colors flex items-center justify-between ${
@@ -4142,7 +4381,139 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   </div>
                 </div>
 
-                {/* 2. Snapshot Hukum & Perusahaan Card */}
+                {/* 2. Dokumen Proyek Card (Moved above Snapshot Hukum & Perusahaan) */}
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+                        <FileText className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h2 className="text-sm font-bold text-slate-800">
+                          Dokumen Proyek ({allProjectFiles.length})
+                        </h2>
+                        <p className="text-[11px] text-slate-400">
+                          Daftar berkas & dokumen yang sudah diunggah atau digenerate
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsDocModalOpen(true)}
+                        className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload Dokumen</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveDetailTab('dokumen')}
+                        className="px-3 py-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl flex items-center gap-1.5 transition-all border border-blue-200 cursor-pointer"
+                      >
+                        <span>Kelola Semua</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {allProjectFiles.length === 0 ? (
+                    <div className="py-8 text-center space-y-3 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                      <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mx-auto text-blue-500">
+                        <FileText className="w-6 h-6 stroke-[1.5]" />
+                      </div>
+                      <div className="space-y-1 max-w-xs mx-auto">
+                        <p className="text-xs font-semibold text-slate-700">
+                          Belum ada dokumen yang diunggah
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          Unggah berkas legalitas, notulen, akta, atau SK/SP untuk proyek ini.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsDocModalOpen(true)}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs mx-auto cursor-pointer"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload Dokumen Sekarang</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {allProjectFiles.map((fileItem, idx) => (
+                          <div
+                            key={fileItem.id || idx}
+                            className="flex items-center justify-between p-3 bg-slate-50/80 hover:bg-slate-100/80 rounded-xl border border-slate-150 transition-all group"
+                          >
+                            <div className="flex items-center gap-3 min-w-0 mr-2">
+                              <div className="w-9 h-9 rounded-lg bg-blue-100/70 text-blue-600 flex items-center justify-center shrink-0 border border-blue-200/60">
+                                <File className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-semibold text-slate-800 text-xs truncate group-hover:text-blue-600 transition-colors" title={fileItem.title}>
+                                  {fileItem.title}
+                                </p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  {fileItem.subtitle && (
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-white text-slate-500 border border-slate-200 font-medium truncate max-w-[140px]">
+                                      {fileItem.subtitle}
+                                    </span>
+                                  )}
+                                  {fileItem.uploadedAt && (
+                                    <span className="text-[10px] text-slate-400 shrink-0">
+                                      {new Date(fileItem.uploadedAt).toLocaleDateString('id-ID', {
+                                        day: 'numeric',
+                                        month: 'short',
+                                        year: 'numeric'
+                                      })}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {fileItem.url ? (
+                                <a
+                                  href={fileItem.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2.5 py-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-1 transition-all shadow-2xs"
+                                >
+                                  <span>Lihat</span>
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveDetailTab('dokumen')}
+                                  className="px-2.5 py-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
+                                >
+                                  <span>Buka</span>
+                                  <ChevronRight className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex justify-end pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setActiveDetailTab('dokumen')}
+                          className="text-[11px] font-bold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <span>Kelola selengkapnya di Tab Dokumen</span>
+                          <ChevronRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Snapshot Hukum & Perusahaan Card */}
                 <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-2">
@@ -4421,7 +4792,54 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   );
                 })()}
 
-                {/* 2. Checklist Tugas Card */}
+                {/* 2. Tambah Catatan Proyek (Tanpa Ubah Status) */}
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-amber-500" />
+                      <h2 className="text-sm font-bold text-slate-800">
+                        Tambah Catatan Proyek (Tanpa Ubah Status)
+                      </h2>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Tambahkan catatan perkembangan atau catatan penting untuk proyek ini tanpa harus mengubah status.
+                    </p>
+                    <textarea
+                      value={projectNote}
+                      onChange={(e) => setProjectNote(e.target.value)}
+                      placeholder="Ketik catatan di sini (misal: Menunggu konfirmasi akta, dokumen sedang diproses, dsb)..."
+                      rows={3}
+                      className="w-full p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none transition-all focus:bg-white focus:ring-1 focus:ring-blue-500 placeholder:text-slate-400"
+                    />
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] text-slate-400">
+                        Tersimpan ke riwayat Timeline
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleSaveProjectNote}
+                        disabled={savingProjectNote || !projectNote.trim()}
+                        className="px-4 py-2 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                      >
+                        {savingProjectNote ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Menyimpan...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Simpan Catatan</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Checklist Tugas Card */}
                 {(() => {
                   const displayedTasks = getDisplayedTasks();
                   const completedCount = displayedTasks.filter((t) => t.status === 'completed').length;
@@ -4494,77 +4912,6 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                     </div>
                   );
                 })()}
-
-                {/* 3. Dokumen Proyek Card */}
-                <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <div className="flex items-center gap-2 text-blue-600">
-                      <FileText className="w-4 h-4" />
-                      <h2 className="text-sm font-bold text-slate-800">
-                        Dokumen Proyek ({documents.length})
-                      </h2>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsDocModalOpen(true)}
-                      className="px-2.5 py-1 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg flex items-center gap-1 transition-all border border-blue-200 cursor-pointer"
-                    >
-                      <span>Upload</span>
-                      <RefreshCw className="w-3 h-3" />
-                    </button>
-                  </div>
-
-                  {documents.length === 0 ? (
-                    <div className="py-6 text-center space-y-3">
-                      <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
-                        <FileText className="w-6 h-6 stroke-[1.5]" />
-                      </div>
-                      <p className="text-xs text-slate-400">
-                        Belum ada dokumen yang diunggah untuk proyek ini.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setIsDocModalOpen(true)}
-                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs mx-auto cursor-pointer"
-                      >
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Upload Dokumen</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {documents.slice(0, 3).map((docItem, dIdx) => (
-                        <div
-                          key={docItem.id || dIdx}
-                          className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <File className="w-4 h-4 text-blue-500 shrink-0" />
-                            <span className="font-semibold text-slate-700 truncate">{docItem.name}</span>
-                          </div>
-                          {docItem.url && (
-                            <a
-                              href={docItem.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline shrink-0 text-[11px] font-bold"
-                            >
-                              Lihat
-                            </a>
-                          )}
-                        </div>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={() => setIsDocModalOpen(true)}
-                        className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-all shadow-xs cursor-pointer mt-2"
-                      >
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Upload Dokumen</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
           )}
@@ -4901,15 +5248,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                 </div>
               ) : null}
 
-              {/* Profil Personil PT (Hanya untuk non-PPAT) */}
-              {!isPPAT && (
-                <PartiesManager 
-                  parties={project.parties || []} 
-                  onSaveParties={handleSaveParties} 
-                  onPullFromForm={handlePullFromForm}
-                  onPushToForm={handlePushPartiesToForm}
-                />
-              )}
+
             </div>
           )}
 
@@ -5939,6 +6278,97 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           </div>
         )}
 
+        {/* Modal Ubah Data PIC Klien */}
+        {isEditPicModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+            <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-sm w-full overflow-hidden animate-slideUp">
+              <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-teal-600" />
+                  <h3 className="font-bold text-slate-800 text-[14px]">Data PIC (Person In Charge)</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsEditPicModalOpen(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    Sapaan
+                  </label>
+                  <select
+                    value={picTitleInput}
+                    onChange={(e) => setPicTitleInput(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="Bapak">Bapak</option>
+                    <option value="Ibu">Ibu</option>
+                    <option value="Sdr">Sdr</option>
+                    <option value="Sdri">Sdri</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    Nama PIC
+                  </label>
+                  <input
+                    type="text"
+                    value={picNameInput}
+                    onChange={(e) => setPicNameInput(e.target.value)}
+                    placeholder="Contoh: Budi Santoso"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    Nomor WhatsApp / HP
+                  </label>
+                  <input
+                    type="tel"
+                    value={picPhoneInput}
+                    onChange={(e) => setPicPhoneInput(e.target.value)}
+                    placeholder="Contoh: 081234567890"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+
+                <div className="flex gap-2 justify-end pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditPicModalOpen(false)}
+                    disabled={savingPic}
+                    className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSavePic}
+                    disabled={savingPic}
+                    className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {savingPic ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Menyimpan...</span>
+                      </>
+                    ) : (
+                      <span>Simpan Data PIC</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Modal Set Target Selesai */}
         {isSetTargetOpen && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
@@ -5984,6 +6414,158 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
                   >
                     Simpan Target
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Ubah Status Proyek & Opsi Catatan */}
+        {isStatusModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden animate-slideUp">
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-blue-700 to-indigo-800 px-6 py-4 text-white flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center">
+                    <Shield className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-[15px] leading-tight">Ubah Status Proyek</h3>
+                    <p className="text-[11px] text-blue-150 leading-tight truncate max-w-xs">
+                      {project?.title || 'Proyek'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsStatusModalOpen(false);
+                    setStatusChangeNote('');
+                  }}
+                  className="p-1.5 text-blue-200 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 space-y-5">
+                {/* Visual Status Transition Flow */}
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Alur Perubahan Status
+                  </span>
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex-1 bg-white p-2.5 rounded-lg border border-slate-200 shadow-2xs">
+                      <span className="text-[10px] text-slate-400 font-semibold block uppercase tracking-wider">Status Sekarang</span>
+                      <span className="text-xs font-bold text-slate-700 uppercase line-clamp-1">
+                        {project?.status}
+                      </span>
+                    </div>
+
+                    <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                      <ChevronRight className="w-4 h-4" />
+                    </div>
+
+                    <div className="flex-1 bg-blue-50/70 p-2.5 rounded-lg border border-blue-200 shadow-2xs">
+                      <span className="text-[10px] text-blue-500 font-semibold block uppercase tracking-wider">Status Baru</span>
+                      <select
+                        value={targetStatusToChange}
+                        onChange={(e) => setTargetStatusToChange(e.target.value)}
+                        className="w-full text-xs font-bold text-blue-900 bg-transparent uppercase outline-none cursor-pointer"
+                      >
+                        {(workflow?.steps || []).map((step) => (
+                          <option key={step} value={step} className="text-slate-800 normal-case">
+                            {step.toUpperCase()}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Input Opsi Catatan */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Catatan Progres / Keterangan</span>
+                      <span className="text-[10px] font-normal text-slate-400 lowercase">(opsional)</span>
+                    </label>
+                    <span className="text-[10px] text-slate-400">Tersimpan ke Timeline</span>
+                  </div>
+
+                  <textarea
+                    value={statusChangeNote}
+                    onChange={(e) => setStatusChangeNote(e.target.value)}
+                    rows={3}
+                    placeholder="Tulis catatan perkembangan di sini (misal: Menunggu verifikasi berkas dari klien, notulen telah disetujui, akta siap ditandatangani, dsb)..."
+                    className="w-full p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-400"
+                  />
+
+                  {/* Quick Note Chips */}
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] text-slate-400 font-medium block">Template catatan cepat:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        "Dokumen persyaratan lengkap",
+                        "Menunggu konfirmasi klien",
+                        "Draft notulen selesai dikoreksi",
+                        "Menunggu tanda tangan para pihak",
+                        "Proses pendaftaran di AHU",
+                        "Pemberkasan minuta lengkap"
+                      ].map((chip, cIdx) => (
+                        <button
+                          key={cIdx}
+                          type="button"
+                          onClick={() => {
+                            if (!statusChangeNote.trim()) {
+                              setStatusChangeNote(chip);
+                            } else {
+                              setStatusChangeNote(prev => `${prev} • ${chip}`);
+                            }
+                          }}
+                          className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-700 rounded-lg border border-slate-200 transition-colors cursor-pointer"
+                        >
+                          + {chip}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Modal Actions */}
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsStatusModalOpen(false);
+                      setStatusChangeNote('');
+                    }}
+                    disabled={transitioning}
+                    className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleConfirmStatusChange()}
+                    disabled={transitioning || !targetStatusToChange}
+                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    {transitioning ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Memperbarui Status...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Simpan Perubahan Status</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
