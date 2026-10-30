@@ -81,7 +81,18 @@ import {
   Ban,
   FolderPlus,
   Landmark,
-  Edit3
+  Edit3,
+  Building2,
+  Tag,
+  Shield,
+  Folder,
+  Check,
+  LayoutDashboard,
+  Users,
+  Settings,
+  Edit,
+  Upload,
+  MoreVertical
 } from 'lucide-react';
 
 const getDocKinds = (jobType: string): { kind: 'notulen' | 'pernyataan' | 'akta' | 'pendirian'; label: string }[] => {
@@ -214,6 +225,85 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   const [selectedAgendasList, setSelectedAgendasList] = useState<string[]>([]);
   const [customAgendaInput, setCustomAgendaInput] = useState('');
   const [savingAgendas, setSavingAgendas] = useState(false);
+
+  // Modern UI Tab & Quick Action States
+  const [activeDetailTab, setActiveDetailTab] = useState<
+    'ringkasan' | 'tugas' | 'dokumen' | 'klien' | 'timeline' | 'catatan' | 'keuangan' | 'pengaturan'
+  >('ringkasan');
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
+  const [isAssignStaffOpen, setIsAssignStaffOpen] = useState(false);
+  const [isSetTargetOpen, setIsSetTargetOpen] = useState(false);
+  const [newTargetDate, setNewTargetDate] = useState('');
+  const [selectedStaffToAssign, setSelectedStaffToAssign] = useState('');
+  const [staffList, setStaffList] = useState<{ uid: string; name: string }[]>([]);
+
+  useEffect(() => {
+    const unsub = ProjectService.listenToUserProfiles(
+      (profiles) => setStaffList(profiles),
+      (err) => console.warn('[ProjectDetail] listenToUserProfiles error:', err)
+    );
+    return () => unsub();
+  }, []);
+
+  const handleAssignStaff = async (staffName: string) => {
+    if (!project) return;
+    try {
+      await updateDoc(doc(db, 'projects', projectId), {
+        assignedTo: staffName,
+        updatedAt: new Date()
+      });
+      setProject(prev => prev ? ({ ...prev, assignedTo: staffName }) : null);
+      setIsAssignStaffOpen(false);
+      setToast({ message: `Berhasil menugaskan proyek kepada ${staffName}`, type: 'success' });
+    } catch (e) {
+      console.error(e);
+      setToast({ message: 'Gagal menetapkan penanggung jawab', type: 'error' });
+    }
+  };
+
+  const handleSetTargetDate = async (targetDateVal: string) => {
+    if (!project) return;
+    try {
+      await updateDoc(doc(db, 'projects', projectId), {
+        targetDate: targetDateVal,
+        updatedAt: new Date()
+      });
+      setProject(prev => prev ? ({ ...prev, targetDate: targetDateVal } as any) : null);
+      setIsSetTargetOpen(false);
+      setToast({ message: 'Berhasil memperbarui target selesai', type: 'success' });
+    } catch (e) {
+      console.error(e);
+      setToast({ message: 'Gagal menyetel target selesai', type: 'error' });
+    }
+  };
+
+  const handleQuickStatusChange = async (targetStep: string) => {
+    if (!project) return;
+    if (StatusEngine.normalizeStep(targetStep) === StatusEngine.normalizeStep(project.status)) return;
+    setTransitioning(true);
+    try {
+      await ProjectService.updateStatus(
+        project.projectId,
+        targetStep,
+        currentUserEmail || 'system',
+        'Status diperbarui dari tab Ringkasan',
+        false
+      );
+      setProject(prev => prev ? ({ ...prev, status: targetStep, currentStep: targetStep }) : null);
+      setToast({
+        type: 'success',
+        message: `Status berhasil diubah ke ${targetStep.toUpperCase()}`
+      });
+      await fetchProjectFullDetails();
+    } catch (err: any) {
+      setToast({
+        type: 'error',
+        message: err.message || 'Gagal mengubah status proyek'
+      });
+    } finally {
+      setTransitioning(false);
+    }
+  };
 
   // Sync initial agendas when project loads
   useEffect(() => {
@@ -3311,19 +3401,31 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   return (
     <div className="flex-1 overflow-auto bg-slate-50 p-6">
       <div className="w-[94%] xl:w-[92%] max-w-none mx-auto space-y-6">
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+          <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+          <span>Proyek Kerja</span>
+          <ChevronRight className="w-3 h-3 text-slate-400" />
+          <span className="font-semibold text-slate-700">Detail Proyek</span>
+        </div>
+
         {/* Back and Title Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/60 pb-5">
-          <div className="flex items-start gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+          <div className="flex items-start gap-3">
             <button
               onClick={onBack}
-              className="p-2 bg-white hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg transition-colors shadow-xs"
+              className="p-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl transition-all shadow-2xs cursor-pointer"
+              title="Kembali ke Daftar Proyek"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-mono font-bold text-slate-400 uppercase bg-slate-100 px-2 py-0.5 rounded">
-                  ID: {project.projectId.substring(0, 10)}
+              <h1 className="text-xl font-black tracking-tight text-slate-900 leading-snug">
+                {project.title}
+              </h1>
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                <span className="text-[11px] font-mono font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
+                  ID: {project.projectId.substring(0, 10).toUpperCase()}
                 </span>
                 {isPPAT ? (
                   <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-300 uppercase tracking-wide flex items-center gap-1.5 shadow-2xs">
@@ -3332,55 +3434,50 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   </span>
                 ) : (
                   <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200 uppercase tracking-wide">
-                    {workflow?.name || project.jobType}
+                    {workflow?.name || project.jobType.replace(/_/g, ' ')}
                   </span>
                 )}
               </div>
-              <h1 className="text-xl font-extrabold tracking-tight text-slate-900 mt-1.5 leading-snug">
-                {project.title}
-              </h1>
             </div>
           </div>
 
           {/* Quick link buttons to existing forms */}
           <div className="flex items-center gap-2 flex-wrap shrink-0">
             {/* Quick Actions: Buat Invoice & Buat Penawaran dari Proyek */}
-            <div className="flex items-center gap-1.5 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
-              <button
-                type="button"
-                onClick={() => {
-                  const clientName = (project.clientSnapshot as any)?.name || project.clientSnapshot?.companyName || (project as any).clientName || '';
-                  const title = project.title || '';
-                  const targetHash = `#/invoice?new=true&projectId=${encodeURIComponent(project.projectId)}&clientId=${encodeURIComponent(project.clientId || '')}&clientName=${encodeURIComponent(clientName)}&title=${encodeURIComponent(title)}`;
-                  window.location.hash = targetHash;
-                }}
-                className="px-3 py-1.5 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 font-bold rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-                title="Buat Tagihan / Invoice untuk Proyek ini"
-              >
-                <FileText size={13} />
-                <span>Buat Invoice</span>
-              </button>
+            <button
+              type="button"
+              onClick={() => {
+                const clientName = (project.clientSnapshot as any)?.name || project.clientSnapshot?.companyName || (project as any).clientName || '';
+                const title = project.title || '';
+                const targetHash = `#/invoice?new=true&projectId=${encodeURIComponent(project.projectId)}&clientId=${encodeURIComponent(project.clientId || '')}&clientName=${encodeURIComponent(clientName)}&title=${encodeURIComponent(title)}`;
+                window.location.hash = targetHash;
+              }}
+              className="px-3.5 py-2 bg-white hover:bg-blue-50 text-blue-700 font-bold rounded-xl text-xs flex items-center gap-1.5 border border-blue-200 transition-all cursor-pointer shadow-2xs"
+              title="Buat Tagihan / Invoice untuk Proyek ini"
+            >
+              <FileText size={13} className="text-blue-600" />
+              <span>Buat Invoice</span>
+            </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  const clientName = (project.clientSnapshot as any)?.name || project.clientSnapshot?.companyName || (project as any).clientName || '';
-                  const title = project.title || '';
-                  const targetHash = `#/quotations/new?projectId=${encodeURIComponent(project.projectId)}&clientId=${encodeURIComponent(project.clientId || '')}&clientName=${encodeURIComponent(clientName)}&title=${encodeURIComponent(title)}`;
-                  window.location.hash = targetHash;
-                }}
-                className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 font-bold rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-                title="Buat Surat Penawaran untuk Proyek ini"
-              >
-                <File size={13} />
-                <span>Buat Penawaran</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const clientName = (project.clientSnapshot as any)?.name || project.clientSnapshot?.companyName || (project as any).clientName || '';
+                const title = project.title || '';
+                const targetHash = `#/quotations/new?projectId=${encodeURIComponent(project.projectId)}&clientId=${encodeURIComponent(project.clientId || '')}&clientName=${encodeURIComponent(clientName)}&title=${encodeURIComponent(title)}`;
+                window.location.hash = targetHash;
+              }}
+              className="px-3.5 py-2 bg-white hover:bg-purple-50 text-purple-700 font-bold rounded-xl text-xs flex items-center gap-1.5 border border-purple-200 transition-all cursor-pointer shadow-2xs"
+              title="Buat Surat Penawaran untuk Proyek ini"
+            >
+              <File size={13} className="text-purple-600" />
+              <span>Buat Penawaran</span>
+            </button>
 
             {project.jobType === 'sewa_menyewa' && (
               <button
                 onClick={() => setWorkMode('sewa_menyewa')}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs flex items-center gap-2 transition-all shadow-sm"
               >
                 <span>Kerjakan di Sini</span>
                 <Sparkles className="w-4 h-4" />
@@ -3397,10 +3494,10 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                       <button
                         type="button"
                         onClick={() => navigate(`${path}?id=${encodeURIComponent(existingDoc.refId)}&projectId=${encodeURIComponent(project.projectId)}`)}
-                        className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm cursor-pointer"
+                        className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs flex items-center gap-2 transition-all shadow-sm cursor-pointer"
                       >
+                        <FileText className="w-3.5 h-3.5" />
                         <span>Edit Dokumen</span>
-                        <FileText className="w-4 h-4" />
                       </button>
                     );
                   }
@@ -3409,10 +3506,10 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                     <button
                       type="button"
                       onClick={() => navigate(`${path}?projectId=${encodeURIComponent(project.projectId)}`)}
-                      className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm cursor-pointer"
+                      className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs flex items-center gap-2 transition-all shadow-sm cursor-pointer"
                     >
+                      <Plus className="w-3.5 h-3.5" />
                       <span>Buat Dokumen Baru</span>
-                      <Plus className="w-4 h-4" />
                     </button>
                   );
                 })()}
@@ -3421,7 +3518,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             {project.jobType === 'pendirian_pt' && (
               <button
                 onClick={handleWorkHere}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs flex items-center gap-2 transition-all shadow-sm"
               >
                 <span>Kerjakan di Sini</span>
                 <Sparkles className="w-4 h-4" />
@@ -3431,24 +3528,24 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setIsPPATSelectDocOpen(true)}
-                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm"
+                  className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-xl text-xs flex items-center gap-2 transition-all shadow-sm"
                 >
-                  <Plus className="w-4 h-4" />
+                  <Plus className="w-3.5 h-3.5" />
                   <span>+ Buat Dokumen</span>
                 </button>
                 <button
                   onClick={() => setWorkMode('ppat_base_data')}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all border border-slate-200 shadow-2xs"
+                  className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-xl text-xs flex items-center gap-2 transition-all border border-slate-200 shadow-2xs"
                 >
-                  <Edit3 className="w-4 h-4 text-slate-600" />
-                  <span>Kelola Master Data PPAT</span>
+                  <Edit3 className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Master Data PPAT</span>
                 </button>
               </div>
             )}
             {(project.projectType === 'Pendirian CV' || project.jobType === 'pendirian_cv') && (
               <button
                 onClick={handleWorkHereCV}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all shadow-sm"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs flex items-center gap-2 transition-all shadow-sm"
               >
                 <span>Draft Akta CV</span>
                 <Sparkles className="w-4 h-4" />
@@ -3458,13 +3555,45 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
               <button
                 onClick={handleDeleteProject}
                 disabled={isDeleting}
-                className="px-4 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 font-semibold rounded-lg text-[13px] flex items-center gap-2 transition-all border border-red-200"
+                className="px-3.5 py-2 bg-white hover:bg-red-50 text-red-600 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all border border-red-200 cursor-pointer shadow-2xs"
               >
-                {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5 text-red-500" />}
                 <span>Hapus Proyek</span>
               </button>
             )}
           </div>
+        </div>
+
+        {/* Tab Navigation Bar */}
+        <div className="flex items-center gap-1 border-b border-slate-200/90 overflow-x-auto no-scrollbar pt-1 bg-white px-3 rounded-xl shadow-2xs">
+          {[
+            { id: 'ringkasan', label: 'Ringkasan', icon: LayoutDashboard },
+            { id: 'tugas', label: `Tugas & Checklist`, icon: CheckSquare },
+            { id: 'dokumen', label: `Dokumen (${documents.length})`, icon: FileText },
+            { id: 'klien', label: 'Klien & Personil', icon: Users },
+            { id: 'timeline', label: 'Timeline', icon: Calendar },
+            { id: 'catatan', label: 'Catatan', icon: Edit3 },
+            { id: 'keuangan', label: 'Invoice & Keuangan', icon: Landmark },
+            { id: 'pengaturan', label: 'Pengaturan', icon: Settings },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeDetailTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveDetailTab(tab.id as any)}
+                className={`flex items-center gap-2 px-4 py-3 text-xs font-bold transition-all border-b-2 whitespace-nowrap cursor-pointer ${
+                  isActive
+                    ? 'border-blue-600 text-blue-600 bg-blue-50/50 rounded-t-lg'
+                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+                }`}
+              >
+                <Icon className={`w-4 h-4 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {workMode === 'sewa_menyewa' ? (
@@ -3802,370 +3931,877 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
             />
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Column 1 & 2: Main Details & Tasks */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Metadata Card */}
-            <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm">
-              <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-3 mb-4">
-                Informasi & Metadata Proyek
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-6 text-[13px]">
-                <div className="space-y-1">
-                  <span className="text-slate-400 font-semibold block text-[11px] uppercase tracking-wider">Klien Registrasi</span>
-                  <div className="flex items-center gap-2 text-slate-800">
-                    <User className="w-4 h-4 text-slate-400" />
-                    <span className="font-semibold">{client ? formatCompanyName(client.companyName, client.clientType) : 'Memuat...'}</span>
-                  </div>
-                  {client && (
-                    <span className="text-xs text-slate-400 block ml-6">
-                      {client.domicile || '-'}{client.phoneNumber ? ` | ${client.phoneNumber}` : ''}
-                    </span>
-                  )}
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-slate-400 font-semibold block text-[11px] uppercase tracking-wider">Tanggal Dibuat</span>
-                  <div className="flex items-center gap-2 text-slate-800">
-                    <Calendar className="w-4 h-4 text-slate-400" />
-                    <span>
-                      {project.createdAt ? new Date(project.createdAt.seconds ? project.createdAt.toDate() : project.createdAt).toLocaleString('id-ID', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric'
-                      }) : '-'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-slate-400 font-semibold block text-[11px] uppercase tracking-wider">Status Tahapan Saat Ini</span>
-                  <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-0.5 text-xs font-bold rounded bg-amber-50 text-amber-700 border border-amber-200 uppercase tracking-wider">
-                      {project.status.toUpperCase()}
-                    </span>
-                  </div>
-                </div>
-
-                {project.metadata?.driveFolderUrl ? (
-                  <div className="space-y-1 col-span-1 sm:col-span-2 mt-2">
-                    <span className="text-slate-400 font-semibold block text-[11px] uppercase tracking-wider">Google Drive Proyek (Auto-generated)</span>
-                    <a 
-                      href={project.metadata.driveFolderUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-xs rounded-lg border border-blue-200 transition-all shadow-sm group"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-                      Buka Folder Drive Proyek
-                    </a>
-                  </div>
-                ) : (
-                  <div className="space-y-2 col-span-1 sm:col-span-2 mt-2">
-                    <span className="text-slate-400 font-semibold block text-[11px] uppercase tracking-wider">Google Drive Proyek</span>
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                      <button
-                        onClick={handleSetupDriveFolder}
-                        disabled={isSettingUpDrive}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-700 font-bold text-xs rounded-lg transition-all shadow-sm disabled:opacity-50"
-                      >
-                        {isSettingUpDrive ? (
-                          <>
-                            <span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full" />
-                            Menyiapkan Folder...
-                          </>
-                        ) : (
-                          <>
-                            <FolderPlus className="w-3.5 h-3.5" />
-                            Buat / Hubungkan Google Drive
-                          </>
-                        )}
-                      </button>
-                      <span className="text-xs text-slate-500">Folder Google Drive belum disiapkan untuk proyek ini. Klik tombol untuk membuatnya secara otomatis.</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-
-            </div>
-
-            {/* RUPS LB AGENDA PERUBAHAN SECTION */}
-            {(project.jobType === 'rups_lb' || 
-              project.projectType === 'RUPS LB' || 
-              project.projectType === 'RUPS-LB' || 
-              project.projectType === 'PKPS RUPS-LB') && (
-              <div className="bg-white border border-purple-200/90 rounded-xl p-6 shadow-sm space-y-4">
-                <div className="flex items-center justify-between gap-3 border-b border-purple-100 pb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-purple-600"></span>
-                    <h2 className="text-[14px] font-bold text-purple-950 uppercase tracking-wide">
-                      Agenda Perubahan RUPS LB
-                    </h2>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsAgendaModalOpen(true)}
-                    className="px-3 py-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100/80 font-bold text-xs rounded-lg border border-purple-200 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                  >
-                    <Edit3 size={13} />
-                    <span>Kelola Agenda Perubahan</span>
-                  </button>
-                </div>
-
-                {/* Agendas Display */}
-                {(() => {
-                  const agendas = project.changeAgendas || project.metadata?.changeAgendas || project.metadata?.agendas || [];
-                  if (agendas.length === 0) {
-                    return (
-                      <div className="p-4 bg-purple-50/50 rounded-xl border border-dashed border-purple-200 text-center space-y-2">
-                        <p className="text-xs text-purple-800 font-medium">
-                          Belum ada agenda perubahan yang dicatat untuk RUPS LB ini.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setIsAgendaModalOpen(true)}
-                          className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-lg transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5"
-                        >
-                          <Plus size={13} />
-                          <span>Pilih Agenda Perubahan Sekarang</span>
-                        </button>
+          {/* ======================================================== */}
+          {/* TAB 1: RINGKASAN (DASHBOARD SUMMARY MATCHING MOCKUP) */}
+          {/* ======================================================== */}
+          {activeDetailTab === 'ringkasan' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column (2/3) */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* 1. Informasi Proyek Card */}
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                        <FileText className="w-4 h-4" />
                       </div>
-                    );
-                  }
+                      <h2 className="text-sm font-bold text-slate-800">Informasi Proyek</h2>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveDetailTab('pengaturan')}
+                      className="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Edit className="w-3.5 h-3.5" />
+                      <span>Edit</span>
+                    </button>
+                  </div>
 
-                  return (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-slate-500 font-semibold">
-                          Daftar agenda perubahan yang diputuskan ({agendas.length} agenda):
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-5 gap-x-6 text-[13px]">
+                    {/* Item 1: Nama Proyek */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0 border border-purple-100">
+                        <Briefcase className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">Nama Proyek</span>
+                        <p className="font-bold text-slate-800 text-[13px] leading-snug">{project.title}</p>
+                      </div>
+                    </div>
+
+                    {/* Item 2: Ditugaskan Kepada */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0 border border-teal-100">
+                        <User className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">Ditugaskan Kepada</span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-slate-800 text-[13px]">{project.assignedTo || 'Unassigned'}</span>
+                          <button
+                            type="button"
+                            onClick={() => setIsAssignStaffOpen(true)}
+                            className="text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-md border border-blue-200 transition-all cursor-pointer"
+                          >
+                            + Tetapkan
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Item 3: Klien Registrasi */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">Klien Registrasi</span>
+                        <p className="font-bold text-slate-800 text-[13px] leading-snug">
+                          {client ? formatCompanyName(client.companyName, client.clientType) : (project.clientSnapshot?.companyName || 'Memuat...')}
+                        </p>
+                        <span className="text-[11px] text-slate-400 block">
+                          {client?.domicile || 'Kota Tangerang Selatan'}
                         </span>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {agendas.map((ag: string, idx: number) => {
-                          const matched = RUPS_LB_AGENDAS.find(a => a.label === ag || a.shortLabel === ag || a.id === ag);
-                          const colorClass = matched?.badgeColor || 'bg-purple-50 text-purple-700 border-purple-200';
+                    </div>
+
+                    {/* Item 4: Status Saat Ini */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-100">
+                        <Shield className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">Status Saat Ini</span>
+                        <div className="relative">
+                          <button
+                            type="button"
+                            onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
+                            className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 flex items-center gap-1.5 uppercase transition-all cursor-pointer shadow-2xs"
+                          >
+                            <span>{project.status.toUpperCase()}</span>
+                            <ChevronDown className="w-3 h-3 text-amber-600" />
+                          </button>
+                          {isStatusDropdownOpen && (
+                            <div className="absolute left-0 top-full mt-1.5 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-30 py-1.5 max-h-60 overflow-y-auto">
+                              <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                                Pilih Status Cepat
+                              </div>
+                              {(workflow?.steps || []).map((step) => {
+                                const isCur = StatusEngine.normalizeStep(step) === StatusEngine.normalizeStep(project.status);
+                                return (
+                                  <button
+                                    key={step}
+                                    type="button"
+                                    onClick={() => {
+                                      setIsStatusDropdownOpen(false);
+                                      handleQuickStatusChange(step);
+                                    }}
+                                    className={`w-full text-left px-3 py-1.5 text-xs font-semibold hover:bg-blue-50 transition-colors flex items-center justify-between ${
+                                      isCur ? 'text-blue-600 font-bold bg-blue-50/50' : 'text-slate-700'
+                                    }`}
+                                  >
+                                    <span>{step.toUpperCase()}</span>
+                                    {isCur && <Check className="w-3.5 h-3.5 text-blue-600" />}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Item 5: Tanggal Dibuat */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
+                        <Calendar className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">Tanggal Dibuat</span>
+                        <p className="font-bold text-slate-800 text-[13px]">
+                          {project.createdAt ? new Date(project.createdAt.seconds ? project.createdAt.toDate() : project.createdAt).toLocaleDateString('id-ID', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric'
+                          }) : '-'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Item 6: Target Selesai */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+                        <Calendar className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">Target Selesai</span>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-slate-800 text-[13px]">
+                            {(project as any).targetDate ? new Date((project as any).targetDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setIsSetTargetOpen(true)}
+                            className="text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-md border border-blue-200 transition-all cursor-pointer"
+                          >
+                            + Set Target
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Item 7: Google Drive */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-green-50 text-green-600 flex items-center justify-center shrink-0 border border-green-100">
+                        <Folder className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">Google Drive</span>
+                        {project.metadata?.driveFolderUrl ? (
+                          <a
+                            href={project.metadata.driveFolderUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs rounded-lg border border-blue-200 transition-all"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Buka Folder Drive Proyek</span>
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleSetupDriveFolder}
+                            disabled={isSettingUpDrive}
+                            className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-lg border border-emerald-200 transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            <FolderPlus className="w-3.5 h-3.5" />
+                            <span>{isSettingUpDrive ? 'Menyiapkan...' : 'Hubungkan Drive'}</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Item 8: Kategori */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-100">
+                        <Tag className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">Kategori</span>
+                        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200">
+                          <span>
+                            {isPPAT
+                              ? 'Pertanahan / PPAT'
+                              : project.jobType.includes('nib')
+                              ? 'Perizinan & OSS'
+                              : 'Badan Hukum / Usaha'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Snapshot Hukum & Perusahaan Card */}
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-blue-600" />
+                      <h2 className="text-sm font-bold text-slate-800">Snapshot Hukum & Perusahaan</h2>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Left stats */}
+                    <div className="space-y-4 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                      <div>
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Nama Perusahaan</span>
+                        <p className="font-bold text-slate-800 text-[13px]">
+                          {client?.companyName || project.clientSnapshot?.companyName || project.title}
+                        </p>
+                      </div>
+
+                      <div>
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Alamat Lengkap</span>
+                        <p className="font-medium text-slate-700 text-[12px]">
+                          {client?.fullAddress || project.clientSnapshot?.fullAddress || '-'}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200/60">
+                        <div>
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Modal Dasar</span>
+                          <p className="font-bold text-slate-800 text-[12px]">
+                            {client?.targetCapitalBase
+                              ? `Rp ${Number(client.targetCapitalBase).toLocaleString('id-ID')}`
+                              : project.clientSnapshot?.authorizedCapital
+                              ? `Rp ${Number(project.clientSnapshot.authorizedCapital).toLocaleString('id-ID')}`
+                              : 'Rp 1.000.000.000'}
+                          </p>
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Modal Disetor</span>
+                          <p className="font-bold text-slate-800 text-[12px]">
+                            {client?.targetCapitalPaid
+                              ? `Rp ${Number(client.targetCapitalPaid).toLocaleString('id-ID')}`
+                              : project.clientSnapshot?.paidUpCapital
+                              ? `Rp ${Number(project.clientSnapshot.paidUpCapital).toLocaleString('id-ID')}`
+                              : 'Rp 600.000.000'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right list: Shareholders */}
+                    <div className="space-y-2">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                        Daftar Pemegang Saham
+                      </span>
+                      {(() => {
+                        const shareholders =
+                          project.changeSnapshot?.after?.shareholders ||
+                          project.clientSnapshot?.shareholders ||
+                          client?.shareholders ||
+                          [];
+
+                        if (shareholders.length === 0) {
                           return (
-                            <span
-                              key={idx}
-                              className={`px-3 py-1.5 rounded-lg border text-xs font-bold shadow-2xs flex items-center gap-1.5 ${colorClass}`}
-                            >
-                              <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
-                              <span>{ag}</span>
-                            </span>
+                            <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-center text-xs text-slate-400">
+                              Belum ada data pemegang saham tercatat
+                            </div>
                           );
-                        })}
+                        }
+
+                        return (
+                          <div className="space-y-2">
+                            {shareholders.map((sh: any, idx: number) => (
+                              <div
+                                key={sh.id || idx}
+                                onClick={() => setActiveDetailTab('klien')}
+                                className="flex items-center justify-between p-3 bg-white hover:bg-blue-50/50 rounded-xl border border-slate-200 transition-all cursor-pointer group shadow-2xs"
+                              >
+                                <span className="font-bold text-xs text-slate-800 group-hover:text-blue-600 uppercase">
+                                  {sh.name}
+                                </span>
+                                <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                                  <span>{sh.sharesOwned?.toLocaleString('id-ID') || 0} lembar</span>
+                                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-transform" />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Timeline Proyek Card */}
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-blue-600" />
+                      <h2 className="text-sm font-bold text-slate-800">Timeline Proyek</h2>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveDetailTab('timeline')}
+                      className="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs rounded-lg transition-all border border-blue-200 cursor-pointer"
+                    >
+                      Lihat Semua
+                    </button>
+                  </div>
+
+                  {timelines.length === 0 ? (
+                    <div className="py-6 text-center text-slate-400 text-xs">
+                      Belum ada catatan aktivitas untuk proyek ini.
+                    </div>
+                  ) : (
+                    <div className="relative border-l-2 border-blue-100 pl-4 space-y-5 ml-2">
+                      {timelines.slice(0, 3).map((tl) => (
+                        <div key={tl.id} className="relative">
+                          <div className="absolute -left-[23px] top-1.5 w-3 h-3 rounded-full bg-blue-600 border-2 border-white" />
+                          <div className="space-y-0.5">
+                            <span className="text-[11px] font-mono text-slate-400 font-bold block">
+                              {tl.createdAt ? new Date(tl.createdAt.seconds ? tl.createdAt.toDate() : tl.createdAt).toLocaleString('id-ID', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : '-'}
+                            </span>
+                            <h4 className="text-xs font-bold text-slate-800 leading-tight">
+                              {tl.title}
+                            </h4>
+                            <p className="text-[11px] text-slate-500 leading-normal">
+                              {tl.description}
+                            </p>
+                            <span className="text-[10px] text-slate-400 block pt-0.5">
+                              Oleh: {tl.createdBy}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column (1/3) */}
+              <div className="space-y-6">
+                {/* 1. Status & Progres Card */}
+                {(() => {
+                  const steps = workflow?.steps || [];
+                  const currentStepIndex = StatusEngine.findStepIndex(steps, project.currentStep || project.status);
+                  const progressPercent = steps.length > 0 && currentStepIndex !== -1
+                    ? Math.min(100, Math.max(10, Math.round(((currentStepIndex + 1) / steps.length) * 100)))
+                    : 20;
+
+                  return (
+                    <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs space-y-5">
+                      <div className="flex items-center gap-2 text-blue-600 border-b border-slate-100 pb-3">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <h2 className="text-sm font-bold text-slate-800">Status & Progres</h2>
+                      </div>
+
+                      {/* Donut and Progress description */}
+                      <div className="flex items-center gap-5">
+                        <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
+                          <svg className="w-20 h-20 transform -rotate-90" viewBox="0 0 80 80">
+                            <circle
+                              cx="40"
+                              cy="40"
+                              r="32"
+                              stroke="#e2e8f0"
+                              strokeWidth="8"
+                              fill="transparent"
+                            />
+                            <circle
+                              cx="40"
+                              cy="40"
+                              r="32"
+                              stroke="#2563eb"
+                              strokeWidth="8"
+                              strokeDasharray={201}
+                              strokeDashoffset={201 - (201 * progressPercent) / 100}
+                              strokeLinecap="round"
+                              fill="transparent"
+                              className="transition-all duration-500 ease-out"
+                            />
+                          </svg>
+                          <span className="absolute font-extrabold text-slate-800 text-sm">
+                            {progressPercent}%
+                          </span>
+                        </div>
+
+                        <div className="space-y-1">
+                          <h3 className="font-bold text-slate-800 text-xs uppercase leading-tight tracking-wide">
+                            {project.status.replace(/_/g, ' ')}
+                          </h3>
+                          <p className="text-[11px] text-slate-500 leading-normal">
+                            Tahapan verifikasi & pemrosesan dokumen legalitas.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 4-Phase Stepper Line */}
+                      <div className="pt-2">
+                        <div className="relative flex items-center justify-between">
+                          <div className="absolute left-2 right-2 top-2 h-0.5 bg-slate-200 -z-0" />
+                          <div
+                            className="absolute left-2 top-2 h-0.5 bg-blue-600 -z-0 transition-all duration-500"
+                            style={{
+                              width: `${Math.min(100, Math.max(0, (progressPercent / 100) * 85))}%`
+                            }}
+                          />
+                          {[
+                            { name: 'Persiapan', threshold: 10 },
+                            { name: 'Input Data', threshold: 30 },
+                            { name: 'Review', threshold: 70 },
+                            { name: 'Selesai', threshold: 100 }
+                          ].map((phase, pIdx) => {
+                            const isPassed = progressPercent >= phase.threshold;
+                            return (
+                              <div key={pIdx} className="flex flex-col items-center gap-1.5 z-10">
+                                <div
+                                  className={`w-4 h-4 rounded-full border-2 transition-all ${
+                                    isPassed
+                                      ? 'bg-blue-600 border-white ring-2 ring-blue-600'
+                                      : 'bg-white border-slate-300'
+                                  }`}
+                                />
+                                <span className={`text-[10px] font-semibold ${isPassed ? 'text-blue-700 font-bold' : 'text-slate-400'}`}>
+                                  {phase.name}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Ubah Status Button */}
+                      <div className="relative pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
+                          className="w-full py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer"
+                        >
+                          <span>Ubah Status Proyek</span>
+                          <ChevronDown className="w-4 h-4" />
+                        </button>
+                        {isStatusDropdownOpen && (
+                          <div className="absolute left-0 right-0 top-full mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-40 py-2 max-h-64 overflow-y-auto">
+                            <div className="px-3 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                              Pilih Status Baru
+                            </div>
+                            {(workflow?.steps || []).map((step) => {
+                              const isCur = StatusEngine.normalizeStep(step) === StatusEngine.normalizeStep(project.status);
+                              return (
+                                <button
+                                  key={step}
+                                  type="button"
+                                  onClick={() => {
+                                    setIsStatusDropdownOpen(false);
+                                    handleQuickStatusChange(step);
+                                  }}
+                                  className={`w-full text-left px-3.5 py-2 text-xs font-semibold hover:bg-blue-50 transition-colors flex items-center justify-between ${
+                                    isCur ? 'text-blue-600 font-bold bg-blue-50/60' : 'text-slate-700'
+                                  }`}
+                                >
+                                  <span>{step.toUpperCase()}</span>
+                                  {isCur && <Check className="w-4 h-4 text-blue-600" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
                 })()}
-              </div>
-            )}
 
-            {/* PPAT Custom Engine Sections OR Corporate Snapshot Sections */}
-            {isPPAT ? (
-              <PPATProjectDocumentsSection
-                project={project}
-                currentUser={currentUser}
-                isSelectModalOpenExternal={isPPATSelectDocOpen}
-                setIsSelectModalOpenExternal={setIsPPATSelectDocOpen}
-                onOpenCreateDocument={(docTypeConfig: PPATDocTypeConfig) => {
-                  const newDoc: PPATDocumentItem = {
-                    id: 'ppat_doc_' + Math.random().toString(36).substring(2, 9),
-                    documentType: docTypeConfig.id,
-                    typeId: docTypeConfig.id,
-                    title: docTypeConfig.defaultTitle || docTypeConfig.title,
-                    category: docTypeConfig.category,
-                    status: 'draft',
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                    letterDate: new Date().toISOString().split('T')[0],
-                    letterLocation: project.ppatData?.object?.city || 'Kabupaten Bandung Barat',
-                    specificData: {}
-                  };
-                  setActivePPATDoc(newDoc);
-                  setWorkMode('ppat_doc_editor');
-                }}
-                onEditDocument={(docItem) => {
-                  setActivePPATDoc(docItem);
-                  setWorkMode('ppat_doc_editor');
-                }}
-                onDeleteDocument={handleDeletePPATDocument}
-                onManageBaseData={() => {
-                  setWorkMode('ppat_base_data');
-                }}
-              />
-            ) : (
-              <>
-                {/* Rule: Legacy Project Banner & Migration Wizard */}
-                {!project.clientSnapshot && !project.changeSnapshot ? (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 shadow-xs space-y-4">
-                    <div className="flex items-start gap-3">
-                      <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
-                      <div>
-                        <h3 className="text-sm font-bold text-amber-900 uppercase tracking-wide">
-                          ⚠️ Proyek Legacy Detect — Snapshot Historis Belum Tersedia
-                        </h3>
-                        <p className="text-[13px] text-amber-700 mt-1 leading-relaxed">
-                          Sistem tidak boleh membuat snapshot historis secara otomatis menggunakan data Master Client saat ini guna melindungi integritas arsip sejarah hukum perusahaan.
-                        </p>
+                {/* 2. Checklist Tugas Card */}
+                {(() => {
+                  const displayedTasks = getDisplayedTasks();
+                  const completedCount = displayedTasks.filter((t) => t.status === 'completed').length;
+                  const totalCount = displayedTasks.filter((t) => t.status !== 'not_required').length;
+
+                  return (
+                    <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs space-y-4">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <div className="flex items-center gap-2 text-blue-600">
+                          <CheckSquare className="w-4 h-4" />
+                          <h2 className="text-sm font-bold text-slate-800">
+                            Checklist Tugas ({completedCount}/{totalCount})
+                          </h2>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setActiveDetailTab('tugas')}
+                          className="px-2.5 py-1 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg flex items-center gap-1 transition-all border border-blue-200 cursor-pointer"
+                        >
+                          <span>Kelola</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </button>
                       </div>
+
+                      {displayedTasks.length === 0 ? (
+                        <div className="py-6 text-center space-y-3">
+                          <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+                            <CheckSquare className="w-6 h-6 stroke-[1.5]" />
+                          </div>
+                          <p className="text-xs text-slate-400">
+                            Belum ada checklist tugas untuk proyek ini.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setActiveDetailTab('tugas')}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs mx-auto cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Tambah Checklist</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {displayedTasks.slice(0, 3).map((task) => (
+                            <div
+                              key={task.id}
+                              onClick={() => handleUpdateTaskStatus(task.id, task.status === 'completed' ? 'pending' : 'completed')}
+                              className="flex items-center gap-2.5 p-2.5 bg-slate-50 hover:bg-slate-100/70 rounded-xl border border-slate-100 cursor-pointer transition-all"
+                            >
+                              {task.status === 'completed' ? (
+                                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                              ) : (
+                                <div className="w-4 h-4 rounded-md border border-slate-300 shrink-0" />
+                              )}
+                              <span className={`text-xs font-semibold line-clamp-1 ${task.status === 'completed' ? 'line-through text-slate-400' : 'text-slate-700'}`}>
+                                {task.title}
+                              </span>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setActiveDetailTab('tugas')}
+                            className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-blue-600 font-bold text-xs rounded-xl border border-dashed border-blue-200 flex items-center justify-center gap-1 transition-all cursor-pointer mt-2"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Tambah Checklist</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-3 bg-white/60 p-3 rounded-lg border border-amber-100">
-                      <span className="text-xs font-mono text-slate-500 font-semibold">Tindakan Diperlukan:</span>
+                  );
+                })()}
+
+                {/* 3. Dokumen Proyek Card */}
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2 text-blue-600">
+                      <FileText className="w-4 h-4" />
+                      <h2 className="text-sm font-bold text-slate-800">
+                        Dokumen Proyek ({documents.length})
+                      </h2>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsDocModalOpen(true)}
+                      className="px-2.5 py-1 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg flex items-center gap-1 transition-all border border-blue-200 cursor-pointer"
+                    >
+                      <span>Upload</span>
+                      <RefreshCw className="w-3 h-3" />
+                    </button>
+                  </div>
+
+                  {documents.length === 0 ? (
+                    <div className="py-6 text-center space-y-3">
+                      <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+                        <FileText className="w-6 h-6 stroke-[1.5]" />
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        Belum ada dokumen yang diunggah untuk proyek ini.
+                      </p>
                       <button
-                        onClick={() => {
-                          setManualName(client?.companyName || project.title);
-                          setManualAddress(client?.fullAddress || '');
-                          setManualCapital(client?.targetCapitalBase || 100000000);
-                          setShowMigrationModal(true);
-                        }}
-                        className="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg shadow-xs transition-colors animate-pulse"
+                        type="button"
+                        onClick={() => setIsDocModalOpen(true)}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs mx-auto cursor-pointer"
                       >
-                        Mulai Migration Wizard
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload Dokumen</span>
                       </button>
                     </div>
-                  </div>
-                ) : null}
+                  ) : (
+                    <div className="space-y-2">
+                      {documents.slice(0, 3).map((docItem, dIdx) => (
+                        <div
+                          key={docItem.id || dIdx}
+                          className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <File className="w-4 h-4 text-blue-500 shrink-0" />
+                            <span className="font-semibold text-slate-700 truncate">{docItem.name}</span>
+                          </div>
+                          {docItem.url && (
+                            <a
+                              href={docItem.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline shrink-0 text-[11px] font-bold"
+                            >
+                              Lihat
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setIsDocModalOpen(true)}
+                        className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1 transition-all shadow-xs cursor-pointer mt-2"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload Dokumen</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
-                {/* Rule: Immutable Project Snapshot Section */}
-                {(project.clientSnapshot || project.changeSnapshot) ? (
-                  <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-5">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
-                      <h2 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                        <Briefcase className="w-4 h-4 text-blue-600" />
-                        <span>Snapshot Hukum Proyek</span>
-                      </h2>
-                      <div className="flex items-center gap-2">
-                        {isFinal ? (
-                          <span className="px-2.5 py-0.5 text-[10px] bg-slate-100 text-slate-600 border border-slate-200 rounded-full font-bold uppercase tracking-wider">
-                            🔒 Dokumen Final (Terkunci)
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 text-[10px] bg-slate-100 text-slate-500 border border-slate-200 rounded-full font-mono font-bold uppercase tracking-wider">
-                            Snapshot Active
-                          </span>
-                        )}
+          {/* ======================================================== */}
+          {/* TAB 2: TUGAS & CHECKLIST */}
+          {/* ======================================================== */}
+          {activeDetailTab === 'tugas' && (
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs space-y-6">
+              {(() => {
+                const displayedTasks = getDisplayedTasks();
+                const completedCount = displayedTasks.filter((t) => t.status === 'completed').length;
+                const totalCount = displayedTasks.filter((t) => t.status !== 'not_required').length;
+
+                return (
+                  <div>
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+                      <div>
+                        <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide">
+                          Daftar Checklist {isProjectMinuta(project.status) ? 'Minuta' : 'Tugas'} ({completedCount}/{totalCount})
+                        </h2>
+                        <p className="text-xs text-slate-500 mt-0.5">Kelola tugas operasional, berkas persyaratan, dan kelengkapan minuta.</p>
                       </div>
                     </div>
 
-                    {project.jobType === 'rups_lb' && project.changeSnapshot ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Before Snapshot */}
-                        <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                          <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-1.5">
-                            Struktur Sebelum (Before)
-                          </h3>
-                          <div className="space-y-2 text-xs">
-                            <div>
-                              <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Nama Perusahaan</span>
-                              <p className="font-bold text-slate-850 text-[13px]">{project.changeSnapshot.before.companyName}</p>
-                            </div>
-                            <div>
-                              <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Alamat Lengkap</span>
-                              <p className="font-medium text-slate-700 text-[12px]">{project.changeSnapshot.before.fullAddress || '-'}</p>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              <div>
-                                <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Dasar</span>
-                                <p className="font-bold text-slate-800">Rp {project.changeSnapshot.before.authorizedCapital?.toLocaleString('id-ID') || '0'}</p>
-                              </div>
-                              <div>
-                                <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Disetor</span>
-                                <p className="font-bold text-slate-800">Rp {project.changeSnapshot.before.paidUpCapital?.toLocaleString('id-ID') || '0'}</p>
-                              </div>
-                            </div>
-                            {/* Shareholders before */}
-                            <div className="pt-2 border-t border-slate-150">
-                              <span className="text-slate-450 font-bold text-[10px] uppercase tracking-wider block mb-1">Daftar Pemegang Saham (Before)</span>
-                              {project.changeSnapshot.before.shareholders && project.changeSnapshot.before.shareholders.length > 0 ? (
-                                <div className="space-y-1 max-h-40 overflow-y-auto">
-                                  {project.changeSnapshot.before.shareholders.map((sh, idx) => (
-                                    <div key={sh.id || idx} className="flex justify-between p-1.5 bg-white border border-slate-100 rounded">
-                                      <span className="font-semibold text-slate-700">{sh.name}</span>
-                                      <span className="font-mono text-slate-600">{sh.sharesOwned?.toLocaleString('id-ID')} lembar</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-slate-400 italic">Tidak ada data</p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* After Snapshot */}
-                        <div className="space-y-3 bg-blue-50/40 p-4 rounded-xl border border-blue-100">
-                          <h3 className="text-xs font-extrabold text-blue-600 uppercase tracking-wider border-b border-blue-100 pb-1.5">
-                            Struktur Sesudah (After)
-                          </h3>
-                          <div className="space-y-2 text-xs">
-                            <div>
-                              <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Nama Perusahaan</span>
-                              <p className="font-bold text-slate-850 text-[13px]">{project.changeSnapshot.after.companyName}</p>
-                            </div>
-                            <div>
-                              <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Alamat Lengkap</span>
-                              <p className="font-medium text-slate-700 text-[12px]">{project.changeSnapshot.after.fullAddress || '-'}</p>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              <div>
-                                <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Modal Dasar</span>
-                                <p className="font-bold text-slate-800">Rp {project.changeSnapshot.after.authorizedCapital?.toLocaleString('id-ID') || '0'}</p>
-                              </div>
-                              <div>
-                                <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Modal Disetor</span>
-                                <p className="font-bold text-slate-800">Rp {project.changeSnapshot.after.paidUpCapital?.toLocaleString('id-ID') || '0'}</p>
-                              </div>
-                            </div>
-                            {/* Shareholders after */}
-                            <div className="pt-2 border-t border-blue-100/60">
-                              <span className="text-blue-500 font-bold text-[10px] uppercase tracking-wider block mb-1">Daftar Pemegang Saham (After)</span>
-                              {project.changeSnapshot.after.shareholders && project.changeSnapshot.after.shareholders.length > 0 ? (
-                                <div className="space-y-1 max-h-40 overflow-y-auto">
-                                  {project.changeSnapshot.after.shareholders.map((sh, idx) => (
-                                    <div key={sh.id || idx} className="flex justify-between p-1.5 bg-white border border-blue-100/50 rounded animate-fade-in">
-                                      <span className="font-bold text-slate-800">{sh.name}</span>
-                                      <span className="font-mono text-slate-600 font-semibold">{sh.sharesOwned?.toLocaleString('id-ID')} lembar</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-slate-400 italic">Tidak ada data</p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+                    {/* Tasks List */}
+                    {displayedTasks.length === 0 ? (
+                      <div className="py-12 text-center text-slate-400 text-xs">
+                        Belum ada checklist tugas untuk proyek ini. Silakan buat checklist di bawah.
                       </div>
                     ) : (
-                      project.clientSnapshot && (
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <div>
-                              <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Nama Perusahaan</span>
-                              <p className="font-bold text-slate-850 text-[13px]">{project.clientSnapshot.companyName}</p>
-                            </div>
-                            <div>
-                              <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Alamat Lengkap</span>
-                              <p className="font-medium text-slate-700">{project.clientSnapshot.fullAddress || '-'}</p>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              <div>
-                                <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Dasar</span>
-                                <p className="font-bold text-slate-800">Rp {project.clientSnapshot.authorizedCapital?.toLocaleString('id-ID') || '0'}</p>
+                      <div className="space-y-2.5">
+                        {displayedTasks.map((task) => (
+                          <div
+                            key={task.id}
+                            className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 border rounded-xl transition-all select-none gap-3 ${
+                              task.status === 'completed'
+                                ? 'border-emerald-100 bg-emerald-50/10'
+                                : task.status === 'not_required'
+                                ? 'border-slate-200 bg-slate-50/40 opacity-70'
+                                : 'border-slate-150 bg-white hover:bg-slate-50/30'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              {task.status === 'completed' ? (
+                                <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                              ) : task.status === 'not_required' ? (
+                                <Ban className="w-5 h-5 text-slate-400 shrink-0" />
+                              ) : (
+                                <div className="w-5 h-5 rounded-md border border-slate-300 shrink-0" />
+                              )}
+                              <div className="flex flex-col">
+                                <span className={`text-[13px] font-semibold ${
+                                  task.status === 'completed'
+                                    ? 'line-through text-slate-500'
+                                    : task.status === 'not_required'
+                                    ? 'line-through text-slate-400 italic'
+                                    : 'text-slate-800'
+                                }`}>
+                                  {task.title}
+                                </span>
+                                {task.updatedAt && (
+                                  <span className="text-[10px] text-slate-400 font-mono mt-0.5">
+                                    Terakhir diperbarui: {new Date(task.updatedAt.seconds ? task.updatedAt.toDate() : task.updatedAt).toLocaleDateString('id-ID')}
+                                  </span>
+                                )}
                               </div>
-                              <div>
-                                <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Disetor</span>
-                                <p className="font-bold text-slate-800">Rp {project.clientSnapshot.paidUpCapital?.toLocaleString('id-ID') || '0'}</p>
-                              </div>
+                            </div>
+
+                            {/* Status Selector Buttons */}
+                            <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateTaskStatus(task.id, 'completed')}
+                                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
+                                  task.status === 'completed'
+                                    ? 'bg-emerald-500 text-white border-emerald-500 shadow-xs'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                                }`}
+                              >
+                                Selesai
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateTaskStatus(task.id, 'pending')}
+                                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
+                                  task.status === 'pending' || task.status === 'in_progress'
+                                    ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                                }`}
+                              >
+                                Belum
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateTaskStatus(task.id, 'not_required')}
+                                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
+                                  task.status === 'not_required'
+                                    ? 'bg-slate-500 text-white border-slate-500 shadow-xs'
+                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                                }`}
+                              >
+                                Tidak Diperlukan
+                              </button>
                             </div>
                           </div>
-                          <div className="space-y-2">
-                            <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider block">Daftar Pemegang Saham</span>
-                            {project.clientSnapshot.shareholders && project.clientSnapshot.shareholders.length > 0 ? (
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Add Quick Task Form */}
+                    <form onSubmit={handleAddTask} className="mt-5 pt-4 border-t border-slate-100 flex gap-2">
+                      <input
+                        type="text"
+                        required
+                        value={newTaskTitle}
+                        onChange={(e) => setNewTaskTitle(e.target.value)}
+                        placeholder={isProjectMinuta(project.status) ? "Tambah ceklist minuta baru..." : "Tambah ceklist tugas baru..."}
+                        className="flex-1 px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all"
+                      />
+                      <button
+                        type="submit"
+                        disabled={addingTask}
+                        className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-[13px] rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Tambah</span>
+                      </button>
+                    </form>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* TAB 3: DOKUMEN PROYEK */}
+          {/* ======================================================== */}
+          {activeDetailTab === 'dokumen' && (
+            <div className="space-y-6">
+              {/* PPAT Document Generator & Sections if PPAT */}
+              {isPPAT && (
+                <PPATProjectDocumentsSection
+                  project={project}
+                  currentUser={currentUser}
+                  isSelectModalOpenExternal={isPPATSelectDocOpen}
+                  setIsSelectModalOpenExternal={setIsPPATSelectDocOpen}
+                  onOpenCreateDocument={(docTypeConfig: PPATDocTypeConfig) => {
+                    const newDoc: PPATDocumentItem = {
+                      id: 'ppat_doc_' + Math.random().toString(36).substring(2, 9),
+                      documentType: docTypeConfig.id,
+                      typeId: docTypeConfig.id,
+                      title: docTypeConfig.defaultTitle || docTypeConfig.title,
+                      category: docTypeConfig.category,
+                      status: 'draft',
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                      letterDate: new Date().toISOString().split('T')[0],
+                      letterLocation: project.ppatData?.object?.city || 'Kabupaten Bandung Barat',
+                      specificData: {}
+                    };
+                    setActivePPATDoc(newDoc);
+                    setWorkMode('ppat_doc_editor');
+                  }}
+                  onEditDocument={(docItem) => {
+                    setActivePPATDoc(docItem);
+                    setWorkMode('ppat_doc_editor');
+                  }}
+                  onDeleteDocument={handleDeletePPATDocument}
+                  onManageBaseData={() => {
+                    setWorkMode('ppat_base_data');
+                  }}
+                />
+              )}
+
+              {/* General Project Document Upload Component */}
+              <ProjectDocumentUpload project={project} currentUser={currentUser} key={documentUploadKey} />
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* TAB 4: KLIEN & PERSONIL */}
+          {/* ======================================================== */}
+          {activeDetailTab === 'klien' && (
+            <div className="space-y-6">
+              {/* Immutable Snapshot Section */}
+              {(project.clientSnapshot || project.changeSnapshot) ? (
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs space-y-5">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3 flex-wrap gap-2">
+                    <h2 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <Briefcase className="w-4 h-4 text-blue-600" />
+                      <span>Snapshot Hukum Proyek</span>
+                    </h2>
+                    <div className="flex items-center gap-2">
+                      {isFinal ? (
+                        <span className="px-2.5 py-0.5 text-[10px] bg-slate-100 text-slate-600 border border-slate-200 rounded-full font-bold uppercase tracking-wider">
+                          🔒 Dokumen Final (Terkunci)
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 text-[10px] bg-slate-100 text-slate-500 border border-slate-200 rounded-full font-mono font-bold uppercase tracking-wider">
+                          Snapshot Active
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {project.jobType === 'rups_lb' && project.changeSnapshot ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Before Snapshot */}
+                      <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <h3 className="text-xs font-extrabold text-slate-500 uppercase tracking-wider border-b border-slate-200 pb-1.5">
+                          Struktur Sebelum (Before)
+                        </h3>
+                        <div className="space-y-2 text-xs">
+                          <div>
+                            <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Nama Perusahaan</span>
+                            <p className="font-bold text-slate-850 text-[13px]">{project.changeSnapshot.before.companyName}</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Alamat Lengkap</span>
+                            <p className="font-medium text-slate-700 text-[12px]">{project.changeSnapshot.before.fullAddress || '-'}</p>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                              <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Dasar</span>
+                              <p className="font-bold text-slate-800">Rp {project.changeSnapshot.before.authorizedCapital?.toLocaleString('id-ID') || '0'}</p>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Disetor</span>
+                              <p className="font-bold text-slate-800">Rp {project.changeSnapshot.before.paidUpCapital?.toLocaleString('id-ID') || '0'}</p>
+                            </div>
+                          </div>
+                          <div className="pt-2 border-t border-slate-150">
+                            <span className="text-slate-450 font-bold text-[10px] uppercase tracking-wider block mb-1">Daftar Pemegang Saham (Before)</span>
+                            {project.changeSnapshot.before.shareholders && project.changeSnapshot.before.shareholders.length > 0 ? (
                               <div className="space-y-1 max-h-40 overflow-y-auto">
-                                {project.clientSnapshot.shareholders.map((sh, idx) => (
+                                {project.changeSnapshot.before.shareholders.map((sh, idx) => (
                                   <div key={sh.id || idx} className="flex justify-between p-1.5 bg-white border border-slate-100 rounded">
                                     <span className="font-semibold text-slate-700">{sh.name}</span>
                                     <span className="font-mono text-slate-600">{sh.sharesOwned?.toLocaleString('id-ID')} lembar</span>
@@ -4173,286 +4809,372 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                                 ))}
                               </div>
                             ) : (
-                              <p className="text-slate-400 italic">Tidak ada data pemegang saham</p>
+                              <p className="text-slate-400 italic">Tidak ada data</p>
                             )}
                           </div>
                         </div>
-                      )
-                    )}
-                  </div>
-                ) : null}
-              </>
-            )}
+                      </div>
 
-            {/* Task Checklist Section */}
-            {(() => {
-              const displayedTasks = getDisplayedTasks();
-              const completedCount = displayedTasks.filter((t) => t.status === 'completed').length;
-              const totalCount = displayedTasks.filter((t) => t.status !== 'not_required').length;
-              
-              return (
-                <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-                    <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide">
-                      Daftar Checklist {isProjectMinuta(project.status) ? 'Minuta' : 'Tugas'} ({completedCount}/{totalCount})
-                    </h2>
-                  </div>
-
-                  {/* Tasks List */}
-                  {displayedTasks.length === 0 ? (
-                    <div className="py-8 text-center text-slate-400 text-[13px]">
-                      Belum ada checklist tugas kustom untuk proyek ini.
-                    </div>
-                  ) : (
-                    <div className="space-y-2.5">
-                      {displayedTasks.map((task) => (
-                        <div
-                          key={task.id}
-                          className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 border rounded-xl transition-all select-none gap-3 ${
-                            task.status === 'completed'
-                              ? 'border-emerald-100 bg-emerald-50/10'
-                              : task.status === 'not_required'
-                              ? 'border-slate-200 bg-slate-50/40 opacity-70'
-                              : 'border-slate-150 bg-white hover:bg-slate-50/30'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            {task.status === 'completed' ? (
-                              <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                            ) : task.status === 'not_required' ? (
-                              <Ban className="w-5 h-5 text-slate-400 shrink-0" />
-                            ) : (
-                              <div className="w-5 h-5 rounded-md border border-slate-300 shrink-0" />
-                            )}
-                            <div className="flex flex-col">
-                              <span className={`text-[13px] font-semibold ${
-                                task.status === 'completed'
-                                  ? 'line-through text-slate-500'
-                                  : task.status === 'not_required'
-                                  ? 'line-through text-slate-400 italic'
-                                  : 'text-slate-800'
-                              }`}>
-                                {task.title}
-                              </span>
-                              {task.updatedAt && (
-                                <span className="text-[10px] text-slate-400 font-mono mt-0.5">
-                                  Terakhir diperbarui: {new Date(task.updatedAt.seconds ? task.updatedAt.toDate() : task.updatedAt).toLocaleDateString('id-ID')}
-                                </span>
-                              )}
+                      {/* After Snapshot */}
+                      <div className="space-y-3 bg-blue-50/40 p-4 rounded-xl border border-blue-100">
+                        <h3 className="text-xs font-extrabold text-blue-600 uppercase tracking-wider border-b border-blue-100 pb-1.5">
+                          Struktur Sesudah (After)
+                        </h3>
+                        <div className="space-y-2 text-xs">
+                          <div>
+                            <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Nama Perusahaan</span>
+                            <p className="font-bold text-slate-850 text-[13px]">{project.changeSnapshot.after.companyName}</p>
+                          </div>
+                          <div>
+                            <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Alamat Lengkap</span>
+                            <p className="font-medium text-slate-700 text-[12px]">{project.changeSnapshot.after.fullAddress || '-'}</p>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                              <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Modal Dasar</span>
+                              <p className="font-bold text-slate-800">Rp {project.changeSnapshot.after.authorizedCapital?.toLocaleString('id-ID') || '0'}</p>
+                            </div>
+                            <div>
+                              <span className="text-blue-400 font-semibold text-[10px] uppercase tracking-wider">Modal Disetor</span>
+                              <p className="font-bold text-slate-800">Rp {project.changeSnapshot.after.paidUpCapital?.toLocaleString('id-ID') || '0'}</p>
                             </div>
                           </div>
+                          <div className="pt-2 border-t border-blue-100/60">
+                            <span className="text-blue-500 font-bold text-[10px] uppercase tracking-wider block mb-1">Daftar Pemegang Saham (After)</span>
+                            {project.changeSnapshot.after.shareholders && project.changeSnapshot.after.shareholders.length > 0 ? (
+                              <div className="space-y-1 max-h-40 overflow-y-auto">
+                                {project.changeSnapshot.after.shareholders.map((sh, idx) => (
+                                  <div key={sh.id || idx} className="flex justify-between p-1.5 bg-white border border-blue-100/50 rounded animate-fade-in">
+                                    <span className="font-bold text-slate-800">{sh.name}</span>
+                                    <span className="font-mono text-slate-600 font-semibold">{sh.sharesOwned?.toLocaleString('id-ID')} lembar</span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-slate-400 italic">Tidak ada data</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    project.clientSnapshot && (
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <div>
+                            <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Nama Perusahaan</span>
+                            <p className="font-bold text-slate-850 text-[13px]">{project.clientSnapshot.companyName}</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Alamat Lengkap</span>
+                            <p className="font-medium text-slate-700">{project.clientSnapshot.fullAddress || '-'}</p>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                              <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Dasar</span>
+                              <p className="font-bold text-slate-800">Rp {project.clientSnapshot.authorizedCapital?.toLocaleString('id-ID') || '0'}</p>
+                            </div>
+                            <div>
+                              <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider">Modal Disetor</span>
+                              <p className="font-bold text-slate-800">Rp {project.clientSnapshot.paidUpCapital?.toLocaleString('id-ID') || '0'}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-wider block">Daftar Pemegang Saham</span>
+                          {project.clientSnapshot.shareholders && project.clientSnapshot.shareholders.length > 0 ? (
+                            <div className="space-y-1 max-h-40 overflow-y-auto">
+                              {project.clientSnapshot.shareholders.map((sh, idx) => (
+                                <div key={sh.id || idx} className="flex justify-between p-1.5 bg-white border border-slate-100 rounded">
+                                  <span className="font-semibold text-slate-700">{sh.name}</span>
+                                  <span className="font-mono text-slate-600">{sh.sharesOwned?.toLocaleString('id-ID')} lembar</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-slate-400 italic">Tidak ada data pemegang saham</p>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              ) : null}
 
-                          {/* Status Selector Buttons */}
-                          <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateTaskStatus(task.id, 'completed')}
-                              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
-                                task.status === 'completed'
-                                  ? 'bg-emerald-500 text-white border-emerald-500 shadow-xs'
-                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-                              }`}
-                            >
-                              Selesai
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateTaskStatus(task.id, 'pending')}
-                              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
-                                task.status === 'pending' || task.status === 'in_progress'
-                                  ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
-                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-                              }`}
-                            >
-                              Belum
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleUpdateTaskStatus(task.id, 'not_required')}
-                              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
-                                task.status === 'not_required'
-                                  ? 'bg-slate-500 text-white border-slate-500 shadow-xs'
-                                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-                              }`}
-                            >
-                              Tidak Diperlukan
-                            </button>
+              {/* Profil Personil PT (Hanya untuk non-PPAT) */}
+              {!isPPAT && (
+                <PartiesManager 
+                  parties={project.parties || []} 
+                  onSaveParties={handleSaveParties} 
+                  onPullFromForm={handlePullFromForm}
+                  onPushToForm={handlePushPartiesToForm}
+                />
+              )}
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* TAB 5: TIMELINE & RIWAYAT */}
+          {/* ======================================================== */}
+          {activeDetailTab === 'timeline' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-6">
+                {/* Chronological Vertical Timeline Log */}
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs">
+                  <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-3 mb-4">
+                    Riwayat Jejak Proyek ({timelines.length})
+                  </h2>
+
+                  {timelines.length === 0 ? (
+                    <div className="py-8 text-center text-slate-400 text-[13px]">
+                      Belum ada catatan riwayat aktivitas.
+                    </div>
+                  ) : (
+                    <div className="relative border-l border-slate-200 pl-4 space-y-5 ml-1.5">
+                      {timelines.map((timeline) => (
+                        <div key={timeline.id} className="relative">
+                          <div className="absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full bg-blue-600 border border-white" />
+                          <div className="space-y-1">
+                            <span className="text-[10px] font-mono font-bold text-slate-400">
+                              {timeline.createdAt ? new Date(timeline.createdAt.seconds ? timeline.createdAt.toDate() : timeline.createdAt).toLocaleString('id-ID', {
+                                day: 'numeric',
+                                month: 'short',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              }) : ''}
+                            </span>
+                            <h4 className="text-[13px] font-bold text-slate-800 leading-tight">
+                              {timeline.title}
+                            </h4>
+                            <p className="text-xs text-slate-500 leading-normal">
+                              {timeline.description}
+                            </p>
+
+                            {timeline.changes && timeline.changes.length > 0 && (
+                              <div className="pt-2 mt-2 border-t border-slate-100 space-y-1.5">
+                                <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider flex items-center gap-1">
+                                  <FileText className="w-3 h-3 text-blue-500" />
+                                  <span>Rincian Perubahan Dokumen ({timeline.changes.length}):</span>
+                                </span>
+                                <div className="space-y-1 font-mono text-[11px]">
+                                  {(expandedTimelineIds[timeline.id] ? timeline.changes : timeline.changes.slice(0, 3)).map((ch, cidx) => (
+                                    <div key={cidx} className="flex flex-col bg-slate-50 p-2 rounded border border-slate-100 gap-1">
+                                      <span className="font-bold text-blue-600">{ch.field}:</span>
+                                      <div className="flex items-center gap-2 flex-wrap text-xs">
+                                        <span className="text-red-500 line-through bg-red-50 px-1 py-0.5 rounded border border-red-100">{String(ch.before || 'KOSONG')}</span>
+                                        <ChevronRight className="w-3 h-3 text-slate-400" />
+                                        <span className="text-emerald-600 font-bold bg-emerald-50 px-1 py-0.5 rounded border border-emerald-100">{String(ch.after || 'KOSONG')}</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {timeline.changes.length > 3 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleExpandTimeline(timeline.id)}
+                                      className="text-[11px] font-bold text-blue-600 hover:text-blue-700 hover:underline pt-1 flex items-center gap-1 cursor-pointer"
+                                    >
+                                      {expandedTimelineIds[timeline.id] ? (
+                                        <>
+                                          <ChevronUp className="w-3 h-3" />
+                                          Sembunyikan sebagian ({timeline.changes.length - 3} item)
+                                        </>
+                                      ) : (
+                                        <>
+                                          <ChevronDown className="w-3 h-3" />
+                                          Lihat {timeline.changes.length - 3} perubahan selengkapnya...
+                                        </>
+                                      )}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            <span className="text-[10px] text-slate-400 font-semibold block pt-0.5">
+                              Oleh: {timeline.createdBy}
+                            </span>
                           </div>
                         </div>
                       ))}
                     </div>
                   )}
-
-                  {/* Add Quick Task Form */}
-                  <form onSubmit={handleAddTask} className="mt-4 pt-4 border-t border-slate-100 flex gap-2">
-                    <input
-                      type="text"
-                      required
-                      value={newTaskTitle}
-                      onChange={(e) => setNewTaskTitle(e.target.value)}
-                      placeholder={isProjectMinuta(project.status) ? "Tambah ceklist minuta baru..." : "Tambah ceklist tugas baru..."}
-                      className="flex-1 px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all"
-                    />
-                    <button
-                      type="submit"
-                      disabled={addingTask}
-                      className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold text-[13px] rounded-lg transition-colors flex items-center gap-1.5 disabled:opacity-50"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Tambah</span>
-                    </button>
-                  </form>
                 </div>
-              );
-            })()}
+              </div>
 
-            {/* Rule: Company Timeline (Legal History Tracker) */}
-            <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-4">
-              <h2 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
-                <Clock className="w-4 h-4 text-blue-600" />
-                <span>Riwayat Sejarah Legal Perusahaan (Company Timeline)</span>
-              </h2>
-              <div className="relative border-l-2 border-blue-100 pl-4 space-y-6 ml-2 text-xs">
-                {/* Active/Linked projects as milestones */}
-                {[project, ...relatedProjects]
-                  .sort((a, b) => new Date(a.createdAt?.seconds ? a.createdAt.toDate() : a.createdAt).getTime() - new Date(b.createdAt?.seconds ? b.createdAt.toDate() : b.createdAt).getTime())
-                  .map((p, idx) => {
-                    const dateStr = p.createdAt ? new Date(p.createdAt.seconds ? p.createdAt.toDate() : p.createdAt).toLocaleDateString('id-ID', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric'
-                    }) : '-';
-                    const isCurrent = p.projectId === projectId;
-                    return (
-                      <div key={p.projectId || idx} className="relative">
-                        {/* Dot indicator */}
-                        <div className={`absolute -left-[23px] top-1.5 w-3.5 h-3.5 rounded-full border-2 ${isCurrent ? 'bg-blue-600 border-blue-250 animate-pulse' : 'bg-slate-300 border-white'} shrink-0`} />
-                        <div className="space-y-1">
-                          <span className="font-mono text-[9px] text-slate-400 font-bold block">{dateStr}</span>
-                          <span className={`font-bold text-[13px] ${isCurrent ? 'text-blue-700' : 'text-slate-800'}`}>
-                            {p.title} {isCurrent ? '(Proyek Ini)' : ''}
+              <div className="space-y-6">
+                {/* Company Legal History Tracker */}
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs space-y-4">
+                  <h2 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
+                    <Clock className="w-4 h-4 text-blue-600" />
+                    <span>Riwayat Sejarah Legal Perusahaan</span>
+                  </h2>
+                  <div className="relative border-l-2 border-blue-100 pl-4 space-y-5 ml-2 text-xs">
+                    {[project, ...relatedProjects]
+                      .sort((a, b) => new Date(a.createdAt?.seconds ? a.createdAt.toDate() : a.createdAt).getTime() - new Date(b.createdAt?.seconds ? b.createdAt.toDate() : b.createdAt).getTime())
+                      .map((p, idx) => {
+                        const dateStr = p.createdAt ? new Date(p.createdAt.seconds ? p.createdAt.toDate() : p.createdAt).toLocaleDateString('id-ID', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric'
+                        }) : '-';
+                        const isCurrent = p.projectId === projectId;
+                        return (
+                          <div key={p.projectId || idx} className="relative">
+                            <div className={`absolute -left-[23px] top-1.5 w-3.5 h-3.5 rounded-full border-2 ${isCurrent ? 'bg-blue-600 border-blue-250 animate-pulse' : 'bg-slate-300 border-white'} shrink-0`} />
+                            <div className="space-y-1">
+                              <span className="font-mono text-[9px] text-slate-400 font-bold block">{dateStr}</span>
+                              <span className={`font-bold text-[13px] ${isCurrent ? 'text-blue-700' : 'text-slate-800'}`}>
+                                {p.title} {isCurrent ? '(Proyek Ini)' : ''}
+                              </span>
+                              <div className="flex gap-2 items-center mt-1 text-[11px]">
+                                <span className="px-2 py-0.5 bg-slate-100 text-slate-600 font-semibold rounded text-[10px] uppercase">
+                                  {p.jobType.replace('_', ' ')}
+                                </span>
+                                <span className="text-slate-300">|</span>
+                                <span className="text-slate-500 font-medium">Status: <strong className="uppercase font-bold text-slate-650">{p.status}</strong></span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+
+                {/* Related Projects Section */}
+                <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs space-y-4">
+                  <h2 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
+                    <Briefcase className="w-4 h-4 text-blue-600" />
+                    <span>Proyek Terkait ({relatedProjects.length})</span>
+                  </h2>
+                  {relatedProjects.length === 0 ? (
+                    <p className="text-slate-450 text-xs italic">Tidak ada proyek terkait lainnya untuk klien ini.</p>
+                  ) : (
+                    <div className="space-y-2.5 text-xs">
+                      {relatedProjects.map((p) => (
+                        <div key={p.projectId} className="p-3 bg-slate-50 border border-slate-100 hover:border-slate-200 rounded-xl transition-all space-y-1">
+                          <span className="font-bold text-slate-800 block text-[13px]">
+                            {p.title}
                           </span>
-                          <div className="flex gap-2 items-center mt-1 text-[11px]">
-                            <span className="px-2 py-0.5 bg-slate-100 text-slate-600 font-semibold rounded text-[10px] uppercase">
+                          <div className="flex items-center justify-between text-slate-500">
+                            <span className="bg-white px-2 py-0.5 border border-slate-150 rounded font-semibold text-[10px] uppercase">
                               {p.jobType.replace('_', ' ')}
                             </span>
-                            <span className="text-slate-300">|</span>
-                            <span className="text-slate-500 font-medium">Status: <strong className="uppercase font-bold text-slate-650">{p.status}</strong></span>
+                            <span className="uppercase font-bold text-[10px] text-slate-400 bg-white px-1.5 py-0.5 rounded border border-slate-100">
+                              {p.status}
+                            </span>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
+          )}
 
-            {/* Rule: Related Projects Section */}
-            <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-4">
-              <h2 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
-                <Briefcase className="w-4 h-4 text-blue-600" />
-                <span>Proyek Terkait Klien Ini ({relatedProjects.length})</span>
-              </h2>
-              {relatedProjects.length === 0 ? (
-                <p className="text-slate-450 text-xs italic">Tidak ada proyek terkait lainnya untuk klien ini.</p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  {relatedProjects.map((p) => (
-                    <div key={p.projectId} className="p-3.5 bg-slate-50 border border-slate-100 hover:border-slate-200 rounded-xl transition-all space-y-1.5 shadow-2xs">
-                      <span className="font-bold text-slate-800 block text-[13px] hover:text-blue-600 transition-colors">
-                        {p.title}
-                      </span>
-                      <div className="flex items-center justify-between text-slate-500">
-                        <span className="bg-white px-2 py-0.5 border border-slate-150 rounded font-semibold text-[10px] uppercase">
-                          {p.jobType.replace('_', ' ')}
-                        </span>
-                        <span className="uppercase font-bold text-[10px] text-slate-400 bg-white px-1.5 py-0.5 rounded border border-slate-100">
-                          {p.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+          {/* ======================================================== */}
+          {/* TAB 6: CATATAN & MINUTA */}
+          {/* ======================================================== */}
+          {activeDetailTab === 'catatan' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Tambah Catatan Proyek */}
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs space-y-4">
+                <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-3 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-amber-500" />
+                  <span>Tambah Catatan Proyek (Tanpa Ubah Status)</span>
+                </h2>
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-500">
+                    Tambahkan catatan perkembangan atau catatan penting untuk proyek ini tanpa harus mengubah status.
+                  </p>
+                  <textarea
+                    value={projectNote}
+                    onChange={(e) => setProjectNote(e.target.value)}
+                    placeholder="Ketik catatan di sini (misal: Menunggu konfirmasi akta, dokumen sedang diproses, dsb)..."
+                    rows={4}
+                    className="w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-lg outline-none transition-all focus:bg-white focus:ring-1 focus:ring-blue-500"
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSaveProjectNote}
+                      disabled={savingProjectNote}
+                      className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-semibold rounded-lg text-xs transition-all flex items-center gap-2 cursor-pointer"
+                    >
+                      {savingProjectNote ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Menyimpan...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Simpan Catatan</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
-              )}
-            </div>
+              </div>
 
-            {/* Profil Personil PT (Hanya untuk non-PPAT) */}
-            {!isPPAT && (
-              <PartiesManager 
-                parties={project.parties || []} 
-                onSaveParties={handleSaveParties} 
-                onPullFromForm={handlePullFromForm}
-                onPushToForm={handlePushPartiesToForm}
-              />
-            )}
+              {/* Catatan Proyek Minuta */}
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs space-y-4">
+                <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-3 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-blue-500" />
+                  <span>Catatan Minuta & Arsip Akta</span>
+                </h2>
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-500">
+                    Gunakan catatan ini untuk mendokumentasikan detail khusus, berkas pendukung, atau instruksi jahit/penataan minuta akta ini.
+                  </p>
+                  <textarea
+                    value={localMinutaNotes}
+                    onChange={(e) => setLocalMinutaNotes(e.target.value)}
+                    placeholder="Tulis catatan penting di sini (misal: Lokasi penempatan berkas, status jilid, kelengkapan berkas fisik)..."
+                    rows={4}
+                    className="w-full p-3 text-[13px] bg-slate-50 border border-slate-200 rounded-lg outline-none transition-all focus:bg-white focus:ring-1 focus:ring-blue-500"
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSaveMinutaNotes}
+                      disabled={savingNotes}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition-all flex items-center gap-2 cursor-pointer"
+                    >
+                      {savingNotes ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Menyimpan...</span>
+                        </>
+                      ) : (
+                        <span>Simpan Catatan Minuta</span>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
 
-            {/* UPLOAD DOKUMEN PROYEK (New Feature) */}
-            <ProjectDocumentUpload project={project} currentUser={currentUser} key={documentUploadKey} />
-          </div>
-
-          {/* Column 3: Transition Engine Guard & Chronological Timeline */}
-          <div className="space-y-6">
-            {/* If in Minuta phase, show Minuta Notes AND Deed Form; otherwise show Transisi Status Guard */}
-            {isProjectMinuta(project.status) ? (
-              <>
-                {/* Catatan Proyek Minuta */}
-                <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              {/* Form Akta/Deed (Koreksi / Lengkapi Data Akta) */}
+              {['rups_lb', 'sirkuler_rupslb', 'pendirian_pt', 'input_nib', 'perbaikan_data_ahu', 'buka_blokir'].includes(project?.jobType || '') && (
+                <div className="lg:col-span-2 bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs space-y-4">
+                  <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
                     <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-amber-500" />
-                      <span>Catatan Proyek Minuta</span>
+                      <FileText className="w-4 h-4 text-blue-600" />
+                      <span>Koreksi / Lengkapi Data Akta & Administrasi</span>
                     </h2>
+                    <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                      {project?.title}
+                    </span>
                   </div>
-                  <div className="space-y-3">
-                    <p className="text-xs text-slate-500">
-                      Gunakan catatan ini untuk mendokumentasikan detail khusus, berkas pendukung, atau instruksi jahit/penataan minuta akta ini.
-                    </p>
-                    <textarea
-                      value={localMinutaNotes}
-                      onChange={(e) => setLocalMinutaNotes(e.target.value)}
-                      placeholder="Tulis catatan penting di sini (misal: Lokasi penempatan berkas, status jilid, kelengkapan berkas fisik)..."
-                      rows={4}
-                      className="w-full p-3 text-[13px] bg-slate-50 border border-slate-200 rounded-lg outline-none transition-all focus:bg-white focus:ring-1 focus:ring-blue-500"
-                    />
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={handleSaveMinutaNotes}
-                        disabled={savingNotes}
-                        className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-xs transition-all flex items-center gap-2"
-                      >
-                        {savingNotes ? (
-                          <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                            <span>Menyimpan...</span>
-                          </>
-                        ) : (
-                          <span>Simpan Catatan Minuta</span>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Form Akta/Deed di Fase Minuta (Koreksi / Lengkapi Data Akta) */}
-                {['rups_lb', 'sirkuler_rupslb', 'pendirian_pt'].includes(project?.jobType || '') && (
-                  <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-4">
-                    <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-                      <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-blue-600" />
-                        <span>KOREKSI / LENGKAPI DATA AKTA</span>
-                      </h2>
-                      <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                        {project?.title}
-                      </span>
-                    </div>
+                  {renderDeedFields()}
 
-                    {renderDeedFields()}
-
+                  <div className="flex justify-end pt-2">
                     <button
                       type="button"
                       onClick={handleSaveDeedInfoOnly}
                       disabled={savingDeedInfo}
-                      className="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-semibold text-[13px] rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-semibold text-[13px] rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                     >
                       {savingDeedInfo ? (
                         <>
@@ -4467,11 +5189,172 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                       )}
                     </button>
                   </div>
-                )}
-              </>
-            ) : (
-              /* Status Transition Engine Guard Form */
-              <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm">
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* TAB 7: INVOICE & KEUANGAN */}
+          {/* ======================================================== */}
+          {activeDetailTab === 'keuangan' && (
+            <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs space-y-6">
+              <div className="border-b border-slate-100 pb-4 flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2">
+                    <Landmark className="w-4 h-4 text-emerald-600" />
+                    <span>Keuangan & Penagihan Proyek</span>
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Kelola penawaran biaya jasa notaris, tagihan klien (invoice), dan status pembayaran.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const clientName = (project.clientSnapshot as any)?.name || project.clientSnapshot?.companyName || (project as any).clientName || '';
+                      const title = project.title || '';
+                      window.location.hash = `#/invoice?new=true&projectId=${encodeURIComponent(project.projectId)}&clientId=${encodeURIComponent(project.clientId || '')}&clientName=${encodeURIComponent(clientName)}&title=${encodeURIComponent(title)}`;
+                    }}
+                    className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                  >
+                    <FileText size={13} />
+                    <span>+ Buat Invoice Baru</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const clientName = (project.clientSnapshot as any)?.name || project.clientSnapshot?.companyName || (project as any).clientName || '';
+                      const title = project.title || '';
+                      window.location.hash = `#/quotations/new?projectId=${encodeURIComponent(project.projectId)}&clientId=${encodeURIComponent(project.clientId || '')}&clientName=${encodeURIComponent(clientName)}&title=${encodeURIComponent(title)}`;
+                    }}
+                    className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                  >
+                    <File size={13} />
+                    <span>+ Buat Penawaran</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-5 bg-blue-50/40 rounded-xl border border-blue-100 space-y-2">
+                  <span className="text-[11px] font-bold text-blue-600 uppercase tracking-wider block">Tagihan (Invoice)</span>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Terbitkan invoice resmi lengkap dengan rincian biaya PNBP, honorarium notaris, dan nomor rekening transfer kantor.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const clientName = (project.clientSnapshot as any)?.name || project.clientSnapshot?.companyName || (project as any).clientName || '';
+                      const title = project.title || '';
+                      window.location.hash = `#/invoice?new=true&projectId=${encodeURIComponent(project.projectId)}&clientId=${encodeURIComponent(project.clientId || '')}&clientName=${encodeURIComponent(clientName)}&title=${encodeURIComponent(title)}`;
+                    }}
+                    className="mt-2 text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1"
+                  >
+                    Buka Formulir Invoice &rarr;
+                  </button>
+                </div>
+
+                <div className="p-5 bg-purple-50/40 rounded-xl border border-purple-100 space-y-2">
+                  <span className="text-[11px] font-bold text-purple-600 uppercase tracking-wider block">Surat Penawaran</span>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Kirim estimasi penawaran harga pengerjaan akta kepada klien sebelum proyek resmi dimulai atau sebelum proses penandatanganan.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const clientName = (project.clientSnapshot as any)?.name || project.clientSnapshot?.companyName || (project as any).clientName || '';
+                      const title = project.title || '';
+                      window.location.hash = `#/quotations/new?projectId=${encodeURIComponent(project.projectId)}&clientId=${encodeURIComponent(project.clientId || '')}&clientName=${encodeURIComponent(clientName)}&title=${encodeURIComponent(title)}`;
+                    }}
+                    className="mt-2 text-xs font-bold text-purple-600 hover:text-purple-700 hover:underline flex items-center gap-1"
+                  >
+                    Buka Formulir Penawaran &rarr;
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* TAB 8: PENGATURAN */}
+          {/* ======================================================== */}
+          {activeDetailTab === 'pengaturan' && (
+            <div className="space-y-6">
+              {/* RUPS LB AGENDA PERUBAHAN SECTION */}
+              {(project.jobType === 'rups_lb' || 
+                project.projectType === 'RUPS LB' || 
+                project.projectType === 'RUPS-LB' || 
+                project.projectType === 'PKPS RUPS-LB') && (
+                <div className="bg-white border border-purple-200/90 rounded-2xl p-6 shadow-2xs space-y-4">
+                  <div className="flex items-center justify-between gap-3 border-b border-purple-100 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-purple-600"></span>
+                      <h2 className="text-[14px] font-bold text-purple-950 uppercase tracking-wide">
+                        Agenda Perubahan RUPS LB
+                      </h2>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsAgendaModalOpen(true)}
+                      className="px-3 py-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100/80 font-bold text-xs rounded-lg border border-purple-200 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                    >
+                      <Edit3 size={13} />
+                      <span>Kelola Agenda Perubahan</span>
+                    </button>
+                  </div>
+
+                  {/* Agendas Display */}
+                  {(() => {
+                    const agendas = project.changeAgendas || project.metadata?.changeAgendas || project.metadata?.agendas || [];
+                    if (agendas.length === 0) {
+                      return (
+                        <div className="p-4 bg-purple-50/50 rounded-xl border border-dashed border-purple-200 text-center space-y-2">
+                          <p className="text-xs text-purple-800 font-medium">
+                            Belum ada agenda perubahan yang dicatat untuk RUPS LB ini.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setIsAgendaModalOpen(true)}
+                            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-lg transition-all shadow-xs cursor-pointer inline-flex items-center gap-1.5"
+                          >
+                            <Plus size={13} />
+                            <span>Pilih Agenda Perubahan Sekarang</span>
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-slate-500 font-semibold">
+                            Daftar agenda perubahan yang diputuskan ({agendas.length} agenda):
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {agendas.map((ag: string, idx: number) => {
+                            const matched = RUPS_LB_AGENDAS.find(a => a.label === ag || a.shortLabel === ag || a.id === ag);
+                            const colorClass = matched?.badgeColor || 'bg-purple-50 text-purple-700 border-purple-200';
+                            return (
+                              <span
+                                key={idx}
+                                className={`px-3 py-1.5 rounded-lg border text-xs font-bold shadow-2xs flex items-center gap-1.5 ${colorClass}`}
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                                <span>{ag}</span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* Status Transition Engine Guard Form */}
+              <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs">
                 <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-3 mb-4">
                   Transisi Status Guard
                 </h2>
@@ -4505,7 +5388,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                     <textarea
                       value={transitionComment}
                       onChange={(e) => setTransitionComment(e.target.value)}
-                      placeholder="Masukkan alasan transisi... atau tambahkan catatan mandiri pada kotak Catatan Proyek di bawah jika status tidak berubah"
+                      placeholder="Masukkan alasan transisi... atau tambahkan catatan mandiri pada kotak Catatan Proyek jika status tidak berubah"
                       rows={2}
                       className="w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-lg outline-none transition-all focus:bg-white focus:ring-1 focus:ring-blue-500"
                     />
@@ -4540,37 +5423,14 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                     </div>
                   )}
 
-                  {/* Conditionally render Deed / Akta details form when transitioning to Completed state */}
-                  {['rups_lb', 'sirkuler_rupslb', 'pendirian_pt'].includes(project?.jobType || '') && 
-                    (transitionStatus.toLowerCase().includes('selesai') || 
-                     transitionStatus.toLowerCase() === 'sp terbit' ||
-                     transitionStatus.toLowerCase() === 'sp/sk terbit' ||
-                     transitionStatus.toLowerCase() === 'nib terbit') && (
-                    <div className="p-5 bg-white border border-slate-200 rounded-xl space-y-4 animate-fadeIn shadow-sm">
-                      {/* Header */}
-                      <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
-                        <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                          {project?.jobType === 'pendirian_pt' 
-                            ? 'AKTA PENDIRIAN' 
-                            : `AKTA PERUBAHAN ${(client?.amendmentDeeds?.length || 0) + 1}`}
-                        </h3>
-                        <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
-                          {project?.title}
-                        </span>
-                      </div>
-                      
-                      {renderDeedFields()}
-                    </div>
-                  )}
-
                   <button
                     type="submit"
                     disabled={transitioning || transitionStatus === project.status}
-                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[13px] rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-[13px] rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
                   >
                     {transitioning ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         <span>Memproses...</span>
                       </>
                     ) : (
@@ -4582,181 +5442,27 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   </button>
                 </form>
               </div>
-            )}
 
-            {/* Tambah Catatan Proyek (Separate notes entry) */}
-            <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-4">
-              <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-3 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-amber-500" />
-                <span>Tambah Catatan Proyek (Tanpa Ubah Status)</span>
-              </h2>
-              <div className="space-y-3">
-                <p className="text-xs text-slate-500">
-                  Tambahkan catatan perkembangan atau catatan penting untuk proyek ini tanpa harus mengubah status.
-                </p>
-                <textarea
-                  value={projectNote}
-                  onChange={(e) => setProjectNote(e.target.value)}
-                  placeholder="Ketik catatan di sini (misal: Menunggu konfirmasi akta, dokumen sedang diproses, dsb)..."
-                  rows={3}
-                  className="w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-lg outline-none transition-all focus:bg-white focus:ring-1 focus:ring-blue-500"
-                />
-                <div className="flex justify-end">
+              {/* Danger Zone: Hapus Proyek */}
+              {currentUser.role === 'Super Admin' && (
+                <div className="bg-red-50/50 border border-red-200 rounded-2xl p-6 space-y-3">
+                  <h3 className="text-xs font-bold text-red-800 uppercase tracking-wider">Danger Zone</h3>
+                  <p className="text-xs text-red-600 leading-relaxed">
+                    Menghapus proyek ini akan menghapus semua checklist tugas, riwayat timeline, dan link dokumen secara permanen. Tindakan ini tidak dapat dibatalkan.
+                  </p>
                   <button
                     type="button"
-                    onClick={handleSaveProjectNote}
-                    disabled={savingProjectNote}
-                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-semibold rounded-lg text-xs transition-all flex items-center gap-2"
+                    onClick={handleDeleteProject}
+                    disabled={isDeleting}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-xs cursor-pointer disabled:opacity-50"
                   >
-                    {savingProjectNote ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Menyimpan...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Simpan Catatan</span>
-                      </>
-                    )}
+                    {isDeleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    <span>Hapus Proyek Ini Selamanya</span>
                   </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Chronological Vertical Timeline Log */}
-            <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm">
-              <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-3 mb-4">
-                Riwayat Jejak Proyek ({timelines.length})
-              </h2>
-
-              {timelines.length === 0 ? (
-                <div className="py-8 text-center text-slate-400 text-[13px]">
-                  Belum ada catatan riwayat aktivitas.
-                </div>
-              ) : (
-                <div className="relative border-l border-slate-200 pl-4 space-y-5 ml-1.5">
-                  {timelines.map((timeline) => (
-                    <div key={timeline.id} className="relative">
-                      {/* Timeline Dot Indicator */}
-                      <div className="absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full bg-blue-600 border border-white" />
-                      
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-mono font-bold text-slate-400">
-                          {timeline.createdAt ? new Date(timeline.createdAt.seconds ? timeline.createdAt.toDate() : timeline.createdAt).toLocaleString('id-ID', {
-                            day: 'numeric',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          }) : ''}
-                        </span>
-                        <h4 className="text-[13px] font-bold text-slate-800 leading-tight">
-                          {timeline.title}
-                        </h4>
-                        <p className="text-xs text-slate-500 leading-normal">
-                          {timeline.description}
-                        </p>
-
-                        {timeline.changes && timeline.changes.length > 0 && (
-                          <div className="pt-2 mt-2 border-t border-slate-100 space-y-1.5">
-                            <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider block flex items-center gap-1">
-                              <FileText className="w-3 h-3 text-blue-500" />
-                              <span>Rincian Perubahan Dokumen ({timeline.changes.length}):</span>
-                            </span>
-                            <div className="space-y-1 font-mono text-[11px]">
-                              {(expandedTimelineIds[timeline.id] ? timeline.changes : timeline.changes.slice(0, 3)).map((ch, cidx) => (
-                                <div key={cidx} className="flex flex-col bg-slate-50 p-2 rounded border border-slate-100 gap-1">
-                                  <span className="font-bold text-blue-600">{ch.field}:</span>
-                                  <div className="flex items-center gap-2 flex-wrap text-xs">
-                                    <span className="text-red-500 line-through bg-red-50 px-1 py-0.5 rounded border border-red-100">{String(ch.before || 'KOSONG')}</span>
-                                    <ChevronRight className="w-3 h-3 text-slate-400" />
-                                    <span className="text-emerald-600 font-bold bg-emerald-50 px-1 py-0.5 rounded border border-emerald-100">{String(ch.after || 'KOSONG')}</span>
-                                  </div>
-                                </div>
-                              ))}
-                              {timeline.changes.length > 3 && (
-                                <button
-                                  type="button"
-                                  onClick={() => toggleExpandTimeline(timeline.id)}
-                                  className="text-[11px] font-bold text-blue-600 hover:text-blue-700 hover:underline pt-1 flex items-center gap-1 cursor-pointer"
-                                >
-                                  {expandedTimelineIds[timeline.id] ? (
-                                    <>
-                                      <ChevronUp className="w-3 h-3" />
-                                      Sembunyikan sebagian ({timeline.changes.length - 3} item)
-                                    </>
-                                  ) : (
-                                    <>
-                                      <ChevronDown className="w-3 h-3" />
-                                      Lihat {timeline.changes.length - 3} perubahan selengkapnya...
-                                    </>
-                                  )}
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        <span className="text-[10px] text-slate-400 font-semibold block pt-0.5">
-                          Oleh: {timeline.createdBy}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               )}
             </div>
-
-            {/* Rule: Master Client Version/Revision History */}
-            {client && client.versionHistory && client.versionHistory.length > 0 ? (
-              <div className="bg-white border border-slate-200/80 rounded-xl p-6 shadow-sm space-y-4">
-                <h2 className="text-[14px] font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 pb-3">
-                  <FileText className="w-4 h-4 text-blue-600" />
-                  <span>Jejak Audit Perubahan Master Client (Revision History)</span>
-                </h2>
-                <div className="space-y-4">
-                  {client.versionHistory.map((rev, idx) => (
-                    <div key={rev.revisionId || idx} className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs space-y-2">
-                      <div className="flex justify-between items-center flex-wrap gap-2">
-                        <span className="font-bold text-slate-850">{rev.reason}</span>
-                        <span className="font-mono text-[10px] text-slate-400 font-bold bg-white px-2 py-0.5 rounded border border-slate-100">
-                          REVISION: {rev.revisionId?.substring(0, 8)}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-500">
-                        <div>
-                          <span>Tanggal Persetujuan:</span>
-                          <p className="font-medium text-slate-700">{new Date(rev.changedAt).toLocaleString('id-ID')}</p>
-                        </div>
-                        <div>
-                          <span>Disetujui Oleh:</span>
-                          <p className="font-medium text-slate-700">{rev.changedBy}</p>
-                        </div>
-                      </div>
-                      {rev.changes && rev.changes.length > 0 && (
-                        <div className="pt-2 border-t border-slate-200/60 space-y-1.5">
-                          <span className="text-slate-400 font-bold text-[10px] uppercase tracking-wider block">Rincian Perubahan Hukum:</span>
-                          <div className="space-y-1 font-mono text-[11px]">
-                            {rev.changes.map((ch, cidx) => (
-                              <div key={cidx} className="flex flex-col bg-white p-2 rounded border border-slate-100 gap-1">
-                                <span className="font-bold text-blue-600">{ch.field}:</span>
-                                <div className="flex items-center gap-2 flex-wrap text-xs">
-                                  <span className="text-red-500 line-through bg-red-50 px-1 rounded">{String(ch.before || 'KOSONG')}</span>
-                                  <ChevronRight className="w-3 h-3 text-slate-400 animate-pulse" />
-                                  <span className="text-emerald-600 font-bold bg-emerald-50 px-1 rounded">{String(ch.after || 'KOSONG')}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
+          )}
         </div>
         )}
 
@@ -5168,6 +5874,116 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                     ) : (
                       <span>Simpan Agenda Perubahan</span>
                     )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Tetapkan Staff Penanggung Jawab */}
+        {isAssignStaffOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+            <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-sm w-full overflow-hidden animate-slideUp">
+              <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-blue-600" />
+                  <h3 className="font-bold text-slate-800 text-[14px]">Tetapkan Penanggung Jawab</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsAssignStaffOpen(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    Pilih Staff
+                  </label>
+                  <select
+                    value={selectedStaffToAssign || project.assignedTo || ''}
+                    onChange={(e) => setSelectedStaffToAssign(e.target.value)}
+                    className="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    <option value="">-- Belum Ditugaskan (Unassigned) --</option>
+                    {staffList.map((st) => (
+                      <option key={st.uid} value={st.name}>
+                        {st.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex gap-2 justify-end pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsAssignStaffOpen(false)}
+                    className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAssignStaff(selectedStaffToAssign)}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+                  >
+                    Simpan
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Set Target Selesai */}
+        {isSetTargetOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+            <div className="bg-white rounded-2xl shadow-xl border border-slate-200 max-w-sm w-full overflow-hidden animate-slideUp">
+              <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-blue-600" />
+                  <h3 className="font-bold text-slate-800 text-[14px]">Set Target Selesai Proyek</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsSetTargetOpen(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">
+                    Tanggal Target
+                  </label>
+                  <input
+                    type="date"
+                    value={newTargetDate || (project as any).targetDate || ''}
+                    onChange={(e) => setNewTargetDate(e.target.value)}
+                    className="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                </div>
+
+                <div className="flex gap-2 justify-end pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsSetTargetOpen(false)}
+                    className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSetTargetDate(newTargetDate)}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer"
+                  >
+                    Simpan Target
                   </button>
                 </div>
               </div>
