@@ -348,25 +348,18 @@ const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyDa
         const currentData = transferDataMap[transfer.id] || initialData;
         const fromName = transfer.fromName || companyData.shareholders.find(s => s.id === transfer.fromShareholderId)?.name || 'Pemilik Saham';
         const toName = transfer.toName || companyData.shareholders.find(s => s.id === transfer.toShareholderId)?.name || companyData.finalShareholders?.find(s => s.id === transfer.toShareholderId)?.name || 'Penerima Saham';
+        const transferTypeLabel = transfer.type || (transfer as any).transferType || (currentData.tipeAkta === 'Hibah' ? 'Hibah' : 'AJB');
         
         return (
           <div key={transfer.id} className="w-full pb-8 border-b border-slate-200 last:border-b-0">
-            <div className="flex justify-between items-center mb-4 bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
-              <h3 className="font-bold text-slate-700 text-[14px] flex items-center gap-2">
-                 <span className="bg-[#3b5998] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">{index + 1}</span>
-                 {transfer.type} - {fromName} kepada {toName}
+            <div className="flex items-center mb-4 bg-slate-50 px-4 py-3 rounded-lg border border-slate-200 shadow-xs">
+              <h3 className="font-bold text-slate-700 text-[13px] flex items-center gap-2">
+                 <span className="bg-[#3b5998] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold">{index + 1}</span>
+                 {transferTypeLabel} - {fromName} kepada {toName}
               </h3>
-              <div className="flex gap-2">
-                <button onClick={() => setPreviewTransferId(transfer.id)} className="bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2 text-[12px] font-bold shadow-sm">
-                  <Eye size={14} className="text-blue-600" /> Pratinjau
-                </button>
-                <button onClick={() => handleDownloadSingle(transfer.id)} className="bg-[#3b5998] hover:bg-[#2c4073] text-white transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2 text-[12px] font-bold shadow-sm">
-                  <Download size={14} /> Download DOCX
-                </button>
-              </div>
             </div>
             
-            <div className="w-full max-w-4xl mx-auto pl-4">
+            <div className="w-full">
               <FormContent 
                 data={currentData} 
                 onChange={(e, batchUpdates) => handleChange(transfer.id, e, batchUpdates)} 
