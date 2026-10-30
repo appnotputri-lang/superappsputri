@@ -1,6 +1,6 @@
 import { useState, useCallback, createContext, useContext, ReactNode, useEffect, useRef, useMemo } from 'react';
 import { CompanyData, Address, CompanyProfile, Shareholder } from '../../../types';
-import { INITIAL_STATE, INITIAL_MANUAL_REP } from './initialCompanyData';
+import { INITIAL_STATE, INITIAL_MANUAL_REP, sanitizeCompanyData } from './initialCompanyData';
 import { toTitleCase } from '../../../utils/formatters';
 import { db, searchShareholderByNIKClient } from '../../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -64,7 +64,7 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        return { ...INITIAL_STATE, ...parsed };
+        return sanitizeCompanyData(parsed);
       } catch (e) {
         console.error("Failed to parse saved data:", e);
         return INITIAL_STATE;
@@ -114,7 +114,14 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
 
   const updateData = useCallback((updates: Partial<CompanyData>) => {
     setData(prev => {
-      const newData = { ...prev, ...updates };
+      const mergedResolutions = (updates.resolutions !== undefined || prev.resolutions !== undefined)
+        ? { ...(prev.resolutions || {}), ...(updates.resolutions || {}) }
+        : prev.resolutions;
+      const newData = sanitizeCompanyData({
+        ...prev,
+        ...updates,
+        resolutions: mergedResolutions
+      });
       if (updates.originalSharePrice !== undefined || updates.originalAuthorizedShares !== undefined) {
         newData.originalCapitalBase = (newData.originalSharePrice || 0) * (newData.originalAuthorizedShares || 0);
         if (!newData.resolutions?.capitalBase && !newData.resolutions?.capitalBaseDecrease) {
@@ -155,7 +162,7 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
         
         newData.fullAddress = parts.join(', ');
       }
-      return newData;
+      return sanitizeCompanyData(newData);
     });
   }, []);
 
@@ -169,7 +176,7 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
   const activeSidebarTab = useMemo(() => autosaveParams?.activeSidebarTab || null, [autosaveParams?.activeSidebarTab]);
 
   const mergedData = useMemo(() => {
-    let baseData = { ...data };
+    let baseData = sanitizeCompanyData(data);
 
     // Auto-resolve baseData.domicile if empty
     const resolvedDomicile = baseData.domicile || baseData.oldDomicile || (baseData as any).kedudukanPT || (baseData as any).kotaKedudukan || (baseData as any).city || baseData.oldAddress?.city || baseData.newAddress?.city || '';
@@ -205,15 +212,21 @@ export function DocumentRuntimeProvider({ children }: { children: ReactNode }) {
         const toName = t.toName || t.toDetail?.name || (t.toShareholderId ? (baseData.shareholders?.find((s: any) => s.id === t.toShareholderId)?.name || baseData.finalShareholders?.find((s: any) => s.id === t.toShareholderId)?.name) : '') || '';
         
         const fromSh = baseData.shareholders?.find((s: any) => 
-          (t.fromShareholderId && (s.id === t.fromShareholderId || (s.linkedPartyId && s.linkedPartyId === t.fromShareholderId))) ||
-          (fromName && s.name && s.name.trim().toUpperCase() === fromName.trim().toUpperCase())
+          s && (
+            (t.fromShareholderId && (s.id === t.fromShareholderId || (s.linkedPartyId && s.linkedPartyId === t.fromShareholderId))) ||
+            (fromName && s.name && String(s.name).trim().toUpperCase() === String(fromName).trim().toUpperCase())
+          )
         );
         const toSh = baseData.shareholders?.find((s: any) => 
-          (t.toShareholderId && (s.id === t.toShareholderId || (s.linkedPartyId && s.linkedPartyId === t.toShareholderId))) ||
-          (toName && s.name && s.name.trim().toUpperCase() === toName.trim().toUpperCase())
+          s && (
+            (t.toShareholderId && (s.id === t.toShareholderId || (s.linkedPartyId && s.linkedPartyId === t.toShareholderId))) ||
+            (toName && s.name && String(s.name).trim().toUpperCase() === String(toName).trim().toUpperCase())
+          )
         ) || baseData.finalShareholders?.find((s: any) => 
-          (t.toShareholderId && (s.id === t.toShareholderId || (s.linkedPartyId && s.linkedPartyId === t.toShareholderId))) ||
-          (toName && s.name && s.name.trim().toUpperCase() === toName.trim().toUpperCase())
+          s && (
+            (t.toShareholderId && (s.id === t.toShareholderId || (s.linkedPartyId && s.linkedPartyId === t.toShareholderId))) ||
+            (toName && s.name && String(s.name).trim().toUpperCase() === String(toName).trim().toUpperCase())
+          )
         );
 
         const isHibah = t.transferType === 'HIBAH' || t.type === 'Hibah' || t.type === 'HIBAH';

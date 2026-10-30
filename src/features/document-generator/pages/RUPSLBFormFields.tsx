@@ -13,6 +13,7 @@ import DraftAktaRUPS from '../../../DraftAktaRUPS';
 import DraftAktaApp from '../../../DraftAktaApp';
 import { CompanyService } from '../../../services/CompanyService';
 import { formatInputNumber, parseFormattedNumber } from '../../../../utils/formatters';
+import { sanitizeCompanyData } from '../../../domain/company/initialCompanyData';
 
 export interface RUPSLBFormFieldsProps {
   user: any;
@@ -110,11 +111,11 @@ export const RUPSLBFormFields: React.FC<RUPSLBFormFieldsProps> = (props) => {
     setActiveProjectContext: l,
     setSelectedProjectId: u,
     setActiveSidebarTab: d,
-    data: c,
+    data: cRaw,
     setData: p,
     updateData: m,
     resetData: g,
-    mergedData: A,
+    mergedData: ARaw,
     isSaving: k,
     setIsSaving: x,
     isSyncing: f,
@@ -140,6 +141,9 @@ export const RUPSLBFormFields: React.FC<RUPSLBFormFieldsProps> = (props) => {
     updateManualRep: Qe,
     calculateFinalShareholders: L8
   } = props;
+
+  const c = sanitizeCompanyData(cRaw);
+  const A = sanitizeCompanyData(ARaw || cRaw);
 
   const Pn = formatInputNumber;
   const xr = parseFormattedNumber;

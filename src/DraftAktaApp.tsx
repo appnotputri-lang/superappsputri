@@ -33,26 +33,26 @@ export const getTransferData = (transfer: ShareTransfer, companyData: CompanyDat
   }
 
   const allCandidates: any[] = [
-    ...(companyData.shareholders || []),
-    ...(companyData.finalShareholders || []),
-    ...((companyData as any).initialShareholders || []),
-    ...((companyData as any).parties || []),
-    ...(companyData.oldManagementItems || []),
-    ...(companyData.newManagementItems || []),
+    ...(companyData?.shareholders || []),
+    ...(companyData?.finalShareholders || []),
+    ...((companyData as any)?.initialShareholders || []),
+    ...((companyData as any)?.parties || []),
+    ...(companyData?.oldManagementItems || []),
+    ...(companyData?.newManagementItems || []),
   ];
 
-  let fromSh = allCandidates.find(s => transfer.fromShareholderId && (s.id === transfer.fromShareholderId || (s.linkedPartyId && s.linkedPartyId === transfer.fromShareholderId))) ||
-               (transfer as any).fromDetail;
-  if (!fromSh && transfer.fromName) {
-    const fromUpper = transfer.fromName.trim().toUpperCase();
-    fromSh = allCandidates.find(s => s.name && s.name.trim().toUpperCase() === fromUpper);
+  let fromSh = allCandidates.find(s => s && transfer?.fromShareholderId && (s.id === transfer.fromShareholderId || (s.linkedPartyId && s.linkedPartyId === transfer.fromShareholderId))) ||
+               (transfer as any)?.fromDetail;
+  if (!fromSh && transfer?.fromName) {
+    const fromUpper = String(transfer.fromName).trim().toUpperCase();
+    fromSh = allCandidates.find(s => s && s.name && String(s.name).trim().toUpperCase() === fromUpper);
   }
 
-  let toSh = allCandidates.find(s => transfer.toShareholderId && (s.id === transfer.toShareholderId || (s.linkedPartyId && s.linkedPartyId === transfer.toShareholderId))) ||
-             transfer.toDetail;
-  if (!toSh && transfer.toName) {
-    const toUpper = transfer.toName.trim().toUpperCase();
-    toSh = allCandidates.find(s => s.name && s.name.trim().toUpperCase() === toUpper);
+  let toSh = allCandidates.find(s => s && transfer?.toShareholderId && (s.id === transfer.toShareholderId || (s.linkedPartyId && s.linkedPartyId === transfer.toShareholderId))) ||
+             transfer?.toDetail;
+  if (!toSh && transfer?.toName) {
+    const toUpper = String(transfer.toName).trim().toUpperCase();
+    toSh = allCandidates.find(s => s && s.name && String(s.name).trim().toUpperCase() === toUpper);
   }
 
   if (fromSh) {
@@ -152,34 +152,35 @@ export const getTransferData = (transfer: ShareTransfer, companyData: CompanyDat
 };
 
 export const getCompanyBaseData = (companyData: any, initialData: any) => {
+  const cd = companyData || {};
   return {
     ...initialData,
-    notarisNama: companyData?.notaryName || initialData.notarisNama,
-    notarisKedudukan: companyData?.notaryDomicile || initialData.notarisKedudukan,
-    namaPT: companyData?.targetCompanyName || companyData?.companyName || initialData.namaPT,
-    kedudukanPT: toTitleCase(companyData?.newAddress?.city || companyData?.domicile || initialData.kedudukanPT || ''),
-    tglPendirianPT: companyData?.establishmentDeedDate || initialData.tglPendirianPT,
-    nomorPendirian: companyData?.establishmentDeedNumber || initialData.nomorPendirian,
-    notarisPT: companyData?.establishmentNotary || initialData.notarisPT,
-    notarisPTTitle: companyData?.establishmentNotaryTitle || initialData.notarisPTTitle,
-    kedudukanNotarisPT: companyData?.establishmentNotaryDomicile || initialData.kedudukanNotarisPT,
-    skPengesahan: companyData?.establishmentSkNumber || initialData.skPengesahan,
-    tglSKPengesahan: companyData?.establishmentSkDate || initialData.tglSKPengesahan,
-    jumlahSahamPT: companyData?.originalAuthorizedShares ? companyData.originalAuthorizedShares.toString() : (companyData?.originalTotalShares ? companyData.originalTotalShares.toString() : initialData.jumlahSahamPT),
-    nilaiNominalSaham: companyData?.originalSharePrice ? companyData.originalSharePrice.toString() : initialData.nilaiNominalSaham,
-    tglSirkuler: companyData?.signingDate || initialData.tglSirkuler,
-    aktaPerubahan: companyData?.amendmentDeeds && companyData.amendmentDeeds.length > 0 
-      ? (companyData.amendmentDeeds || []).map((deed: any) => {
-          const sk = deed.skSpDocuments?.[0];
+    notarisNama: cd.notaryName || initialData.notarisNama,
+    notarisKedudukan: cd.notaryDomicile || initialData.notarisKedudukan,
+    namaPT: cd.targetCompanyName || cd.companyName || initialData.namaPT,
+    kedudukanPT: toTitleCase(cd.newAddress?.city || cd.domicile || initialData.kedudukanPT || ''),
+    tglPendirianPT: cd.establishmentDeedDate || initialData.tglPendirianPT,
+    nomorPendirian: cd.establishmentDeedNumber || initialData.nomorPendirian,
+    notarisPT: cd.establishmentNotary || initialData.notarisPT,
+    notarisPTTitle: cd.establishmentNotaryTitle || initialData.notarisPTTitle,
+    kedudukanNotarisPT: cd.establishmentNotaryDomicile || initialData.kedudukanNotarisPT,
+    skPengesahan: cd.establishmentSkNumber || initialData.skPengesahan,
+    tglSKPengesahan: cd.establishmentSkDate || initialData.tglSKPengesahan,
+    jumlahSahamPT: cd.originalAuthorizedShares ? cd.originalAuthorizedShares.toString() : (cd.originalTotalShares ? cd.originalTotalShares.toString() : initialData.jumlahSahamPT),
+    nilaiNominalSaham: cd.originalSharePrice ? cd.originalSharePrice.toString() : initialData.nilaiNominalSaham,
+    tglSirkuler: cd.signingDate || initialData.tglSirkuler,
+    aktaPerubahan: cd.amendmentDeeds && cd.amendmentDeeds.length > 0 
+      ? (cd.amendmentDeeds || []).map((deed: any) => {
+          const sk = deed?.skSpDocuments?.[0];
           return {
-            id: deed.id,
-            tglRapat: deed.date,
-            nomorRapat: deed.number,
-            notaris: deed.notary,
-            notarisTitle: deed.notaryTitle || '',
-            kedudukanNotaris: deed.notaryDomicile || '',
-            skPerubahan: sk?.number || deed.skNumber || '',
-            tglSKPerubahan: sk?.date || deed.skDate || '',
+            id: deed?.id,
+            tglRapat: deed?.date,
+            nomorRapat: deed?.number,
+            notaris: deed?.notary,
+            notarisTitle: deed?.notaryTitle || '',
+            kedudukanNotaris: deed?.notaryDomicile || '',
+            skPerubahan: sk?.number || deed?.skNumber || '',
+            tglSKPerubahan: sk?.date || deed?.skDate || '',
             jenisSK: (sk?.type === 'SK' ? 'SK' : sk?.type === 'SP' ? 'SP' : 'Penerimaan Pemberitahuan') as any
           }
         })
@@ -346,9 +347,9 @@ const DraftAktaApp = forwardRef<DraftAktaAppRef, DraftAktaAppProps>(({ companyDa
     <div className="w-full flex flex-col gap-8">
       {activeTransfers.map((transfer, index) => {
         const currentData = transferDataMap[transfer.id] || initialData;
-        const fromName = transfer.fromName || companyData.shareholders.find(s => s.id === transfer.fromShareholderId)?.name || 'Pemilik Saham';
-        const toName = transfer.toName || companyData.shareholders.find(s => s.id === transfer.toShareholderId)?.name || companyData.finalShareholders?.find(s => s.id === transfer.toShareholderId)?.name || 'Penerima Saham';
-        const transferTypeLabel = transfer.type || (transfer as any).transferType || (currentData.tipeAkta === 'Hibah' ? 'Hibah' : 'AJB');
+        const fromName = transfer.fromName || companyData?.shareholders?.find(s => s && s.id === transfer.fromShareholderId)?.name || 'Pemilik Saham';
+        const toName = transfer.toName || companyData?.shareholders?.find(s => s && s.id === transfer.toShareholderId)?.name || companyData?.finalShareholders?.find(s => s && s.id === transfer.toShareholderId)?.name || 'Penerima Saham';
+        const transferTypeLabel = transfer.type || (transfer as any)?.transferType || (currentData.tipeAkta === 'Hibah' ? 'Hibah' : 'AJB');
         
         return (
           <div key={transfer.id} className="w-full pb-8 border-b border-slate-200 last:border-b-0">

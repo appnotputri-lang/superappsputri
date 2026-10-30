@@ -17,7 +17,7 @@ import { DocumentStatusBadge } from '../../../../components/DocumentStatusBadge'
 import { AhuSection, AhuLabel, AhuInput, AhuSelect, AhuMasaJabatanSelector } from '../../../../App';
 import DraftAktaApp, { DraftAktaAppRef } from '../../../DraftAktaApp';
 import DraftAktaRUPS from '../../../DraftAktaRUPS';
-import { INITIAL_STATE } from '../../../domain/company/initialCompanyData';
+import { INITIAL_STATE, sanitizeCompanyData } from '../../../domain/company/initialCompanyData';
 
 import { History, Archive, Coins, Users, FileSignature, CheckSquare, XCircle, Search, Calendar, Play, ArrowRightLeft, TrendingUp, MapPin } from 'lucide-react';
 import JSZip from 'jszip';
@@ -253,7 +253,7 @@ class PageErrorBoundary extends React.Component<{ children: React.ReactNode }, {
   }
 }
 
-export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
+const RUPSLBPageInternal: React.FC<RUPSLBPageProps> = ({
   user,
   userProfile,
   projects,
@@ -545,13 +545,13 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
           setEditingProjectId('new');
           setIsRupsPreview(false);
           if (!activeProjectContext) {
-            updateData({ ...INITIAL_STATE } as any);
+            updateData(sanitizeCompanyData({}));
           }
         }}
         onEdit={(item) => {
           setEditingProjectId(item.id);
           setIsRupsPreview(false);
-          updateData({ ...INITIAL_STATE, ...item.rawData } as any);
+          updateData(sanitizeCompanyData(item.rawData));
         }}
         onDelete={async (item) => {
           try {
@@ -574,7 +574,7 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
         }}
         onDownload={async (item, format) => {
           const p = item.rawData || {};
-          const merged = { ...INITIAL_STATE, ...p } as any;
+          const merged = sanitizeCompanyData(p);
           if (format === 'notulen') {
             if (merged.documentType === 'CIRCULAR') {
               const { generateSirkulerLaporanDocx } = await import('../../../lib/generateSirkulerLaporanDocx');
@@ -600,7 +600,7 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
           }
         }}
         downloadOptions={(item) => {
-          const p = item.rawData || {};
+          const p = sanitizeCompanyData(item.rawData || {});
           const isCircular = p.documentType === 'CIRCULAR';
           const opts: DownloadOption[] = [
             {
@@ -891,5 +891,11 @@ export const RUPSLBPage: React.FC<RUPSLBPageProps> = ({
     </div>
   );
 };
+
+export const RUPSLBPage: React.FC<RUPSLBPageProps> = (props) => (
+  <PageErrorBoundary>
+    <RUPSLBPageInternal {...props} />
+  </PageErrorBoundary>
+);
 
 export default RUPSLBPage;

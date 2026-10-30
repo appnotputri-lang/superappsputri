@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { mapCompanyProfileToPendirian } from '../domain/company/mappers/companyProfileToPendirian';
 import { mapPartiesToShareholdersAndManagement } from '../domain/project/mappers/partyToShareholder';
 import { extractManagementFromSource } from '../domain/company/mappers/extractManagement';
-import { INITIAL_STATE, INITIAL_ADDRESS, INITIAL_MANUAL_REP, INITIAL_RESOLUTIONS } from "../domain/company/initialCompanyData";
+import { INITIAL_STATE, INITIAL_ADDRESS, INITIAL_MANUAL_REP, INITIAL_RESOLUTIONS, sanitizeCompanyData } from "../domain/company/initialCompanyData";
 import { TAB_TO_PATH, PATH_TO_TAB, resolveSidebarTab } from "../constants/tabs";
 import { AppLayout, SidebarTabId } from './layout/AppLayout';
 import { AppBootstrap } from './bootstrap/AppBootstrap';
@@ -300,11 +300,10 @@ export const AppShell: React.FC = () => {
           }
         }
         if (found) {
-          updateData({
-            ...INITIAL_STATE,
+          updateData(sanitizeCompanyData({
             ...found,
             kbliItems: normalizeKblis(found.kbliItems)
-          });
+          }));
           loadedDocIdRef.current = sessionKey;
           return;
         }
@@ -322,11 +321,10 @@ export const AppShell: React.FC = () => {
           }
         }
         if (found) {
-          updateData({
-            ...INITIAL_STATE,
+          updateData(sanitizeCompanyData({
             ...found,
             kbliItems: normalizeKblis(found.kbliItems)
-          });
+          }));
           loadedDocIdRef.current = sessionKey;
           return;
         }
@@ -344,11 +342,10 @@ export const AppShell: React.FC = () => {
           }
         }
         if (found) {
-          updateData({
-            ...INITIAL_STATE,
+          updateData(sanitizeCompanyData({
             ...found,
             kbliItems: normalizeKblis(found.kbliItems)
-          });
+          }));
           loadedDocIdRef.current = sessionKey;
           return;
         }
