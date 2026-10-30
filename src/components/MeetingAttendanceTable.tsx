@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Plus, Eye, Trash2 } from 'lucide-react';
+import { Users, Plus, Eye, Trash2, Info } from 'lucide-react';
 import { formatInputNumber } from '../../utils/formatters';
 import { useDocumentRuntime } from '../domain/company/useDocumentRuntime';
 import { CorporateShareholderService } from '../services/CorporateShareholderService';
@@ -45,6 +45,21 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
   const shareholders = isCircular
     ? (actualData.shareholders || []).filter((s: any) => (Number(s.sharesOwned) || 0) > 0 || isPihakLain(s))
     : (actualData.shareholders || []);
+
+  // Pastikan dalam mode sirkuler seluruh pemegang saham otomatis tercatat hadir (100% kuorum/persetujuan)
+  React.useEffect(() => {
+    if (isCircular && actualData?.shareholders && actualData.shareholders.length > 0) {
+      const needsUpdate = actualData.shareholders.some((s: any) => !s.isPresent);
+      if (needsUpdate) {
+        const updated = actualData.shareholders.map((s: any) => ({
+          ...s,
+          isPresent: true
+        }));
+        updateData({ shareholders: updated });
+      }
+    }
+  }, [isCircular, actualData?.shareholders?.length]);
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-3">
@@ -61,19 +76,21 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
               <Plus className="w-3 h-3" /> {addParticipantLabel}
             </button>
           )}
-          <button 
-            type="button"
-            onClick={() => {
-              const ids = new Set(shareholders.map(s => s.id));
-              const newList = (actualData.shareholders || []).map((s: any) =>
-                ids.has(s.id) ? { ...s, isPresent: true } : s
-              );
-              updateData({ shareholders: newList });
-            }}
-            className="text-[10px] bg-[#3b5998] text-white px-3 py-1 rounded-sm hover:bg-black transition-colors font-bold shadow-sm uppercase cursor-pointer"
-          >
-            {markAllLabel}
-          </button>
+          {!isCircular && (
+            <button 
+              type="button"
+              onClick={() => {
+                const ids = new Set(shareholders.map(s => s.id));
+                const newList = (actualData.shareholders || []).map((s: any) =>
+                  ids.has(s.id) ? { ...s, isPresent: true } : s
+                );
+                updateData({ shareholders: newList });
+              }}
+              className="text-[10px] bg-[#3b5998] text-white px-3 py-1 rounded-sm hover:bg-black transition-colors font-bold shadow-sm uppercase cursor-pointer"
+            >
+              {markAllLabel}
+            </button>
+          )}
         </div>
       </div>
       <div className="border border-slate-200 rounded-sm overflow-x-auto">
@@ -82,7 +99,7 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
             <tr>
               <th className="p-2 border-r border-slate-200">{nameColumnLabel}</th>
               <th className="p-2 border-r border-slate-200 font-bold">Jumlah Saham</th>
-              <th className="p-2 border-r border-slate-200 text-center w-20 font-bold">{presentLabel}</th>
+              {!isCircular && <th className="p-2 border-r border-slate-200 text-center w-20 font-bold">{presentLabel}</th>}
               <th className="p-2 border-r border-slate-200 text-center w-28 font-bold">Dikuasakan?</th>
               <th className="p-2 border-r border-slate-200 text-center font-bold">Penerima Kuasa</th>
               {showAksiColumn && <th className="p-2 text-center w-24 font-bold">Aksi</th>}
@@ -120,29 +137,31 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
                       `${formatInputNumber(s.sharesOwned)} Saham`
                     )}
                   </td>
+                  {!isCircular && (
+                    <td className="p-2 text-center border-r border-slate-200">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 cursor-pointer"
+                        checked={s.isPresent || false}
+                        onChange={e => {
+                          const isChecked = e.target.checked;
+                          const newList = (actualData.shareholders || []).map((item: any) =>
+                            item.id === s.id
+                              ? {
+                                  ...item,
+                                  isPresent: isChecked,
+                                  isProxy: isChecked ? (isCorp ? true : (pihakLain ? false : item.isProxy)) : false,
+                                  proxyData: isChecked ? (pihakLain ? undefined : item.proxyData) : undefined
+                                }
+                              : item
+                          );
+                          updateData({ shareholders: newList });
+                        }}
+                      />
+                    </td>
+                  )}
                   <td className="p-2 text-center border-r border-slate-200">
-                    <input
-                      type="checkbox"
-                      className="w-4 h-4 cursor-pointer"
-                      checked={s.isPresent || false}
-                      onChange={e => {
-                        const isChecked = e.target.checked;
-                        const newList = (actualData.shareholders || []).map((item: any) =>
-                          item.id === s.id
-                            ? {
-                                ...item,
-                                isPresent: isChecked,
-                                isProxy: isChecked ? (isCorp ? true : (pihakLain ? false : item.isProxy)) : false,
-                                proxyData: isChecked ? (pihakLain ? undefined : item.proxyData) : undefined
-                              }
-                            : item
-                        );
-                        updateData({ shareholders: newList });
-                      }}
-                    />
-                  </td>
-                  <td className="p-2 text-center border-r border-slate-200">
-                    {s.isPresent && (
+                    {(isCircular || s.isPresent) && (
                       pihakLain ? (
                         <span className="text-slate-400 text-[11px]">-</span>
                       ) : isCorp ? (
@@ -166,7 +185,7 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
                     )}
                   </td>
                   <td className="p-2 text-center border-r border-slate-200">
-                    {s.isPresent && (
+                    {(isCircular || s.isPresent) && (
                       pihakLain ? (
                         <span className="text-slate-400 text-[10px]">-</span>
                       ) : (
@@ -258,7 +277,7 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
           })}
             {shareholders.length === 0 && (
               <tr>
-                <td colSpan={showAksiColumn ? 6 : 5} className="p-4 text-center text-slate-400 italic">
+                <td colSpan={isCircular ? (showAksiColumn ? 5 : 4) : (showAksiColumn ? 6 : 5)} className="p-4 text-center text-slate-400 italic">
                   Belum ada data pemegang saham. Silakan isi di bagian DATA PERSEROAN atau tambah secara langsung.
                 </td>
               </tr>
@@ -266,6 +285,14 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
           </tbody>
         </table>
       </div>
+      {isCircular && (
+        <div className="p-3 bg-blue-50/70 border border-blue-200/70 rounded-sm flex items-center gap-2 text-[11px] text-blue-800 font-medium">
+          <Info className="w-4 h-4 text-blue-600 shrink-0" />
+          <span>
+            Pada Keputusan Sirkuler (Pasal 91 UU PT), 100% pemegang saham wajib menyetujui dan menandatangani keputusan tanpa perlu mencentang kehadiran.
+          </span>
+        </div>
+      )}
     </div>
   );
 };
