@@ -666,81 +666,17 @@ const RUPSLBPageInternal: React.FC<RUPSLBPageProps> = ({
 
           {/* RIGHT GROUP */}
           <div className="flex flex-wrap items-center gap-2.5 justify-start lg:justify-end">
-            {/* Download Dropdown */}
-            <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
-              <button
-                type="button"
-                onClick={() => setIsRupslbDocDropdownOpen(!isRupslbDocDropdownOpen)}
-                className="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-[12px] flex items-center justify-center gap-2 transition-all shadow-xs uppercase tracking-wide select-none shrink-0 cursor-pointer"
-              >
-                <Download className="w-4 h-4" />
-                <span>Dokumen</span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isRupslbDocDropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {isRupslbDocDropdownOpen && (
-                <div className="absolute right-0 mt-2 bg-white border border-slate-200 shadow-xl rounded-xl py-1 w-64 z-50 text-left overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-                  <button
-                    type="button"
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      setIsRupslbDocDropdownOpen(false);
-                      await handleExportWord();
-                    }}
-                    className="w-full px-4 py-2.5 text-slate-700 hover:bg-slate-50 text-[12px] font-bold flex items-center gap-3 uppercase tracking-wide transition-colors border-b border-slate-100 cursor-pointer"
-                  >
-                    <FileText className="w-4 h-4 text-indigo-600 shrink-0" />
-                    <div className="flex flex-col text-left">
-                      <span className="font-bold text-slate-800 leading-tight">
-                        {data.documentType === 'CIRCULAR' ? 'SIRKULER RUPS LB' : 'NOTULEN RUPS LB'}
-                      </span>
-                      <span className="text-[10px] text-slate-400 lowercase mt-0.5 font-normal">format dokumen (.docx)</span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      setIsRupslbDocDropdownOpen(false);
-                      try {
-                        const { generateRUPSDocx } = await import('../../../lib/generateRUPSDocx');
-                        await generateRUPSDocx(mergedData);
-                      } catch (err) {
-                        alert('Gagal menghasilkan Akta RUPS LB.');
-                      }
-                    }}
-                    className="w-full px-4 py-2.5 text-slate-700 hover:bg-slate-50 text-[12px] font-bold flex items-center gap-3 uppercase tracking-wide transition-colors border-b border-slate-100 cursor-pointer"
-                  >
-                    <FileCode className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <div className="flex flex-col text-left">
-                      <span className="font-bold text-slate-800 leading-tight">
-                        {data.documentType === 'CIRCULAR' ? 'AKTA SIRKULER RUPS LB' : 'AKTA RUPS LB'}
-                      </span>
-                      <span className="text-[10px] text-slate-400 lowercase mt-0.5 font-normal">format dokumen (.docx)</span>
-                    </div>
-                  </button>
-
-                  {draftAktaRef?.current?.hasTransfers && (
-                    <button
-                      type="button"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        setIsRupslbDocDropdownOpen(false);
-                        await draftAktaRef.current?.handleDownloadAll();
-                      }}
-                      className="w-full px-4 py-2.5 text-slate-700 hover:bg-slate-50 text-[12px] font-bold flex items-center gap-3 uppercase tracking-wide transition-colors cursor-pointer"
-                    >
-                      <Download className="w-4 h-4 text-amber-600 shrink-0" />
-                      <div className="flex flex-col text-left">
-                        <span className="font-bold text-slate-800 leading-tight">Akta Peralihan Saham</span>
-                        <span className="text-[10px] text-slate-400 lowercase mt-0.5 font-normal">unduh semua (.zip)</span>
-                      </div>
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
+            {/* Tarik Data Klien */}
+            <button
+              type="button"
+              onClick={handleOpenPullClientModal}
+              disabled={isPullingClient}
+              className="h-10 px-4 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold border border-blue-200 rounded-lg text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-50 shrink-0 shadow-xs uppercase tracking-wide"
+              title="Tarik data terbaru dari Master Client ke Form ini"
+            >
+              <RefreshCw className={`w-4 h-4 ${isPullingClient ? 'animate-spin' : ''}`} />
+              <span>Tarik Data Klien</span>
+            </button>
 
             {/* Simpan Draft Utama */}
             <button
