@@ -742,20 +742,6 @@ const RUPSLBPageInternal: React.FC<RUPSLBPageProps> = ({
               )}
             </div>
 
-            {/* Simpan ke Laporan */}
-            <button
-              type="button"
-              className="bg-[#3b5998] hover:bg-[#2d4373] text-white font-semibold text-[12px] uppercase h-10 px-4 rounded-lg shadow-xs transition-colors flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50 cursor-pointer"
-              onClick={async () => {
-                await handleManualSync("RUPSLB", data);
-                alert("Berhasil disimpan ke laporan!");
-              }}
-              disabled={isSyncing}
-            >
-              {isSyncing ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-              <span>Simpan ke Laporan</span>
-            </button>
-
             {/* Simpan Draft Utama */}
             <button
               type="button"
