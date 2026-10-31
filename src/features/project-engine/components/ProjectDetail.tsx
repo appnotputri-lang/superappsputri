@@ -93,7 +93,10 @@ import {
   Edit,
   Upload,
   MoreVertical,
-  Phone
+  Phone,
+  Share2,
+  Download,
+  Copy
 } from 'lucide-react';
 
 const getDocKinds = (jobType: string): { kind: 'notulen' | 'pernyataan' | 'akta' | 'pendirian'; label: string }[] => {
@@ -194,13 +197,17 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       const key = d.id || d.name;
       if (!seenKeys.has(key)) {
         seenKeys.add(key);
+        const match = d.url?.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        const driveFileId = match ? match[1] : undefined;
         list.push({
           id: d.id || key,
           title: d.name,
           subtitle: d.type?.toUpperCase() || 'Draft Dokumen',
           url: d.url,
           type: d.type,
-          uploadedAt: d.uploadedAt ? (typeof d.uploadedAt === 'string' ? d.uploadedAt : (d.uploadedAt as any).toDate?.()?.toISOString?.()) : undefined
+          uploadedAt: d.uploadedAt ? (typeof d.uploadedAt === 'string' ? d.uploadedAt : (d.uploadedAt as any).toDate?.()?.toISOString?.()) : undefined,
+          isDrive: !!driveFileId,
+          driveFileId: driveFileId
         });
       }
     });
@@ -646,6 +653,97 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     });
     setSelectedFile(null);
     setIsDocModalOpen(true);
+  };
+
+  // Action states for documents in Ringkasan Proyek
+  const [activeMenuDocId, setActiveMenuDocId] = useState<string | null>(null);
+  const [shareDocItem, setShareDocItem] = useState<any | null>(null);
+  const [shareWhatsAppNumber, setShareWhatsAppNumber] = useState('');
+  const [sharingWhatsApp, setSharingWhatsApp] = useState(false);
+  const [shareWhatsAppError, setShareWhatsAppError] = useState('');
+  const [shareWhatsAppSuccess, setShareWhatsAppSuccess] = useState('');
+
+  const handleShareWhatsAppRingkasan = async () => {
+    if (!shareDocItem) return;
+    setSharingWhatsApp(true);
+    setShareWhatsAppError('');
+    setShareWhatsAppSuccess('');
+    try {
+      const driveId = shareDocItem.driveFileId || (shareDocItem.url?.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1]);
+      const link = driveId ? `https://drive.google.com/file/d/${driveId}/view` : (shareDocItem.url || '');
+      const projectTitle = project?.title || '';
+      const message = `Berikut adalah link dokumen ${shareDocItem.title} — ${projectTitle}:\n\n${link}`;
+
+      const userToken = await AuthService.getToken();
+      const headers: any = { 'Content-Type': 'application/json' };
+      if (userToken) {
+        headers['Authorization'] = `Bearer ${userToken}`;
+      }
+
+      const response = await fetch(getApiUrl('/api/send-whatsapp'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          target: shareWhatsAppNumber === '' ? '120363295728301990@g.us' : shareWhatsAppNumber.trim(),
+          message: message
+        })
+      });
+
+      const resText = await response.text();
+      let resData;
+      try {
+        resData = JSON.parse(resText);
+      } catch (e) {
+        throw new Error("Respon server tidak valid.");
+      }
+
+      if (response.ok && resData.success) {
+        setShareWhatsAppSuccess('Berhasil mengirim link dokumen ke WhatsApp!');
+        setTimeout(() => {
+          setShareDocItem(null);
+          setShareWhatsAppNumber('');
+          setShareWhatsAppSuccess('');
+        }, 2000);
+      } else {
+        throw new Error(resData?.error || 'Gagal mengirim pesan WhatsApp.');
+      }
+    } catch (err: any) {
+      setShareWhatsAppError(err.message || 'Gagal mengirim WhatsApp.');
+    } finally {
+      setSharingWhatsApp(false);
+    }
+  };
+
+  const handleDeleteDocumentItem = async (fileItem: any) => {
+    if (!confirm(`Hapus dokumen "${fileItem.title}"?`)) return;
+    try {
+      const driveId = fileItem.driveFileId || (fileItem.url?.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1]);
+      if (driveId) {
+        try {
+          const token = await AuthService.getToken();
+          await fetch(getApiUrl(`/api/v2/drive/delete-file/${driveId}`), {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+        } catch (e) {
+          console.warn('Drive file deletion non-fatal:', e);
+        }
+      }
+
+      try {
+        await deleteDoc(doc(db, 'project_uploaded_documents', fileItem.id));
+      } catch (_) {}
+
+      try {
+        await deleteDoc(doc(db, 'office_projects', projectId, 'documents', fileItem.id));
+      } catch (_) {}
+
+      await fetchProjectFullDetails();
+      alert('Dokumen berhasil dihapus.');
+    } catch (err: any) {
+      console.error(err);
+      alert('Gagal menghapus dokumen: ' + (err.message || err));
+    }
   };
   const [addingDoc, setAddingDoc] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -4549,61 +4647,189 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   ) : (
                     <div className="space-y-2.5">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {allProjectFiles.map((fileItem, idx) => (
-                          <div
-                            key={fileItem.id || idx}
-                            className="flex items-center justify-between p-3 bg-slate-50/80 hover:bg-slate-100/80 rounded-xl border border-slate-150 transition-all group"
-                          >
-                            <div className="flex items-center gap-3 min-w-0 mr-2">
-                              <div className="w-9 h-9 rounded-lg bg-blue-100/70 text-blue-600 flex items-center justify-center shrink-0 border border-blue-200/60">
-                                <File className="w-4 h-4" />
+                        {allProjectFiles.map((fileItem, idx) => {
+                          const driveId = fileItem.driveFileId || (fileItem.url?.match(/\/d\/([a-zA-Z0-9_-]+)/)?.[1]);
+                          const viewUrl = driveId ? `https://drive.google.com/file/d/${driveId}/view` : fileItem.url;
+                          const downloadUrl = driveId ? `https://drive.google.com/uc?export=download&id=${driveId}` : fileItem.url;
+                          const isMenuOpen = activeMenuDocId === fileItem.id;
+
+                          return (
+                            <div
+                              key={fileItem.id || idx}
+                              className="flex items-center justify-between p-3 bg-slate-50/80 hover:bg-slate-100/80 rounded-xl border border-slate-150 transition-all group relative"
+                            >
+                              <div className="flex items-center gap-3 min-w-0 mr-2 flex-1">
+                                <div className="w-9 h-9 rounded-lg bg-blue-100/70 text-blue-600 flex items-center justify-center shrink-0 border border-blue-200/60">
+                                  <File className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p
+                                    className="font-semibold text-slate-800 text-xs truncate group-hover:text-blue-600 transition-colors cursor-pointer"
+                                    title={fileItem.title}
+                                    onClick={() => {
+                                      if (viewUrl) window.open(viewUrl, '_blank');
+                                    }}
+                                  >
+                                    {fileItem.title}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    {fileItem.subtitle && (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-white text-slate-500 border border-slate-200 font-medium truncate max-w-[140px]">
+                                        {fileItem.subtitle}
+                                      </span>
+                                    )}
+                                    {fileItem.uploadedAt && (
+                                      <span className="text-[10px] text-slate-400 shrink-0">
+                                        {new Date(fileItem.uploadedAt).toLocaleDateString('id-ID', {
+                                          day: 'numeric',
+                                          month: 'short',
+                                          year: 'numeric'
+                                        })}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                              <div className="min-w-0">
-                                <p className="font-semibold text-slate-800 text-xs truncate group-hover:text-blue-600 transition-colors" title={fileItem.title}>
-                                  {fileItem.title}
-                                </p>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  {fileItem.subtitle && (
-                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-white text-slate-500 border border-slate-200 font-medium truncate max-w-[140px]">
-                                      {fileItem.subtitle}
-                                    </span>
-                                  )}
-                                  {fileItem.uploadedAt && (
-                                    <span className="text-[10px] text-slate-400 shrink-0">
-                                      {new Date(fileItem.uploadedAt).toLocaleDateString('id-ID', {
-                                        day: 'numeric',
-                                        month: 'short',
-                                        year: 'numeric'
-                                      })}
-                                    </span>
+
+                              {/* Right: Actions */}
+                              <div className="flex items-center justify-end gap-1 shrink-0">
+                                {/* Share Button */}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShareDocItem(fileItem);
+                                  }}
+                                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/80 rounded-lg transition-all duration-150 cursor-pointer"
+                                  title="Kirim via WhatsApp"
+                                >
+                                  <Share2 className="w-4 h-4" />
+                                </button>
+
+                                {/* Download Button */}
+                                {downloadUrl ? (
+                                  <a
+                                    href={downloadUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50/80 rounded-lg transition-all duration-150"
+                                    title="Unduh Berkas"
+                                  >
+                                    <Download className="w-4 h-4" />
+                                  </a>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (fileItem.url) window.open(fileItem.url, '_blank');
+                                    }}
+                                    className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50/80 rounded-lg transition-all duration-150 cursor-pointer"
+                                    title="Unduh / Buka Dokumen"
+                                  >
+                                    <Download className="w-4 h-4" />
+                                  </button>
+                                )}
+
+                                {/* More Menu Dropdown */}
+                                <div className="relative">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setActiveMenuDocId(isMenuOpen ? null : fileItem.id);
+                                    }}
+                                    className={`p-1.5 rounded-lg transition-all duration-150 cursor-pointer ${
+                                      isMenuOpen ? 'bg-slate-200 text-slate-700' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/60'
+                                    }`}
+                                    title="Menu Aksi"
+                                  >
+                                    <MoreVertical className="w-4 h-4" />
+                                  </button>
+
+                                  {isMenuOpen && (
+                                    <>
+                                      <div
+                                        className="fixed inset-0 z-40 cursor-default"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActiveMenuDocId(null);
+                                        }}
+                                      />
+                                      <div className="absolute right-0 mt-1.5 w-48 rounded-xl bg-white border border-slate-200/90 shadow-xl ring-1 ring-black/5 z-50 py-1 divide-y divide-slate-100 origin-top-right animate-in fade-in duration-100 text-left">
+                                        <div className="py-1">
+                                          {viewUrl && (
+                                            <a
+                                              href={viewUrl}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              onClick={() => setActiveMenuDocId(null)}
+                                              className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                                            >
+                                              <ExternalLink className="w-4 h-4 text-slate-400" />
+                                              <span>Buka di Drive</span>
+                                            </a>
+                                          )}
+                                          {downloadUrl && (
+                                            <a
+                                              href={downloadUrl}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              onClick={() => setActiveMenuDocId(null)}
+                                              className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors"
+                                            >
+                                              <Download className="w-4 h-4 text-slate-400" />
+                                              <span>Unduh Berkas</span>
+                                            </a>
+                                          )}
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setShareDocItem(fileItem);
+                                              setActiveMenuDocId(null);
+                                            }}
+                                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                          >
+                                            <Share2 className="w-4 h-4 text-slate-400" />
+                                            <span>Kirim via WhatsApp</span>
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const linkToCopy = viewUrl || fileItem.url;
+                                              if (linkToCopy) {
+                                                navigator.clipboard.writeText(linkToCopy);
+                                                alert('Link dokumen disalin ke clipboard!');
+                                              }
+                                              setActiveMenuDocId(null);
+                                            }}
+                                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                          >
+                                            <Copy className="w-4 h-4 text-slate-400" />
+                                            <span>Salin Link</span>
+                                          </button>
+                                        </div>
+
+                                        <div className="py-1">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setActiveMenuDocId(null);
+                                              handleDeleteDocumentItem(fileItem);
+                                            }}
+                                            className="w-full text-left px-3.5 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2.5 transition-colors cursor-pointer"
+                                          >
+                                            <Trash2 className="w-4 h-4 text-red-500" />
+                                            <span>Hapus Dokumen</span>
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </>
                                   )}
                                 </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              {fileItem.url ? (
-                                <a
-                                  href={fileItem.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="px-2.5 py-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-1 transition-all shadow-2xs"
-                                >
-                                  <span>Lihat</span>
-                                  <ExternalLink className="w-3 h-3" />
-                                </a>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setActiveDetailTab('dokumen')}
-                                  className="px-2.5 py-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-white hover:bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-1 transition-all shadow-2xs cursor-pointer"
-                                >
-                                  <span>Buka</span>
-                                  <ChevronRight className="w-3 h-3" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
 
                       <div className="flex justify-end pt-1">
@@ -6060,6 +6286,140 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* WhatsApp Share Modal for Ringkasan Proyek */}
+        {shareDocItem && (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <h3 className="text-lg font-bold text-slate-800">Bagikan ke WhatsApp</h3>
+                <button 
+                  onClick={() => { setShareDocItem(null); setShareWhatsAppNumber(''); setShareWhatsAppError(''); setShareWhatsAppSuccess(''); }}
+                  className="text-slate-400 hover:text-slate-500 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                {shareWhatsAppError && (
+                  <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-100">
+                    {shareWhatsAppError}
+                  </div>
+                )}
+                {shareWhatsAppSuccess && (
+                  <div className="p-3 bg-green-50 text-green-700 text-sm rounded-lg border border-green-100">
+                    {shareWhatsAppSuccess}
+                  </div>
+                )}
+                
+                <div className="space-y-3">
+                  <label className="text-sm font-semibold text-slate-700">Pilih Penerima WhatsApp</label>
+                  
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input 
+                        type="radio" 
+                        name="whatsappTargetRingkasan" 
+                        value="120363295728301990@g.us"
+                        checked={shareWhatsAppNumber === '120363295728301990@g.us' || shareWhatsAppNumber === ''}
+                        onChange={(e) => setShareWhatsAppNumber(e.target.value)}
+                        className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div>
+                        <div className="font-medium text-sm text-slate-800">Grup Kantor</div>
+                        <div className="text-xs text-slate-500">Gorpu kantor</div>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input 
+                        type="radio" 
+                        name="whatsappTargetRingkasan" 
+                        value="08111301991"
+                        checked={shareWhatsAppNumber === '08111301991'}
+                        onChange={(e) => setShareWhatsAppNumber(e.target.value)}
+                        className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div>
+                        <div className="font-medium text-sm text-slate-800">Nendi</div>
+                        <div className="text-xs text-slate-500">08111301991</div>
+                      </div>
+                    </label>
+
+                    <label className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input 
+                        type="radio" 
+                        name="whatsappTargetRingkasan" 
+                        value="083128916406"
+                        checked={shareWhatsAppNumber === '083128916406'}
+                        onChange={(e) => setShareWhatsAppNumber(e.target.value)}
+                        className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div>
+                        <div className="font-medium text-sm text-slate-800">Azizah</div>
+                        <div className="text-xs text-slate-500">083128916406</div>
+                      </div>
+                    </label>
+                    
+                    <label className="flex items-start gap-3 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                      <input 
+                        type="radio" 
+                        name="whatsappTargetRingkasan" 
+                        value="custom"
+                        checked={!['120363295728301990@g.us', '08111301991', '083128916406', ''].includes(shareWhatsAppNumber)}
+                        onChange={() => setShareWhatsAppNumber(' ')}
+                        className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 mt-1"
+                      />
+                      <div className="w-full">
+                        <div className="font-medium text-sm text-slate-800">Nomor Lain</div>
+                        {!['120363295728301990@g.us', '08111301991', '083128916406', ''].includes(shareWhatsAppNumber) && (
+                          <input
+                            type="text"
+                            value={shareWhatsAppNumber.trim()}
+                            onChange={(e) => setShareWhatsAppNumber(e.target.value)}
+                            placeholder="Contoh: 081234567890"
+                            className="w-full mt-2 px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                            disabled={sharingWhatsApp}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                      </div>
+                    </label>
+                  </div>
+
+                  <p className="text-xs text-slate-500 mt-2">
+                    Link Google Drive dari dokumen <strong>{shareDocItem.title}</strong> akan dikirimkan melalui Fonnte API.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setShareDocItem(null); setShareWhatsAppNumber(''); setShareWhatsAppError(''); setShareWhatsAppSuccess(''); }}
+                  className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-800 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-colors cursor-pointer"
+                  disabled={sharingWhatsApp}
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShareWhatsAppRingkasan}
+                  disabled={sharingWhatsApp || !!shareWhatsAppSuccess || shareWhatsAppNumber === ' '}
+                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {sharingWhatsApp ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  <span>Kirim</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
