@@ -4805,13 +4805,13 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   );
                 })()}
 
-                {/* 2. Tambah Catatan Proyek (Tanpa Ubah Status) */}
+                {/* 2. Catatan Proyek */}
                 <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <div className="flex items-center gap-2">
                       <FileText className="w-4 h-4 text-amber-500" />
                       <h2 className="text-sm font-bold text-slate-800">
-                        Tambah Catatan Proyek (Tanpa Ubah Status)
+                        Catatan Proyek
                       </h2>
                     </div>
                   </div>
@@ -4844,7 +4844,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                         ) : (
                           <>
                             <Plus className="w-3.5 h-3.5" />
-                            <span>Simpan Catatan</span>
+                            <span>Simpan</span>
                           </>
                         )}
                       </button>
@@ -5429,11 +5429,11 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           {/* ======================================================== */}
           {activeDetailTab === 'catatan' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Tambah Catatan Proyek */}
+              {/* Catatan Proyek */}
               <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-2xs space-y-4">
                 <h2 className="text-[14px] font-bold text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-3 flex items-center gap-2">
                   <FileText className="w-4 h-4 text-amber-500" />
-                  <span>Tambah Catatan Proyek (Tanpa Ubah Status)</span>
+                  <span>Catatan Proyek</span>
                 </h2>
                 <div className="space-y-3">
                   <p className="text-xs text-slate-500">
@@ -5461,7 +5461,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                       ) : (
                         <>
                           <Plus className="w-3.5 h-3.5" />
-                          <span>Simpan Catatan</span>
+                          <span>Simpan</span>
                         </>
                       )}
                     </button>
