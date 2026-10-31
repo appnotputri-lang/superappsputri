@@ -455,14 +455,94 @@ const RUPSLBPageInternal: React.FC<RUPSLBPageProps> = ({
     });
   };
 
-  // Common Save Handler for RUPS LB
-  const handleSaveDraft = async () => {
+  // Save Draft & Google Drive Upload Options Modal State
+  const [isSaveDriveModalOpen, setIsSaveDriveModalOpen] = useState(false);
+  const [saveDriveNone, setSaveDriveNone] = useState(true);
+  const [saveDriveNotulen, setSaveDriveNotulen] = useState(false);
+  const [saveDriveAkta, setSaveDriveAkta] = useState(false);
+  const [saveDrivePeralihan, setSaveDrivePeralihan] = useState(false);
+
+  // Check if there is an agenda creating share transfers
+  const hasShareTransferAgenda = useMemo(() => {
+    const transfers = (data.shareTransfersNew && data.shareTransfersNew.length > 0)
+      ? data.shareTransfersNew
+      : (data.shareTransfers || []);
+    return Boolean(
+      data.resolutions?.shareholders ||
+      transfers.length > 0 ||
+      draftAktaRef?.current?.hasTransfers
+    );
+  }, [data.resolutions?.shareholders, data.shareTransfersNew, data.shareTransfers, draftAktaRef]);
+
+  const handleOpenSaveModal = () => {
     if (!data.companyName) {
       alert('Nama perseroan harus diisi!');
       return;
     }
+    setSaveDriveNone(true);
+    setSaveDriveNotulen(false);
+    setSaveDriveAkta(false);
+    setSaveDrivePeralihan(false);
+    setIsSaveDriveModalOpen(true);
+  };
+
+  const handleSelectNone = () => {
+    setSaveDriveNone(true);
+    setSaveDriveNotulen(false);
+    setSaveDriveAkta(false);
+    setSaveDrivePeralihan(false);
+  };
+
+  const handleToggleNotulen = () => {
+    if (saveDriveNone) {
+      setSaveDriveNone(false);
+      setSaveDriveNotulen(true);
+      return;
+    }
+    const next = !saveDriveNotulen;
+    setSaveDriveNotulen(next);
+    if (!next && !saveDriveAkta && !saveDrivePeralihan) {
+      setSaveDriveNone(true);
+    }
+  };
+
+  const handleToggleAkta = () => {
+    if (saveDriveNone) {
+      setSaveDriveNone(false);
+      setSaveDriveAkta(true);
+      return;
+    }
+    const next = !saveDriveAkta;
+    setSaveDriveAkta(next);
+    if (!saveDriveNotulen && !next && !saveDrivePeralihan) {
+      setSaveDriveNone(true);
+    }
+  };
+
+  const handleTogglePeralihan = () => {
+    if (saveDriveNone) {
+      setSaveDriveNone(false);
+      setSaveDrivePeralihan(true);
+      return;
+    }
+    const next = !saveDrivePeralihan;
+    setSaveDrivePeralihan(next);
+    if (!saveDriveNotulen && !saveDriveAkta && !next) {
+      setSaveDriveNone(true);
+    }
+  };
+
+  // Common Save Handler for RUPS LB
+  const handleConfirmSaveDraft = async () => {
     setIsSaving(true);
     try {
+      const allowedKinds: ('notulen' | 'akta' | 'peralihan_saham')[] = [];
+      if (!saveDriveNone) {
+        if (saveDriveNotulen) allowedKinds.push('notulen');
+        if (saveDriveAkta) allowedKinds.push('akta');
+        if (saveDrivePeralihan && hasShareTransferAgenda) allowedKinds.push('peralihan_saham');
+      }
+
       const isNew = !editingProjectId || editingProjectId === 'new';
       const result = await DocumentDraftService.saveDraft(
         'rupslb',
@@ -470,7 +550,11 @@ const RUPSLBPageInternal: React.FC<RUPSLBPageProps> = ({
         data,
         user,
         userProfile,
-        activeProjectContext
+        activeProjectContext,
+        {
+          skipUpload: saveDriveNone || allowedKinds.length === 0,
+          allowedKinds
+        }
       );
 
       // Prevent duplicate draft creation on subsequent saves by updating active draft ID
@@ -484,7 +568,17 @@ const RUPSLBPageInternal: React.FC<RUPSLBPageProps> = ({
         isNew ? 'create_rupslb' : 'update_rupslb'
       );
 
-      alert('✅ Draft RUPS LB berhasil disimpan.');
+      setIsSaveDriveModalOpen(false);
+
+      if (saveDriveNone || allowedKinds.length === 0) {
+        alert('✅ Draft RUPS LB berhasil disimpan (tanpa upload ke Google Drive).');
+      } else {
+        const docNames: string[] = [];
+        if (saveDriveNotulen) docNames.push(data.documentType === 'CIRCULAR' ? 'Draft Sirkuler RUPS LB' : 'Draft Notulen RUPS LB');
+        if (saveDriveAkta) docNames.push(data.documentType === 'CIRCULAR' ? 'Draft Akta Sirkuler RUPS LB' : 'Draft Akta RUPS LB');
+        if (saveDrivePeralihan && hasShareTransferAgenda) docNames.push('Draft Akta Peralihan Saham');
+        alert(`✅ Draft RUPS LB berhasil disimpan dan dokumen (${docNames.join(', ')}) berhasil diunggah ke Google Drive.`);
+      }
 
       if (activeProjectContext) {
         const returnId = activeProjectContext;
@@ -682,7 +776,7 @@ const RUPSLBPageInternal: React.FC<RUPSLBPageProps> = ({
             <button
               type="button"
               disabled={isSaving}
-              onClick={handleSaveDraft}
+              onClick={handleOpenSaveModal}
               className="bg-[#1b449c] hover:bg-[#13327d] text-white font-bold text-[12.5px] uppercase h-10 px-5 rounded-lg shadow-sm transition-all flex items-center justify-center gap-2 shrink-0 disabled:opacity-50 cursor-pointer"
             >
               {isSaving ? (
@@ -765,6 +859,199 @@ const RUPSLBPageInternal: React.FC<RUPSLBPageProps> = ({
         freshClient={freshClientForModal}
         currentData={data}
       />
+
+      {/* Modal Pilihan Simpan Draft & Upload Google Drive */}
+      {isSaveDriveModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[100] p-3 sm:p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-50/90 via-indigo-50/50 to-white px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-[#1b449c] text-white rounded-xl shadow-xs">
+                  <Save className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-800">Simpan Draft RUPS LB</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Pilih opsi dokumen yang akan diunggah ke Google Drive
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsSaveDriveModalOpen(false)}
+                disabled={isSaving}
+                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-3.5 max-h-[75vh] overflow-y-auto">
+              <div className="bg-blue-50/60 border border-blue-200/70 rounded-xl p-3 text-xs text-blue-900 leading-relaxed">
+                <span className="font-bold">Informasi:</span> Data formulir akan tersimpan ke sistem. Anda dapat menentukan dokumen DOCX mana yang ingin diunggah ke Google Drive.
+              </div>
+
+              {/* Opsi 1: Tidak upload apapun ke Google Drive */}
+              <div
+                onClick={handleSelectNone}
+                className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
+                  saveDriveNone
+                    ? 'bg-blue-50/80 border-blue-400 ring-2 ring-blue-500/20 text-blue-950 font-medium'
+                    : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                }`}
+              >
+                <div className="mt-0.5">
+                  {saveDriveNone ? (
+                    <CheckCircle2 className="w-5 h-5 text-blue-600 shrink-0" />
+                  ) : (
+                    <div className="w-5 h-5 rounded-full border-2 border-slate-300 shrink-0" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="font-bold text-[13px] text-slate-800">
+                    1. Tidak upload apapun ke Google Drive
+                  </div>
+                  <div className="text-[11.5px] text-slate-500 mt-0.5">
+                    Draft tersimpan di database tanpa mengunggah file DOCX ke Google Drive.
+                  </div>
+                </div>
+              </div>
+
+              {/* Divider & Header Opsi 2-4 */}
+              <div className="pt-2 border-t border-slate-200/80">
+                <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-2">
+                  <span>Pilihan Unggah Dokumen DOCX:</span>
+                  <span className="text-[11px] text-slate-400 font-normal">
+                    {saveDriveNone ? 'Pilih salah satu di bawah untuk mengaktifkan' : 'Dapat memilih lebih dari satu'}
+                  </span>
+                </div>
+
+                <div className="space-y-2.5">
+                  {/* Opsi 2: Upload Draft Notulen */}
+                  <div
+                    onClick={handleToggleNotulen}
+                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
+                      saveDriveNotulen
+                        ? 'bg-indigo-50/90 border-indigo-500 ring-2 ring-indigo-500/20 text-indigo-950 font-medium shadow-xs'
+                        : saveDriveNone
+                        ? 'bg-slate-50/70 border-slate-200 text-slate-400 hover:bg-slate-100/80 hover:text-slate-700'
+                        : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <div className="mt-0.5">
+                      {saveDriveNotulen ? (
+                        <CheckSquare className="w-5 h-5 text-indigo-600 shrink-0" />
+                      ) : (
+                        <div className="w-5 h-5 rounded border-2 border-slate-300 shrink-0" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-bold text-[13px] text-slate-800">
+                        2. Upload Draft Notulen
+                      </div>
+                      <div className="text-[11.5px] text-slate-500 mt-0.5">
+                        Unggah {data.documentType === 'CIRCULAR' ? 'Draft Sirkuler RUPS LB' : 'Draft Notulen RUPS LB'} (.docx) ke Google Drive.
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Opsi 3: Upload Draft Akta */}
+                  <div
+                    onClick={handleToggleAkta}
+                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
+                      saveDriveAkta
+                        ? 'bg-indigo-50/90 border-indigo-500 ring-2 ring-indigo-500/20 text-indigo-950 font-medium shadow-xs'
+                        : saveDriveNone
+                        ? 'bg-slate-50/70 border-slate-200 text-slate-400 hover:bg-slate-100/80 hover:text-slate-700'
+                        : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <div className="mt-0.5">
+                      {saveDriveAkta ? (
+                        <CheckSquare className="w-5 h-5 text-indigo-600 shrink-0" />
+                      ) : (
+                        <div className="w-5 h-5 rounded border-2 border-slate-300 shrink-0" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-bold text-[13px] text-slate-800">
+                        3. Upload Draft Akta
+                      </div>
+                      <div className="text-[11.5px] text-slate-500 mt-0.5">
+                        Unggah {data.documentType === 'CIRCULAR' ? 'Draft Akta Sirkuler RUPS LB' : 'Draft Akta RUPS LB'} (.docx) ke Google Drive.
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Opsi 4: Upload Draft Peralihan Saham (Hanya jika hasShareTransferAgenda) */}
+                  {hasShareTransferAgenda && (
+                    <div
+                      onClick={handleTogglePeralihan}
+                      className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 select-none ${
+                        saveDrivePeralihan
+                          ? 'bg-indigo-50/90 border-indigo-500 ring-2 ring-indigo-500/20 text-indigo-950 font-medium shadow-xs'
+                          : saveDriveNone
+                          ? 'bg-slate-50/70 border-slate-200 text-slate-400 hover:bg-slate-100/80 hover:text-slate-700'
+                          : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
+                      }`}
+                    >
+                      <div className="mt-0.5">
+                        {saveDrivePeralihan ? (
+                          <CheckSquare className="w-5 h-5 text-indigo-600 shrink-0" />
+                        ) : (
+                          <div className="w-5 h-5 rounded border-2 border-slate-300 shrink-0" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-bold text-[13px] text-slate-800">
+                          4. Upload Draft Peralihan Saham
+                        </div>
+                        <div className="text-[11.5px] text-slate-500 mt-0.5">
+                          Unggah Akta Jual Beli / Hibah Saham (.docx) ke Google Drive.
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsSaveDriveModalOpen(false)}
+                disabled={isSaving}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200/80 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSaveDraft}
+                disabled={isSaving}
+                className="px-5 py-2.5 bg-[#1b449c] hover:bg-[#13327d] text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Menyimpan...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>
+                      {saveDriveNone ? 'Simpan (Tanpa Upload Drive)' : 'Simpan & Upload ke Drive'}
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast Notification */}
       <ToastNotification

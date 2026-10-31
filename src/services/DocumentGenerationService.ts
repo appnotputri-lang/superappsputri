@@ -32,7 +32,10 @@ export class DocumentGenerationService {
     projectId: string,
     rawData?: any,
     currentUserEmail?: string,
-    currentUserName?: string
+    currentUserName?: string,
+    options?: {
+      allowedKinds?: ('notulen' | 'pernyataan' | 'akta' | 'pendirian' | 'peralihan_saham')[];
+    }
   ): Promise<void> {
     // 1. Fetch project document to verify it exists and has driveFolderId
     const projectRef = doc(db, 'office_projects', projectId);
@@ -201,7 +204,15 @@ export class DocumentGenerationService {
       }
     }
 
+    if (options?.allowedKinds && options.allowedKinds.length > 0) {
+      kinds = kinds.filter(item => options.allowedKinds!.includes(item.kind));
+    }
+
     if (kinds.length === 0) {
+      if (options?.allowedKinds && options.allowedKinds.length > 0) {
+        console.log('[DocumentGenerationService] No kinds matched allowedKinds filter. Skipping generation.');
+        return;
+      }
       throw new Error(`Jenis pekerjaan '${jobType}' tidak mendukung generate dokumen otomatis.`);
     }
 

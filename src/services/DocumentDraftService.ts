@@ -141,7 +141,11 @@ export class DocumentDraftService {
     formData: any,
     user: any,
     userProfile?: any,
-    activeProjectContext?: string | null
+    activeProjectContext?: string | null,
+    driveUploadOptions?: {
+      skipUpload?: boolean;
+      allowedKinds?: ('notulen' | 'pernyataan' | 'akta' | 'pendirian' | 'peralihan_saham')[];
+    }
   ): Promise<{ id: string; success: boolean; driveFileId?: string }> {
     if (!user) {
       throw new Error('Anda harus login terlebih dahulu.');
@@ -213,35 +217,38 @@ export class DocumentDraftService {
         });
 
         // Trigger Google Drive upload for project
-        try {
-          await DocumentGenerationService.generateAndUploadAllForProject(
-            activeProjectContext,
-            finalData,
-            user?.email,
-            userProfile?.name
-          );
+        if (!driveUploadOptions?.skipUpload) {
+          try {
+            await DocumentGenerationService.generateAndUploadAllForProject(
+              activeProjectContext,
+              finalData,
+              user?.email,
+              userProfile?.name,
+              driveUploadOptions?.allowedKinds ? { allowedKinds: driveUploadOptions.allowedKinds } : undefined
+            );
 
-          // Update draft with project uploaded driveFileId if available
-          const qUpload = query(
-            collection(db, 'project_uploaded_documents'),
-            where('projectId', '==', activeProjectContext)
-          );
-          const snapUpload = await getDocs(qUpload);
-          if (!snapUpload.empty) {
-            const firstDoc = snapUpload.docs[0].data();
-            if (firstDoc.driveFileId) {
-              await setDoc(doc(db, colName, id), {
-                driveFileId: firstDoc.driveFileId,
-                driveFolderId: firstDoc.driveFolderId || null,
-                driveFileUrl: `https://drive.google.com/file/d/${firstDoc.driveFileId}/view`,
-                driveSyncStatus: 'synced',
-                driveLastSyncedAt: new Date().toISOString()
-              }, { merge: true });
-              finalData.driveFileId = firstDoc.driveFileId;
+            // Update draft with project uploaded driveFileId if available
+            const qUpload = query(
+              collection(db, 'project_uploaded_documents'),
+              where('projectId', '==', activeProjectContext)
+            );
+            const snapUpload = await getDocs(qUpload);
+            if (!snapUpload.empty) {
+              const firstDoc = snapUpload.docs[0].data();
+              if (firstDoc.driveFileId) {
+                await setDoc(doc(db, colName, id), {
+                  driveFileId: firstDoc.driveFileId,
+                  driveFolderId: firstDoc.driveFolderId || null,
+                  driveFileUrl: `https://drive.google.com/file/d/${firstDoc.driveFileId}/view`,
+                  driveSyncStatus: 'synced',
+                  driveLastSyncedAt: new Date().toISOString()
+                }, { merge: true });
+                finalData.driveFileId = firstDoc.driveFileId;
+              }
             }
+          } catch (driveErr) {
+            console.warn('[DocumentDraftService] Project Drive sync non-fatal warning:', driveErr);
           }
-        } catch (driveErr) {
-          console.warn('[DocumentDraftService] Project Drive sync non-fatal warning:', driveErr);
         }
       }
 
