@@ -2380,7 +2380,7 @@ Jika ada field yang tidak terbaca atau tidak jelas, kosongkan string-nya ("").`;
   });
 
   app.post("/api/upload-document", async (req, res) => {
-    const { projectId, name, fileName, fileType, base64, uploadedBy } = req.body;
+    const { projectId, name, fileName, fileType, base64, uploadedBy, documentCategory, documentType } = req.body;
 
     if (!projectId || !name || !fileName || !fileType || !base64) {
       return res.status(400).json({ error: "Missing required fields: projectId, name, fileName, fileType, base64" });
@@ -2427,7 +2427,9 @@ Jika ada field yang tidak terbaca atau tidak jelas, kosongkan string-nya ("").`;
         type: fileName.split('.').pop() || 'other',
         url: driveFileUrl,
         uploadedBy: uploadedBy || "staff_notaris",
-        uploadedAt: now.toISOString()
+        uploadedAt: now.toISOString(),
+        documentCategory: documentCategory || 'custom',
+        documentType: documentType || 'custom'
       };
 
       console.log(`[Upload API] Registering document ${docId} in Firestore...`);

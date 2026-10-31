@@ -13,7 +13,7 @@ export const onRequestPost = async (context: any) => {
     return createErrorResponse('Invalid JSON body', 400);
   }
 
-  const { projectId, name, fileName, fileType, base64, uploadedBy } = body;
+  const { projectId, name, fileName, fileType, base64, uploadedBy, documentCategory, documentType } = body;
 
   if (!projectId || !name || !fileName || !fileType || !base64) {
     return createErrorResponse('Missing required fields: projectId, name, fileName, fileType, base64', 400);
@@ -60,7 +60,9 @@ export const onRequestPost = async (context: any) => {
       type: fileName.split('.').pop() || 'other',
       url: driveFileUrl,
       uploadedBy: uploadedBy || "staff_notaris",
-      uploadedAt: now.toISOString()
+      uploadedAt: now.toISOString(),
+      documentCategory: documentCategory || 'custom',
+      documentType: documentType || 'custom'
     };
 
     console.log(`[Upload API] Registering document ${docId} in Firestore...`);

@@ -47,6 +47,9 @@ interface DriveFileItem {
 }
 
 const DOCUMENT_TYPES = [
+  { value: 'draft_notulen', label: 'Draft Notulen' },
+  { value: 'draft_akta', label: 'Draft Akta' },
+  { value: 'draft_peralihan', label: 'Draft Peralihan Saham' },
   { value: 'minutes', label: 'Scan Notulen / Keputusan' },
   { value: 'deed', label: 'Scan Akta' },
   { value: 'sksp', label: 'SK / SP' },
@@ -257,6 +260,9 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
     try {
       const mapTypeToCategory = (type: string) => {
         switch (type) {
+          case 'draft_notulen': return 'notulen';
+          case 'draft_akta': return 'draft_akta';
+          case 'draft_peralihan': return 'draft_akta';
           case 'minutes': return 'scan_notulen';
           case 'deed': return 'scan_akta';
           case 'sksp': return 'sksp';
@@ -371,10 +377,13 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
       return;
     }
 
-    const builtInTypes = ['minutes', 'deed', 'sksp'];
+    const builtInTypes = ['draft_notulen', 'draft_akta', 'draft_peralihan', 'minutes', 'deed', 'sksp'];
     if (!isReplace && builtInTypes.includes(selectedType)) {
       const mapTypeToCategory = (type: string) => {
         switch (type) {
+          case 'draft_notulen': return 'notulen';
+          case 'draft_akta': return 'draft_akta';
+          case 'draft_peralihan': return 'draft_akta';
           case 'minutes': return 'scan_notulen';
           case 'deed': return 'scan_akta';
           case 'sksp': return 'sksp';
@@ -467,6 +476,9 @@ export function ProjectDocumentUpload({ project, currentUser }: ProjectDocumentU
 
       const mapTypeToCategory = (type: string) => {
         switch (type) {
+          case 'draft_notulen': return 'notulen';
+          case 'draft_akta': return 'draft_akta';
+          case 'draft_peralihan': return 'draft_akta';
           case 'minutes': return 'scan_notulen';
           case 'deed': return 'scan_akta';
           case 'sksp': return 'sksp';

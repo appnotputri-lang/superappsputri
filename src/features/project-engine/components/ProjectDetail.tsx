@@ -593,11 +593,60 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
   // New Document State
   const [isDocModalOpen, setIsDocModalOpen] = useState(false);
+  const [selectedDocType, setSelectedDocType] = useState('draft_notulen');
   const [docForm, setDocForm] = useState({
     name: '',
     type: 'docx',
     url: ''
   });
+
+  const handleDocTypeChange = (newType: string) => {
+    setSelectedDocType(newType);
+    const company = client?.companyName || project?.clientSnapshot?.companyName || project?.title || '';
+    const cleanCompany = company ? ` - ${company}` : '';
+
+    switch (newType) {
+      case 'draft_notulen':
+        setDocForm(prev => ({ ...prev, name: `Draft Notulen${cleanCompany}` }));
+        break;
+      case 'draft_akta':
+        setDocForm(prev => ({ ...prev, name: `Draft Akta${cleanCompany}` }));
+        break;
+      case 'draft_peralihan':
+        setDocForm(prev => ({ ...prev, name: `Draft Akta Peralihan Saham${cleanCompany}` }));
+        break;
+      case 'minutes':
+        setDocForm(prev => ({ ...prev, name: `Scan Notulen / Keputusan${cleanCompany}` }));
+        break;
+      case 'deed':
+        setDocForm(prev => ({ ...prev, name: `Scan Akta${cleanCompany}` }));
+        break;
+      case 'sksp':
+        setDocForm(prev => ({ ...prev, name: `SK Kemenkumham${cleanCompany}` }));
+        break;
+      case 'custom':
+        if (selectedFile) {
+          const baseName = selectedFile.name.substring(0, selectedFile.name.lastIndexOf('.')) || selectedFile.name;
+          setDocForm(prev => ({ ...prev, name: baseName }));
+        } else {
+          setDocForm(prev => ({ ...prev, name: '' }));
+        }
+        break;
+    }
+  };
+
+  const handleOpenDocModal = () => {
+    setSelectedDocType('draft_notulen');
+    const company = client?.companyName || project?.clientSnapshot?.companyName || project?.title || '';
+    const cleanCompany = company ? ` - ${company}` : '';
+    setDocForm({
+      name: `Draft Notulen${cleanCompany}`,
+      type: 'docx',
+      url: ''
+    });
+    setSelectedFile(null);
+    setIsDocModalOpen(true);
+  };
   const [addingDoc, setAddingDoc] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
@@ -3229,6 +3278,20 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     try {
       const base64 = await getBase64(selectedFile);
       
+      const mapDocTypeToCategory = (type: string) => {
+        switch (type) {
+          case 'draft_notulen': return 'notulen';
+          case 'draft_akta': return 'draft_akta';
+          case 'draft_peralihan': return 'draft_akta';
+          case 'minutes': return 'scan_notulen';
+          case 'deed': return 'scan_akta';
+          case 'sksp': return 'sksp';
+          default: return 'custom';
+        }
+      };
+
+      const docCategory = mapDocTypeToCategory(selectedDocType);
+
       const response = await fetch(getApiUrl('/api/upload-document'), {
         method: 'POST',
         headers: {
@@ -3240,13 +3303,45 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           fileName: selectedFile.name,
           fileType: selectedFile.type || 'application/octet-stream',
           base64,
-          uploadedBy: currentUser.email || 'staff_notaris'
+          uploadedBy: currentUser.email || 'staff_notaris',
+          documentCategory: docCategory,
+          documentType: selectedDocType
         })
       });
 
       const resData = await response.json();
       if (!response.ok) {
         throw new Error(resData.error || 'Gagal mengunggah dokumen.');
+      }
+
+      // Also register into project_uploaded_documents for complete synchronization
+      try {
+        const docId = resData.document?.id || crypto.randomUUID();
+        const driveFileUrl = resData.document?.url;
+        const match = driveFileUrl?.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        const driveFileId = match ? match[1] : '';
+
+        await setDoc(doc(db, 'project_uploaded_documents', docId), {
+          id: docId,
+          companyId: project?.clientId || '',
+          projectId: project?.projectId || projectId,
+          type: selectedDocType,
+          title: docForm.name.trim(),
+          fileName: selectedFile.name,
+          mimeType: selectedFile.type || 'application/octet-stream',
+          size: selectedFile.size,
+          driveFileId: driveFileId,
+          driveFolderId: project?.metadata?.driveFolderId || (project as any)?.driveFolderId || '',
+          uploadedBy: currentUser?.name || currentUser?.email || 'staff_notaris',
+          uploadedAt: new Date().toISOString(),
+          savedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          documentSource: 'manual',
+          documentCategory: docCategory,
+          isLatest: true
+        });
+      } catch (syncErr) {
+        console.warn('Could not register in project_uploaded_documents:', syncErr);
       }
 
       // Refresh documents and clear states
@@ -4413,7 +4508,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => setIsDocModalOpen(true)}
+                        onClick={handleOpenDocModal}
                         className="px-3 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
                       >
                         <Upload className="w-3.5 h-3.5" />
@@ -4445,13 +4540,12 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                       </div>
                       <button
                         type="button"
-                        onClick={() => setIsDocModalOpen(true)}
+                        onClick={handleOpenDocModal}
                         className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-xs mx-auto cursor-pointer"
                       >
                         <Upload className="w-3.5 h-3.5" />
                         <span>Upload Dokumen Sekarang</span>
-                      </button>
-                    </div>
+                      </button>                    </div>
                   ) : (
                     <div className="space-y-2.5">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -5904,6 +5998,24 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Jenis Dokumen */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wide">Jenis Dokumen</label>
+                  <select
+                    value={selectedDocType}
+                    onChange={(e) => handleDocTypeChange(e.target.value)}
+                    className="w-full px-3 py-2.5 text-[13px] bg-slate-50 border border-slate-200 hover:border-slate-300 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded-lg outline-none transition-all cursor-pointer font-medium text-slate-700"
+                  >
+                    <option value="draft_notulen">Draft Notulen</option>
+                    <option value="draft_akta">Draft Akta</option>
+                    <option value="draft_peralihan">Draft Peralihan Saham</option>
+                    <option value="minutes">Scan Notulen / Keputusan</option>
+                    <option value="deed">Scan Akta</option>
+                    <option value="sksp">SK / SP (Kemenkumham)</option>
+                    <option value="custom">Kustom / Dokumen Lainnya</option>
+                  </select>
                 </div>
 
                 <div className="space-y-1.5">
