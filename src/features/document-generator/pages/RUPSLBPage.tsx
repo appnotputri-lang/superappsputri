@@ -634,8 +634,6 @@ const RUPSLBPageInternal: React.FC<RUPSLBPageProps> = ({
   }
 
   // 2. FORM VIEW (Create or Edit Draft)
-  const isEditingExisting = editingProjectId !== 'new';
-  const currentCompanyName = data.companyName || 'PT Baru';
 
   return (
     <div className="w-[94%] xl:w-[92%] max-w-none mx-auto space-y-6 px-2 sm:px-4 py-4 pb-12">
@@ -662,49 +660,12 @@ const RUPSLBPageInternal: React.FC<RUPSLBPageProps> = ({
               <span>Kembali ke Daftar</span>
             </button>
 
-            {/* Mode Indicator */}
-            <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide flex items-center gap-2 border ${
-              isEditingExisting 
-                ? 'bg-amber-50 text-amber-900 border-amber-300' 
-                : 'bg-blue-50 text-blue-900 border-blue-300'
-            }`}>
-              <span className={`w-2 h-2 rounded-full ${isEditingExisting ? 'bg-amber-600' : 'bg-blue-600'}`} />
-              {isEditingExisting ? `Mode: Edit Draft — ${currentCompanyName}` : `Mode: Buat Dokumen Baru (RUPS LB)`}
-            </span>
-
             <div className="h-5 w-px bg-slate-200 hidden sm:block mx-1" />
             <AutoSaveIndicatorComponent />
           </div>
 
           {/* RIGHT GROUP */}
           <div className="flex flex-wrap items-center gap-2.5 justify-start lg:justify-end">
-            {/* Buka di Google Drive */}
-            {data.driveFileId && (
-              <button
-                type="button"
-                onClick={() => DocumentDraftService.openDriveDocument(data.driveFileId, data.driveFileUrl)}
-                className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer uppercase shadow-2xs h-10"
-                title="Buka file draft di Google Drive"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                <span>Buka di Google Drive</span>
-              </button>
-            )}
-
-            {/* Sinkronkan ke Google Drive */}
-            {isEditingExisting && (
-              <button
-                type="button"
-                disabled={isDriveSyncing}
-                onClick={() => handleSyncToDrive(editingProjectId, data)}
-                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer uppercase shadow-2xs disabled:opacity-50 h-10"
-                title="Unggah atau perbarui file Word ke Google Drive"
-              >
-                {isDriveSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                <span>{data.driveFileId ? 'Perbarui di Drive' : 'Upload ke Drive'}</span>
-              </button>
-            )}
-
             {/* Download Dropdown */}
             <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
               <button
