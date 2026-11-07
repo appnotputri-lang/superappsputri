@@ -423,6 +423,21 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
   const [targetStatusToChange, setTargetStatusToChange] = useState('');
   const [statusChangeNote, setStatusChangeNote] = useState('');
 
+  const isTargetStatusNeedsDeed = (() => {
+    if (!project || !targetStatusToChange) return false;
+    const isCompletedStatus = 
+      targetStatusToChange.toLowerCase().includes('selesai') || 
+      targetStatusToChange.toLowerCase() === 'sp terbit' || 
+      targetStatusToChange.toLowerCase() === 'sp/sk terbit' || 
+      targetStatusToChange.toLowerCase() === 'nib terbit';
+    const hasDeedForm = 
+      ['rups_lb', 'sirkuler_rupslb', 'pendirian_pt', 'input_nib', 'perbaikan_data_ahu', 'buka_blokir'].includes(project?.jobType || '') ||
+      project?.projectType === 'RUPS LB' ||
+      project?.projectType === 'RUPS-LB' ||
+      project?.projectType === 'PKPS RUPS-LB';
+    return isCompletedStatus && hasDeedForm;
+  })();
+
   const openStatusChangeModal = (targetStep: string) => {
     setIsStatusDropdownOpen(false);
     setIsInfoStatusDropdownOpen(false);
@@ -454,7 +469,11 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       finalStep.toLowerCase() === 'sp terbit' || 
       finalStep.toLowerCase() === 'sp/sk terbit' || 
       finalStep.toLowerCase() === 'nib terbit';
-    const hasDeedForm = ['rups_lb', 'sirkuler_rupslb', 'pendirian_pt'].includes(project?.jobType || '');
+    const hasDeedForm = 
+      ['rups_lb', 'sirkuler_rupslb', 'pendirian_pt', 'input_nib', 'perbaikan_data_ahu', 'buka_blokir'].includes(project?.jobType || '') ||
+      project?.projectType === 'RUPS LB' ||
+      project?.projectType === 'RUPS-LB' ||
+      project?.projectType === 'PKPS RUPS-LB';
 
     if (isCompletedStatus && hasDeedForm) {
       if (!deedNumber.trim() || !deedDate || !notaryName.trim() || !notaryLocation.trim()) {
@@ -1753,7 +1772,14 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       let loadedEntries: { id: string; type: string; number: string; date: string }[] = [];
       if (proj.metadata) {
         if (proj.metadata.deedNumber) setDeedNumber(proj.metadata.deedNumber);
+        else if ((proj as any).deedNumber) setDeedNumber((proj as any).deedNumber);
+        else if ((proj as any).draftAktaRupsNumber) setDeedNumber((proj as any).draftAktaRupsNumber);
+        else if ((proj as any).nomorAkta) setDeedNumber((proj as any).nomorAkta);
+
         if (proj.metadata.deedDate) setDeedDate(proj.metadata.deedDate);
+        else if ((proj as any).deedDate) setDeedDate((proj as any).deedDate);
+        else if ((proj as any).draftAktaRupsDate) setDeedDate((proj as any).draftAktaRupsDate);
+        else if ((proj as any).tanggalAkta) setDeedDate((proj as any).tanggalAkta);
         if (proj.metadata.notarySelectionType) setNotarySelectionType(proj.metadata.notarySelectionType);
         if (proj.metadata.notaryName) setNotaryName(proj.metadata.notaryName);
         if (proj.metadata.notaryLocation) setNotaryLocation(proj.metadata.notaryLocation);
@@ -2955,7 +2981,11 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       transitionStatus.toLowerCase() === 'sp terbit' || 
       transitionStatus.toLowerCase() === 'sp/sk terbit' || 
       transitionStatus.toLowerCase() === 'nib terbit';
-    const hasDeedForm = ['rups_lb', 'sirkuler_rupslb', 'pendirian_pt'].includes(project?.jobType || '');
+    const hasDeedForm = 
+      ['rups_lb', 'sirkuler_rupslb', 'pendirian_pt', 'input_nib', 'perbaikan_data_ahu', 'buka_blokir'].includes(project?.jobType || '') ||
+      project?.projectType === 'RUPS LB' ||
+      project?.projectType === 'RUPS-LB' ||
+      project?.projectType === 'PKPS RUPS-LB';
 
     if (isCompletedStatus && hasDeedForm) {
       if (!deedNumber.trim() || !deedDate || !notaryName.trim() || !notaryLocation.trim()) {
@@ -6909,16 +6939,16 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
         {/* Modal Ubah Status Proyek & Opsi Catatan */}
         {isStatusModalOpen && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
-            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden animate-slideUp">
+            <div className={`bg-white rounded-2xl shadow-2xl border border-slate-200 w-full overflow-hidden animate-slideUp flex flex-col max-h-[92vh] transition-all duration-300 ${isTargetStatusNeedsDeed ? 'max-w-2xl' : 'max-w-lg'}`}>
               {/* Modal Header */}
-              <div className="bg-gradient-to-r from-blue-700 to-indigo-800 px-6 py-4 text-white flex items-center justify-between">
+              <div className="bg-gradient-to-r from-blue-700 to-indigo-800 px-6 py-4 text-white flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center">
                     <Shield className="w-4 h-4 text-white" />
                   </div>
                   <div>
                     <h3 className="font-bold text-[15px] leading-tight">Ubah Status Proyek</h3>
-                    <p className="text-[11px] text-blue-150 leading-tight truncate max-w-xs">
+                    <p className="text-[11px] text-blue-150 leading-tight truncate max-w-xs md:max-w-md">
                       {project?.title || 'Proyek'}
                     </p>
                   </div>
@@ -6935,8 +6965,8 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                 </button>
               </div>
 
-              {/* Modal Body */}
-              <div className="p-6 space-y-5">
+              {/* Modal Body (Scrollable) */}
+              <div className="p-6 space-y-5 overflow-y-auto flex-1">
                 {/* Visual Status Transition Flow */}
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
@@ -6971,6 +7001,28 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   </div>
                 </div>
 
+                {/* Form Data Akta & SK/SP Penyelesaian Proyek */}
+                {isTargetStatusNeedsDeed && (
+                  <div className="bg-blue-50/40 border border-blue-200 rounded-2xl p-4.5 space-y-4 animate-fadeIn">
+                    <div className="flex items-center justify-between border-b border-blue-200/70 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-blue-600" />
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                          Input Data Akta & SK/SP Penyelesaian
+                        </h4>
+                      </div>
+                      <span className="text-[10px] font-bold text-blue-700 bg-blue-100 border border-blue-200 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                        Wajib untuk Selesai
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                      Lengkapi data Nomor Akta, Tanggal Akta, dan SK/SP AHU di bawah ini. Data ini akan otomatis disinkronkan ke profil perusahaan master klien saat status disimpan.
+                    </p>
+
+                    {renderDeedFields()}
+                  </div>
+                )}
+
                 {/* Input Opsi Catatan */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -6985,7 +7037,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   <textarea
                     value={statusChangeNote}
                     onChange={(e) => setStatusChangeNote(e.target.value)}
-                    rows={3}
+                    rows={2}
                     placeholder="Tulis catatan perkembangan di sini (misal: Menunggu verifikasi berkas dari klien, notulen telah disetujui, akta siap ditandatangani, dsb)..."
                     className="w-full p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-400"
                   />
@@ -7020,39 +7072,39 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                     </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Modal Actions */}
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsStatusModalOpen(false);
-                      setStatusChangeNote('');
-                    }}
-                    disabled={transitioning}
-                    className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleConfirmStatusChange()}
-                    disabled={transitioning || !targetStatusToChange}
-                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
-                  >
-                    {transitioning ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Memperbarui Status...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Simpan Perubahan Status</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+              {/* Modal Actions (Footer - Sticky) */}
+              <div className="flex items-center justify-end gap-2.5 p-4 sm:px-6 bg-slate-50 border-t border-slate-200 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsStatusModalOpen(false);
+                    setStatusChangeNote('');
+                  }}
+                  disabled={transitioning}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleConfirmStatusChange()}
+                  disabled={transitioning || !targetStatusToChange}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  {transitioning ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Menyimpan & Menyinkronkan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Simpan Perubahan Status</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
