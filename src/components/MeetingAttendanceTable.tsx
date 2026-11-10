@@ -3,6 +3,7 @@ import { Users, Plus, Eye, Trash2, Info } from 'lucide-react';
 import { formatInputNumber } from '../../utils/formatters';
 import { useDocumentRuntime } from '../domain/company/useDocumentRuntime';
 import { CorporateShareholderService } from '../services/CorporateShareholderService';
+import { CompanyService } from '../services/CompanyService';
 
 interface MeetingAttendanceTableProps {
   sectionTitle: string;
@@ -14,6 +15,7 @@ interface MeetingAttendanceTableProps {
   addParticipantLabel?: string;
   openShareholderEditor?: (mode: 'lama' | 'baru', shareholder?: any) => void;
   deleteShareholder?: (id: string, mode: 'lama' | 'baru') => void;
+  isCircular?: boolean;
 }
 
 export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
@@ -26,20 +28,63 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
   addParticipantLabel,
   openShareholderEditor,
   deleteShareholder,
+  isCircular: propIsCircular,
 }) => {
-  const { data, mergedData, updateData, setProxyModalOpenId } = useDocumentRuntime();
+  const { data, mergedData, updateData, setProxyModalOpenId, profiles } = useDocumentRuntime();
   const actualData = (mergedData || data) as any;
-  const isCircular = actualData.rupstType === 'sirkuler' || actualData.documentType === 'CIRCULAR' || actualData.jobType === 'sirkuler' || actualData.jobType === 'sirkuler_rupslb';
 
-  // Kumpulkan seluruh pengurus perseroan (dari oldManagementItems, newManagementItems, managementItems)
+  // Prioritaskan propIsCircular, kemudian actualData.documentType ('MINUTES' = PKR LB = false)
+  const isCircular = propIsCircular !== undefined
+    ? propIsCircular
+    : actualData.documentType === 'MINUTES'
+      ? false
+      : actualData.documentType === 'CIRCULAR'
+        ? true
+        : (actualData.rupstType === 'sirkuler' || actualData.jobType === 'sirkuler' || actualData.jobType === 'sirkuler_rupslb');
+
+  // Kumpulkan seluruh pengurus perseroan (dari actualData dan juga profile master klien)
   const allManagementItems = React.useMemo(() => {
     const sourceMgmts: any[] = [
       ...(Array.isArray(actualData.oldManagementItems) ? actualData.oldManagementItems : []),
       ...(Array.isArray(actualData.newManagementItems) ? actualData.newManagementItems : []),
       ...(Array.isArray(actualData.managementItems) ? actualData.managementItems : []),
+      ...(Array.isArray(actualData.management) ? actualData.management : []),
+      ...(Array.isArray(actualData.directors) ? actualData.directors : []),
+      ...(Array.isArray(actualData.commissioners) ? actualData.commissioners : []),
     ];
+
+    // Jika belum ada pengurus di actualData, cari dari profiles berdasarkan selectedProfileId atau nama PT
+    if (sourceMgmts.length === 0 && profiles && profiles.length > 0) {
+      const matchedProfile = profiles.find(p => 
+        (p.id && actualData.selectedProfileId && p.id === actualData.selectedProfileId) ||
+        (p.companyName && actualData.companyName && p.companyName.trim().toUpperCase() === actualData.companyName.trim().toUpperCase())
+      );
+      if (matchedProfile) {
+        const fromProfile = [
+          ...(Array.isArray(matchedProfile.oldManagementItems) ? matchedProfile.oldManagementItems : []),
+          ...(Array.isArray(matchedProfile.newManagementItems) ? matchedProfile.newManagementItems : []),
+          ...(Array.isArray((matchedProfile as any).managementItems) ? (matchedProfile as any).managementItems : [])
+        ];
+        sourceMgmts.push(...fromProfile);
+      }
+    }
+
     return sourceMgmts;
-  }, [actualData.oldManagementItems, actualData.newManagementItems, actualData.managementItems]);
+  }, [actualData.oldManagementItems, actualData.newManagementItems, actualData.managementItems, actualData.management, actualData.directors, actualData.commissioners, actualData.selectedProfileId, actualData.companyName, profiles]);
+
+  // Muat data profil master secara asinkron jika belum memiliki data pengurus
+  React.useEffect(() => {
+    if (!isCircular && allManagementItems.length === 0 && actualData.selectedProfileId) {
+      CompanyService.getCompanyProfile(actualData.selectedProfileId).then(prof => {
+        if (prof) {
+          const mgmt = prof.oldManagementItems || prof.newManagementItems || (prof as any).managementItems || [];
+          if (mgmt.length > 0) {
+            updateData({ oldManagementItems: mgmt });
+          }
+        }
+      }).catch(console.error);
+    }
+  }, [isCircular, allManagementItems.length, actualData.selectedProfileId]);
 
   // Apabila RUPS LB memilih PKR LB (bukan sirkuler), kumpulkan pengurus yang belum ada di daftar shareholders (direksi/komisaris yang tidak memiliki saham)
   const missingManagementItems = React.useMemo(() => {

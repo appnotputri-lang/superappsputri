@@ -86,9 +86,10 @@ export const MeetingFormShell: React.FC<MeetingFormShellProps> = ({
 
       {/* 2. Blok Kehadiran */}
       <MeetingAttendanceTable 
+        isCircular={isCircular}
         sectionTitle={meetingType === 'tahunan' ? "DATA KEHADIRAN (DAFTAR PARA PIHAK)" : "DAFTAR PARA PIHAK"} 
-        presentLabel={meetingType === 'luar_biasa' && actualData.documentType === 'CIRCULAR' ? 'Terlibat?' : 'Hadir?'} 
-        markAllLabel={`Tandai Semua ${meetingType === 'luar_biasa' && actualData.documentType === 'CIRCULAR' ? 'Terlibat' : 'Hadir'}`} 
+        presentLabel={isCircular ? 'Terlibat?' : 'Hadir?'} 
+        markAllLabel={`Tandai Semua ${isCircular ? 'Terlibat' : 'Hadir'}`} 
         nameColumnLabel={meetingType === 'tahunan' ? "Nama Pemegang Saham" : "Nama Pihak"} 
         showAksiColumn={meetingType === 'luar_biasa'} 
         onAddParticipant={meetingType === 'luar_biasa' ? () => {
@@ -103,7 +104,7 @@ export const MeetingFormShell: React.FC<MeetingFormShellProps> = ({
             } as any);
           }
         } : undefined} 
-        addParticipantLabel={meetingType === 'luar_biasa' ? (actualData.documentType === 'CIRCULAR' ? 'Tambah Pihak Lain' : 'Tambah Peserta Rapat') : undefined}
+        addParticipantLabel={meetingType === 'luar_biasa' ? (isCircular ? 'Tambah Pihak Lain' : 'Tambah Peserta Rapat') : undefined}
         openShareholderEditor={openShareholderEditor}
         deleteShareholder={deleteShareholder}
       />
