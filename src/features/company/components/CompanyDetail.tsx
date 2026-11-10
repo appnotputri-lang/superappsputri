@@ -162,33 +162,37 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-              <AhuLabel label="Modal Dasar (Lembar)" required />
+              <AhuLabel label="Modal Dasar (Rp)" required />
               <div className="md:col-span-3">
                 <div className="flex items-center gap-4">
-                  <div className="flex-1">
+                  <div className="flex-1 relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[13px]">Rp.</span>
                     <AhuInput 
-                      value={data.originalAuthorizedShares === 0 ? '' : formatInputNumber(data.originalAuthorizedShares)} 
+                      className="pl-10"
+                      value={formatInputNumber(data.targetCapitalBase || data.originalCapitalBase || ((data.originalAuthorizedShares || 0) * (data.originalSharePrice || 0)))} 
                       readOnly
                     />
                   </div>
                   <div className="text-[13px] font-bold text-slate-500 w-48">
-                    Rp. {formatInputNumber(data.targetCapitalBase)}
+                    {formatInputNumber(data.originalAuthorizedShares || 0)} Lembar
                   </div>
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-              <AhuLabel label="Modal Ditempatkan & Disetor (Lembar)" required />
+              <AhuLabel label="Modal Ditempatkan & Disetor (Rp)" required />
               <div className="md:col-span-3">
                 <div className="flex items-center gap-4">
-                  <div className="flex-1">
+                  <div className="flex-1 relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[13px]">Rp.</span>
                     <AhuInput 
-                      value={data.originalTotalShares === 0 ? '' : formatInputNumber(data.originalTotalShares)} 
+                      className="pl-10"
+                      value={formatInputNumber(data.targetCapitalPaid || data.originalCapitalPaid || ((data.originalTotalShares || 0) * (data.originalSharePrice || 0)))} 
                       readOnly
                     />
                   </div>
                   <div className="text-[13px] font-bold text-slate-500 w-48">
-                    Rp. {formatInputNumber(data.targetCapitalPaid)}
+                    {formatInputNumber(data.originalTotalShares || 0)} Lembar
                   </div>
                 </div>
               </div>

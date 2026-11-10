@@ -578,39 +578,76 @@ export default function DraftAktaPendirian({
                     <AhuInput 
                       className="pl-10"
                       value={data.nilaiPerLembar === 0 ? '' : formatInputNumber(data.nilaiPerLembar)} 
-                      onChange={e => updateData('nilaiPerLembar', parseFormattedNumber(e.target.value))} 
+                      onChange={e => {
+                        const newPrice = parseFormattedNumber(e.target.value);
+                        setData(prev => {
+                          const curBase = prev.modalDasar || ((prev.modalDasarLembar || 0) * (prev.nilaiPerLembar || 0));
+                          const curPaid = (prev.modalDisetorLembar || 0) * (prev.nilaiPerLembar || 0);
+                          return {
+                            ...prev,
+                            nilaiPerLembar: newPrice,
+                            modalDasarLembar: newPrice > 0 ? Math.floor(curBase / newPrice) : prev.modalDasarLembar,
+                            modalDisetorLembar: newPrice > 0 ? Math.floor(curPaid / newPrice) : prev.modalDisetorLembar
+                          };
+                        });
+                      }} 
                     />
                   </div>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                <AhuLabel label="Modal Dasar (Lembar)" required />
+                <AhuLabel label="Modal Dasar (Rp)" required />
                 <div className="md:col-span-3">
                   <div className="flex items-center gap-4">
-                    <div className="flex-1">
+                    <div className="flex-1 relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[13px]">Rp.</span>
                       <AhuInput 
-                        value={data.modalDasarLembar === undefined || data.modalDasarLembar === 0 ? '' : formatInputNumber(data.modalDasarLembar)} 
-                        onChange={e => updateData('modalDasarLembar', parseFormattedNumber(e.target.value))} 
+                        className="pl-10"
+                        placeholder="0"
+                        value={!data.modalDasar && !data.modalDasarLembar ? '' : formatInputNumber(data.modalDasar || ((data.modalDasarLembar || 0) * data.nilaiPerLembar))} 
+                        onChange={e => {
+                          const rpVal = parseFormattedNumber(e.target.value);
+                          const price = data.nilaiPerLembar || 0;
+                          const lembar = price > 0 ? Math.floor(rpVal / price) : 0;
+                          setData(prev => ({
+                            ...prev,
+                            modalDasar: rpVal,
+                            modalDasarLembar: lembar
+                          }));
+                        }} 
                       />
                     </div>
                     <div className="text-[13px] font-bold text-slate-500 w-48">
-                      Rp. {formatInputNumber((data.modalDasarLembar || 0) * data.nilaiPerLembar)}
+                      {formatInputNumber(data.modalDasarLembar || (data.nilaiPerLembar > 0 ? Math.floor((data.modalDasar || 0) / data.nilaiPerLembar) : 0))} Lembar
                     </div>
                   </div>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                <AhuLabel label="Modal Ditempatkan & Disetor (Lembar)" required />
+                <AhuLabel label="Modal Ditempatkan & Disetor (Rp)" required />
                 <div className="md:col-span-3">
                   <div className="flex items-center gap-4">
-                    <div className="flex-1">
+                    <div className="flex-1 relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[13px]">Rp.</span>
                       <AhuInput 
-                        value={data.modalDisetorLembar === undefined || data.modalDisetorLembar === 0 ? '' : formatInputNumber(data.modalDisetorLembar)} 
-                        onChange={e => updateData('modalDisetorLembar', parseFormattedNumber(e.target.value))} 
+                        className="pl-10"
+                        placeholder="0"
+                        value={((data.modalDisetorLembar || 0) * data.nilaiPerLembar) === 0 ? '' : formatInputNumber((data.modalDisetorLembar || 0) * data.nilaiPerLembar)} 
+                        onChange={e => {
+                          const rpVal = parseFormattedNumber(e.target.value);
+                          const price = data.nilaiPerLembar || 0;
+                          const lembar = price > 0 ? Math.floor(rpVal / price) : 0;
+                          const curBase = data.modalDasar || ((data.modalDasarLembar || 0) * price);
+                          setData(prev => ({
+                            ...prev,
+                            modalDisetorLembar: lembar,
+                            modalDisetorPersen: curBase > 0 ? (rpVal / curBase) * 100 : 25
+                          }));
+                        }} 
                       />
                     </div>
                     <div className="text-[13px] font-bold text-slate-500 w-48">
-                      Rp. {formatInputNumber((data.modalDisetorLembar || 0) * data.nilaiPerLembar)}
+                      {formatInputNumber(data.modalDisetorLembar || 0)} Lembar
                     </div>
                   </div>
                 </div>

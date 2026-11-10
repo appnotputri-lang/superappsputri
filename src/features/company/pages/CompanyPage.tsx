@@ -884,8 +884,44 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
       // Auto calculation for capital if PT and not CV
       if (merged.companyType !== 'CV') {
         const price = merged.originalSharePrice || 0;
-        merged.targetCapitalBase = (merged.originalAuthorizedShares || 0) * price;
-        merged.targetCapitalPaid = (merged.originalTotalShares || 0) * price;
+
+        // Modal Dasar: if Rp updated, calculate Lembar; if Lembar updated, calculate Rp
+        if ('targetCapitalBase' in updates || 'originalCapitalBase' in updates) {
+          const baseRp = updates.targetCapitalBase ?? updates.originalCapitalBase ?? 0;
+          merged.targetCapitalBase = baseRp;
+          merged.originalCapitalBase = baseRp;
+          merged.originalAuthorizedShares = price > 0 ? Math.floor(baseRp / price) : 0;
+        } else if ('originalAuthorizedShares' in updates) {
+          merged.targetCapitalBase = (merged.originalAuthorizedShares || 0) * price;
+          merged.originalCapitalBase = merged.targetCapitalBase;
+        } else if ('originalSharePrice' in updates && price > 0) {
+          const baseRp = merged.targetCapitalBase || merged.originalCapitalBase || 0;
+          if (baseRp > 0) {
+            merged.originalAuthorizedShares = Math.floor(baseRp / price);
+          } else if (merged.originalAuthorizedShares > 0) {
+            merged.targetCapitalBase = (merged.originalAuthorizedShares || 0) * price;
+            merged.originalCapitalBase = merged.targetCapitalBase;
+          }
+        }
+
+        // Modal Disetor: if Rp updated, calculate Lembar; if Lembar updated, calculate Rp
+        if ('targetCapitalPaid' in updates || 'originalCapitalPaid' in updates) {
+          const paidRp = updates.targetCapitalPaid ?? updates.originalCapitalPaid ?? 0;
+          merged.targetCapitalPaid = paidRp;
+          merged.originalCapitalPaid = paidRp;
+          merged.originalTotalShares = price > 0 ? Math.floor(paidRp / price) : 0;
+        } else if ('originalTotalShares' in updates) {
+          merged.targetCapitalPaid = (merged.originalTotalShares || 0) * price;
+          merged.originalCapitalPaid = merged.targetCapitalPaid;
+        } else if ('originalSharePrice' in updates && price > 0) {
+          const paidRp = merged.targetCapitalPaid || merged.originalCapitalPaid || 0;
+          if (paidRp > 0) {
+            merged.originalTotalShares = Math.floor(paidRp / price);
+          } else if (merged.originalTotalShares > 0) {
+            merged.targetCapitalPaid = (merged.originalTotalShares || 0) * price;
+            merged.originalCapitalPaid = merged.targetCapitalPaid;
+          }
+        }
       }
 
       return merged;
