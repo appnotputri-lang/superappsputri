@@ -47,42 +47,44 @@ export const ShareholderModal: React.FC<ShareholderModalProps> = ({
       isOpen={Boolean(editingShareholder)}
       onClose={() => { if (!isSaving) { setEditingShareholder(null); setEditMode(null); } }}
       title={editingShareholder?.isOtherParty ? "Formulir Lengkap Pihak Lain" : editMode === 'pengganti' ? "Formulir Lengkap Pengganti / Pengurus Baru" : editMode === 'pengganti_saham' ? "Formulir Lengkap Penerima Peralihan Saham Baru" : "Tambah Pemegang Saham, Komisaris dan Direksi"}
-      maxWidth="max-w-4xl"
+      maxWidth="max-w-3xl"
       headerColor="bg-white text-slate-800 border-b border-slate-200"
     >
       <div className="p-0 flex flex-col h-full bg-slate-50">
         {editingShareholder && (
-          <div className="p-6 overflow-y-auto">
-            <ShareholderEditor 
-              shareholder={editingShareholder}
-              onChange={(updates: any) => setEditingShareholder({ ...editingShareholder, ...updates })}
-              globalSharePrice={globalSharePrice !== undefined ? globalSharePrice : (data?.originalSharePrice || data?.nilaiPerLembar || 0)}
-              totalSharesAllowed={editMode === 'lama' ? data.originalTotalShares : (data.resolutions?.capitalPaid || data.resolutions?.capitalPaidDecrease ? currentTargetSharesPaid : data.originalTotalShares)}
-              otherAllocated={(editMode === 'lama' ? (data.shareholders || []) : (data.finalShareholders || []))
-                .filter((s: any) => s.id !== editingShareholder.id)
-                .reduce((sum: number, s: any) => {
-                  let shares = s.sharesOwned;
-                  if (editMode === 'baru' && editingShareholder.isAcquisition && (editingShareholder.acquisitionSourceId === s.id || (s.linkedPartyId && editingShareholder.acquisitionSourceId === s.linkedPartyId))) {
-                    shares = Math.max(0, shares - (editingShareholder.acquisitionShares || 0));
-                  }
-                  return sum + shares;
-                }, 0)
-              }
-              existingData={editMode === 'lama' ? [] : [
-                ...(data.shareholders || []),
-                ...(data.oldManagementItems || []).filter((m: any) => !(data.shareholders || []).some((s: any) => (s.name || '').toUpperCase() === (m.name || '').toUpperCase()))
-              ]}
-              oldSharesOwned={(data.shareholders || []).find((s: any) => (s.name || '').trim().toUpperCase() === (editingShareholder.name || '').trim().toUpperCase())?.sharesOwned || 0}
-              isOld={editMode === 'lama' || editMode === 'pengganti' || editMode === 'pengganti_saham'}
-              hasTransferAgenda={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? false : data.resolutions?.shareholders}
-              hasManagementAgenda={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? true : data.resolutions?.management}
-              hasCapitalChange={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? false : (data.resolutions?.capitalBase || data.resolutions?.capitalPaid || data.resolutions?.capitalBaseDecrease || data.resolutions?.capitalPaidDecrease)}
-              hideFinancials={Boolean(editingShareholder?.isOtherParty) || editMode === 'pengganti' || editMode === 'pengganti_saham' || editMode === 'baru'}
-              hideManagement={Boolean(editingShareholder?.isOtherParty) || editMode === 'baru'}
-              availableParties={(editMode === 'pengganti' || editMode === 'pengganti_saham' || editMode === 'baru') ? data.shareholders : undefined}
-              profiles={profiles}
-              excludeCompanyIdOrName={excludeCompanyIdOrName || data?.selectedProfileId || data?.id || data?.companyName}
-            />
+          <div className="p-4 sm:p-6 overflow-y-auto">
+            <div className="max-w-2xl mx-auto w-full">
+              <ShareholderEditor 
+                shareholder={editingShareholder}
+                onChange={(updates: any) => setEditingShareholder({ ...editingShareholder, ...updates })}
+                globalSharePrice={globalSharePrice !== undefined ? globalSharePrice : (data?.originalSharePrice || data?.nilaiPerLembar || 0)}
+                totalSharesAllowed={editMode === 'lama' ? data.originalTotalShares : (data.resolutions?.capitalPaid || data.resolutions?.capitalPaidDecrease ? currentTargetSharesPaid : data.originalTotalShares)}
+                otherAllocated={(editMode === 'lama' ? (data.shareholders || []) : (data.finalShareholders || []))
+                  .filter((s: any) => s.id !== editingShareholder.id)
+                  .reduce((sum: number, s: any) => {
+                    let shares = s.sharesOwned;
+                    if (editMode === 'baru' && editingShareholder.isAcquisition && (editingShareholder.acquisitionSourceId === s.id || (s.linkedPartyId && editingShareholder.acquisitionSourceId === s.linkedPartyId))) {
+                      shares = Math.max(0, shares - (editingShareholder.acquisitionShares || 0));
+                    }
+                    return sum + shares;
+                  }, 0)
+                }
+                existingData={editMode === 'lama' ? [] : [
+                  ...(data.shareholders || []),
+                  ...(data.oldManagementItems || []).filter((m: any) => !(data.shareholders || []).some((s: any) => (s.name || '').toUpperCase() === (m.name || '').toUpperCase()))
+                ]}
+                oldSharesOwned={(data.shareholders || []).find((s: any) => (s.name || '').trim().toUpperCase() === (editingShareholder.name || '').trim().toUpperCase())?.sharesOwned || 0}
+                isOld={editMode === 'lama' || editMode === 'pengganti' || editMode === 'pengganti_saham'}
+                hasTransferAgenda={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? false : data.resolutions?.shareholders}
+                hasManagementAgenda={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? true : data.resolutions?.management}
+                hasCapitalChange={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? false : (data.resolutions?.capitalBase || data.resolutions?.capitalPaid || data.resolutions?.capitalBaseDecrease || data.resolutions?.capitalPaidDecrease)}
+                hideFinancials={Boolean(editingShareholder?.isOtherParty) || editMode === 'pengganti' || editMode === 'pengganti_saham' || editMode === 'baru'}
+                hideManagement={Boolean(editingShareholder?.isOtherParty) || editMode === 'baru'}
+                availableParties={(editMode === 'pengganti' || editMode === 'pengganti_saham' || editMode === 'baru') ? data.shareholders : undefined}
+                profiles={profiles}
+                excludeCompanyIdOrName={excludeCompanyIdOrName || data?.selectedProfileId || data?.id || data?.companyName}
+              />
+            </div>
           </div>
         )}
         <div className="mt-auto flex justify-end gap-3 p-4 px-6 border-t border-slate-200 bg-white sticky bottom-0 z-10 shrink-0">
@@ -90,7 +92,7 @@ export const ShareholderModal: React.FC<ShareholderModalProps> = ({
             type="button" 
             disabled={isSaving} 
             onClick={() => { setEditingShareholder(null); setEditMode(null); }} 
-            className="px-8 py-2 border border-slate-300 bg-white text-slate-700 rounded font-bold text-sm hover:bg-slate-50 transition-all cursor-pointer disabled:opacity-50"
+            className="px-6 py-2.5 border border-slate-300 bg-white text-slate-700 rounded-lg font-bold text-xs sm:text-sm hover:bg-slate-50 transition-all cursor-pointer disabled:opacity-50"
           >
             BATAL
           </button>
@@ -98,7 +100,7 @@ export const ShareholderModal: React.FC<ShareholderModalProps> = ({
             type="button" 
             disabled={isSaving} 
             onClick={handleSave} 
-            className="px-8 py-2 bg-[#40bdae] text-white rounded font-bold text-sm hover:bg-[#349c8f] transition-all shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2"
+            className="px-7 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-bold text-xs sm:text-sm transition-all shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2"
           >
             {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
             <span>{isSaving ? "MENYIMPAN DATA..." : "SIMPAN DATA"}</span>

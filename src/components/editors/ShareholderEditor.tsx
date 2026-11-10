@@ -471,35 +471,28 @@ const ShareholderEditor: React.FC<Props> = ({
         </div>
       )}
 
-      <p className="text-xs text-red-500">Kotak isian yang bertanda * wajib diisi</p>
-
-      <label className="flex items-center gap-2 cursor-pointer mt-4">
-        <input 
-          type="checkbox" 
-          checked={!!shareholder.isForeign || isWna}
-          onChange={e => {
-            const isChecked = e.target.checked;
-            if (isChecked) {
-              if (abortControllerRef.current) {
-                abortControllerRef.current.abort();
-              }
-              setOcrLoading(false);
-              setOcrSuccessMsg('');
-              setOcrErrorMsg('');
-            }
-            onChange({ 
-              isForeign: isChecked,
-              nationalityType: isChecked ? 'WNA' : 'WNI', 
-              nationality: isChecked ? '' : 'WNI' 
-            });
-          }}
-          className="rounded border-slate-300 text-teal-500 focus:ring-teal-500"
-        />
-        <span className="text-sm text-slate-700 font-bold">Asing</span>
-      </label>
+      <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
+        <p className="text-xs text-rose-500 font-medium">Kotak isian yang bertanda * wajib diisi</p>
+        <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+          <input 
+            type="checkbox" 
+            checked={!!shareholder.isForeign || isWna}
+            onChange={e => {
+              const isChecked = e.target.checked;
+              onChange({ 
+                isForeign: isChecked,
+                nationalityType: isChecked ? 'WNA' : 'WNI', 
+                nationality: isChecked ? '' : 'WNI' 
+              });
+            }}
+            className="w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500/20 cursor-pointer"
+          />
+          <span className="text-xs text-slate-700 font-semibold">Asing</span>
+        </label>
+      </div>
 
       <div>
-        <label className="block text-xs font-bold text-slate-700 mb-1">Jenis Pemegang Saham</label>
+        <label className="block text-xs font-semibold text-slate-700 mb-1.5">Jenis Pemegang Saham</label>
         <select 
           value={shareholder.shareholderType || 'PERORANGAN'}
           onChange={e => {
@@ -516,7 +509,7 @@ const ShareholderEditor: React.FC<Props> = ({
               });
             }
           }}
-          className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 font-medium"
+          className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-xs bg-white text-slate-800 outline-none hover:border-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 font-medium transition-all cursor-pointer"
         >
           <option value="PERORANGAN">PERORANGAN</option>
           <option value="BADAN_HUKUM">BADAN HUKUM</option>
@@ -734,10 +727,10 @@ const ShareholderEditor: React.FC<Props> = ({
 
       {!isBadanHukum && !isWna && (
         <div className="mb-4">
-          <div className="flex items-center justify-between mb-1">
-            <label className="block text-xs font-bold text-slate-700">NIK <span className="text-red-500">*</span></label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-xs font-semibold text-slate-700">NIK <span className="text-red-500 font-bold">*</span></label>
             {shareholder.personId && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                 <ShieldCheck className="w-3 h-3 text-emerald-600" />
                 Terhubung ke Master Database Orang
               </span>
@@ -755,7 +748,8 @@ const ShareholderEditor: React.FC<Props> = ({
                 setSearchStatus('');
               }
             }}
-            className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+            placeholder="Masukkan 16 digit NIK..."
+            className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg outline-none hover:border-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 text-xs text-slate-800 font-mono tracking-wider transition-all"
             maxLength={16}
           />
           {searchStatus && (
@@ -777,15 +771,15 @@ const ShareholderEditor: React.FC<Props> = ({
       )}
 
       <div>
-        <label className="block text-xs font-bold text-slate-700 mb-1">
-          {isBadanHukum ? "Nama Badan Hukum / Perusahaan" : "Nama"} <span className="text-red-500">*</span>
+        <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+          {isBadanHukum ? "Nama Badan Hukum / Perusahaan" : "Nama"} <span className="text-red-500 font-bold">*</span>
         </label>
         <div className="flex gap-2">
           {!isBadanHukum && (
             <select 
               value={shareholder.salutation || 'Tuan'} 
               onChange={e => onChange({ salutation: e.target.value as any })}
-              className="w-24 px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 cursor-pointer"
+              className="w-24 px-3 py-2.5 border border-slate-300 rounded-lg text-xs bg-white text-slate-700 font-semibold outline-none hover:border-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 cursor-pointer shrink-0 transition-all"
             >
               <option value="Tuan">Tuan</option>
               <option value="Nyonya">Nyonya</option>
@@ -808,34 +802,33 @@ const ShareholderEditor: React.FC<Props> = ({
               onChange(updates);
             }}
             placeholder={isBadanHukum ? "CONTOH: PT NUSA JAYA ABADI" : "NAMA LENGKAP"}
-            className="flex-1 w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm font-bold uppercase"
+            className="flex-1 w-full px-3.5 py-2.5 border border-slate-300 rounded-lg outline-none hover:border-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 text-xs text-slate-800 font-bold uppercase transition-all"
           />
         </div>
+        {!isBadanHukum && (
+          <div className="flex items-center justify-end mt-1.5">
+            <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+              <input 
+                type="checkbox" 
+                checked={!!shareholder.isUnderage}
+                onChange={e => {
+                  const checked = e.target.checked;
+                  onChange({ 
+                    isUnderage: checked,
+                    guardianSalutation: checked ? (shareholder.guardianSalutation || 'Tuan') : undefined,
+                    guardianRelationship: checked ? (shareholder.guardianRelationship || 'AYAH KANDUNG') : undefined,
+                    guardianName: checked ? (shareholder.guardianName || '') : undefined,
+                    guardianNik: checked ? (shareholder.guardianNik || '') : undefined,
+                    guardianAddress: checked ? (shareholder.guardianAddress || { province: '', city: '', fullAddress: '', rt: '', rw: '', kelurahan: '', kecamatan: '' }) : undefined
+                  });
+                }}
+                className="w-3.5 h-3.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500/20 cursor-pointer" 
+              />
+              <span className="text-[11px] text-slate-600 font-medium">Di bawah umur</span>
+            </label>
+          </div>
+        )}
       </div>
-
-      {!isBadanHukum && (
-        <div className="flex items-center justify-end">
-          <label className="flex items-center gap-2 cursor-pointer mt-2">
-            <input 
-              type="checkbox" 
-              checked={!!shareholder.isUnderage}
-              onChange={e => {
-                const checked = e.target.checked;
-                onChange({ 
-                  isUnderage: checked,
-                  guardianSalutation: checked ? (shareholder.guardianSalutation || 'Tuan') : undefined,
-                  guardianRelationship: checked ? (shareholder.guardianRelationship || 'AYAH KANDUNG') : undefined,
-                  guardianName: checked ? (shareholder.guardianName || '') : undefined,
-                  guardianNik: checked ? (shareholder.guardianNik || '') : undefined,
-                  guardianAddress: checked ? (shareholder.guardianAddress || { province: '', city: '', fullAddress: '', rt: '', rw: '', kelurahan: '', kecamatan: '' }) : undefined
-                });
-              }}
-              className="rounded border-slate-300 text-teal-500 focus:ring-teal-500" 
-            />
-            <span className="text-sm text-slate-700 font-bold">Di bawah umur</span>
-          </label>
-        </div>
-      )}
 
       {!isBadanHukum && shareholder.isUnderage && (
         <div className="mt-3 p-4 bg-orange-50/60 rounded border border-orange-200 space-y-3">
@@ -1427,11 +1420,11 @@ const ShareholderEditor: React.FC<Props> = ({
           </div>
         ) : (
           (!hideFinancials || !hideManagement) && (
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-2">Sebagai <span className="text-red-500">*</span></label>
-              <div className="space-y-3 pl-2">
+            <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-2xs space-y-2.5">
+              <label className="block text-xs font-semibold text-slate-700">Sebagai <span className="text-red-500 font-bold">*</span></label>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 pl-1">
                 {!hideFinancials && (
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="inline-flex items-center gap-2 cursor-pointer font-semibold text-slate-800 select-none">
                     <input 
                       type="checkbox" 
                       disabled={disableFinancials}
@@ -1443,21 +1436,21 @@ const ShareholderEditor: React.FC<Props> = ({
                           onChange({ sharesOwned: 1 });
                         }
                       }}
-                      className="rounded border-slate-300 text-teal-500 focus:ring-teal-500 disabled:opacity-50"
+                      className="w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500/20 disabled:opacity-50 cursor-pointer"
                     />
-                    <span className={`text-sm ${disableFinancials ? 'text-slate-400' : 'text-slate-700'}`}>Pemegang Saham</span>
+                    <span className={`text-xs ${disableFinancials ? 'text-slate-400' : 'text-slate-700'}`}>Pemegang Saham</span>
                   </label>
                 )}
                 {!hideManagement && (
-                  <label className="flex items-center gap-2 cursor-pointer">
+                  <label className="inline-flex items-center gap-2 cursor-pointer font-semibold text-slate-800 select-none">
                     <input 
                       type="checkbox" 
                       disabled={disableManagement}
                       checked={shareholder.isManagement || false}
                       onChange={e => onChange({ isManagement: e.target.checked, managementPosition: e.target.checked ? (shareholder.managementPosition || 'Direktur') : undefined })}
-                      className="rounded border-slate-300 text-teal-500 focus:ring-teal-500 disabled:opacity-50"
+                      className="w-4 h-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500/20 disabled:opacity-50 cursor-pointer"
                     />
-                    <span className={`text-sm ${disableManagement ? 'text-slate-400' : 'text-slate-700'}`}>Direksi/Komisaris</span>
+                    <span className={`text-xs ${disableManagement ? 'text-slate-400' : 'text-slate-700'}`}>Direksi/Komisaris</span>
                   </label>
                 )}
               </div>
@@ -1469,12 +1462,12 @@ const ShareholderEditor: React.FC<Props> = ({
           {!hideFinancials && (isBadanHukum || shareholder.sharesOwned > 0 || disableFinancials) && (
             <>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Klasifikasi Saham <span className="text-red-500">*</span></label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">Klasifikasi Saham <span className="text-red-500 font-bold">*</span></label>
                 <select 
                   disabled={disableFinancials} 
                   value={shareholder.shareClassification || 'Tanpa Klasifikasi'}
                   onChange={e => onChange({ shareClassification: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 disabled:bg-slate-100 disabled:opacity-50"
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-xs bg-white text-slate-800 outline-none hover:border-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 disabled:bg-slate-100 disabled:opacity-50 font-medium transition-all cursor-pointer"
                 >
                   <option value="Tanpa Klasifikasi">Tanpa Klasifikasi</option>
                   <option value="Seri A">Seri A</option>
@@ -1487,13 +1480,13 @@ const ShareholderEditor: React.FC<Props> = ({
                 </select>
               </div>
               <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="block text-xs font-bold text-slate-700">Lembar Saham <span className="text-red-500">*</span></label>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700">Lembar Saham <span className="text-red-500 font-bold">*</span></label>
                   {canQuickFill && isOld && (
                     <button 
                       type="button"
                       onClick={quickFillRemaining}
-                      className="text-[11px] text-teal-600 hover:text-teal-700 hover:underline font-semibold"
+                      className="text-[11px] text-teal-700 hover:text-teal-800 font-semibold bg-teal-50 px-2.5 py-0.5 rounded-md border border-teal-200/80 transition-colors cursor-pointer"
                     >
                       (Ambil Sisa Saldo)
                     </button>
@@ -1506,22 +1499,15 @@ const ShareholderEditor: React.FC<Props> = ({
                     value={disableFinancials ? '0' : (shareholder.sharesOwned === 0 ? '' : formatInputNumber(shareholder.sharesOwned))} 
                     onChange={e => handleSharesChange(e.target.value)}
                     placeholder="0"
-                    className="w-full px-3 py-2 pr-16 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm disabled:bg-slate-100 disabled:opacity-50 font-medium text-slate-800"
+                    className="w-full px-3.5 py-2.5 pr-16 border border-slate-300 rounded-lg outline-none hover:border-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 text-xs disabled:bg-slate-100 disabled:opacity-50 font-bold text-slate-800 transition-all"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-medium select-none">Lembar</span>
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-medium select-none">Lembar</span>
                 </div>
 
                 {!disableFinancials && (
-                  <div className="mt-1.5 flex flex-col gap-1 text-[11px]">
-                    <div className="flex justify-between items-center text-slate-500">
-                      <span>Harga: <b>Rp. {formatInputNumber(activeGlobalSharePrice || 0)}</b> / lembar</span>
-                      <span className="text-slate-800 font-bold">Total: <span className="text-teal-700">{formatCurrency(currentTotalValue)}</span></span>
-                    </div>
-                    {!isOld && (hasTransferAgenda || hasCapitalChange) && (
-                      <div className="text-blue-600 font-medium bg-blue-50 p-1.5 rounded border border-blue-100 flex items-center gap-1 text-[11px] mt-1">
-                        <Zap className="w-3.5 h-3.5 shrink-0" /> Gunakan bagian <strong>Peralihan</strong> atau <strong>Setor Modal Baru</strong> di bawah untuk mengubah jumlah saham.
-                      </div>
-                    )}
+                  <div className="mt-2 flex items-center justify-between text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-200/80">
+                    <span>Harga: <b>Rp. {formatInputNumber(activeGlobalSharePrice || 0)}</b> / lembar</span>
+                    <span className="text-slate-800 font-bold">Total: <span className="text-teal-700 font-mono">{formatCurrency(currentTotalValue)}</span></span>
                   </div>
                 )}
               </div>
@@ -1661,12 +1647,12 @@ const ShareholderEditor: React.FC<Props> = ({
 
           {!isBadanHukum && shareholder.isManagement && !hideManagement && (
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Jabatan Pengurus <span className="text-red-500">*</span></label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Jabatan <span className="text-red-500 font-bold">*</span></label>
               <select 
                 disabled={disableManagement}
                 value={shareholder.managementPosition || 'Direktur'}
                 onChange={e => onChange({ managementPosition: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 disabled:bg-slate-100 disabled:opacity-50"
+                className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg text-xs bg-white text-slate-800 font-bold uppercase outline-none hover:border-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 disabled:bg-slate-100 disabled:opacity-50 cursor-pointer transition-all"
               >
                 <option value="Direktur Utama">DIREKTUR UTAMA</option>
                 <option value="Direktur">DIREKTUR</option>
@@ -1887,58 +1873,60 @@ const ShareholderEditor: React.FC<Props> = ({
       )}
 
       {!isBadanHukum && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Tempat Lahir <span className="text-red-500">*</span></label>
-            <input 
-              type="text" 
-              value={shareholder.birthCity || ''} 
-              onChange={e => onChange({ birthCity: e.target.value.toUpperCase() })}
-              className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
-            />
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Tempat Lahir <span className="text-red-500 font-bold">*</span></label>
+              <input 
+                type="text" 
+                value={shareholder.birthCity || ''} 
+                onChange={e => onChange({ birthCity: e.target.value.toUpperCase() })}
+                className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg outline-none hover:border-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 text-xs text-slate-800 uppercase font-medium transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Tanggal Lahir <span className="text-red-500 font-bold">*</span></label>
+              <input 
+                type="date" 
+                value={shareholder.birthDate || ''} 
+                onChange={e => onChange({ birthDate: e.target.value })}
+                className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg outline-none hover:border-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 text-xs text-slate-800 bg-slate-50/50 cursor-pointer transition-all"
+              />
+            </div>
           </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Tanggal Lahir <span className="text-red-500">*</span></label>
-            <input 
-              type="date" 
-              value={shareholder.birthDate || ''} 
-              onChange={e => onChange({ birthDate: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm bg-slate-50"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Pekerjaan <span className="text-red-500">*</span></label>
+          <div className="mt-4">
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Pekerjaan <span className="text-red-500 font-bold">*</span></label>
             <input 
               type="text" 
               value={shareholder.occupation || ''} 
               onChange={e => onChange({ occupation: e.target.value.toUpperCase() })}
               placeholder="CONTOH: WIRASWASTA"
-              className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+              className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg outline-none hover:border-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 text-xs text-slate-800 uppercase font-medium transition-all"
             />
           </div>
-        </div>
+        </>
       )}
 
       {!isBadanHukum && (
         <div className="mt-4">
-          <label className="block text-xs font-bold text-slate-700 mb-1">Alamat <span className="text-red-500">*</span></label>
+          <label className="block text-xs font-semibold text-slate-700 mb-1.5">Alamat <span className="text-red-500 font-bold">*</span></label>
           <textarea 
             value={shAddress.fullAddress || ''} 
             onChange={e => updateAddress({ fullAddress: e.target.value.toUpperCase() })}
-            className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm min-h-[80px]"
+            className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg outline-none hover:border-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 text-xs text-slate-800 min-h-[80px] uppercase font-medium transition-all"
           />
         </div>
       )}
 
       {isBadanHukum && !isWna && (
         <div className="mt-4">
-          <label className="block text-xs font-bold text-slate-700 mb-1">Kedudukan <span className="text-red-500">*</span></label>
+          <label className="block text-xs font-semibold text-slate-700 mb-1.5">Kedudukan <span className="text-red-500 font-bold">*</span></label>
           <input 
             type="text" 
             value={shAddress.city || ''} 
             onChange={e => updateAddress({ city: e.target.value.toUpperCase() })}
             placeholder="CONTOH: JAKARTA SELATAN"
-            className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+            className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg outline-none hover:border-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 text-xs text-slate-800 uppercase font-medium transition-all"
           />
         </div>
       )}
@@ -1947,21 +1935,21 @@ const ShareholderEditor: React.FC<Props> = ({
         <>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Rt</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Rt</label>
               <input 
                 type="text" 
                 value={shAddress.rt || ''} 
                 onChange={e => updateAddress({ rt: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg outline-none hover:border-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 text-xs text-slate-800 transition-all"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Rw</label>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Rw</label>
               <input 
                 type="text" 
                 value={shAddress.rw || ''} 
                 onChange={e => updateAddress({ rw: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+                className="w-full px-3.5 py-2 border border-slate-300 rounded-lg outline-none hover:border-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 text-xs text-slate-800 transition-all"
               />
             </div>
           </div>
@@ -1979,7 +1967,7 @@ const ShareholderEditor: React.FC<Props> = ({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
         <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1">Email</label>
+          <label className="block text-xs font-semibold text-slate-700 mb-1.5">Email</label>
           <input 
             type="email" 
             value={shareholder.email || ''} 
@@ -1989,11 +1977,11 @@ const ShareholderEditor: React.FC<Props> = ({
               updateAddress({ email: val });
             }} 
             placeholder="CONTOH: EMAIL@GMAIL.COM" 
-            className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+            className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg outline-none hover:border-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 text-xs text-slate-800 transition-all"
           />
         </div>
         <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1">Nomor HP</label>
+          <label className="block text-xs font-semibold text-slate-700 mb-1.5">Nomor HP</label>
           <input 
             type="tel" 
             value={shareholder.phoneNumber || shAddress.phoneNumber || ''} 
@@ -2003,7 +1991,7 @@ const ShareholderEditor: React.FC<Props> = ({
               updateAddress({ phoneNumber: val });
             }} 
             placeholder="CONTOH: 081234567890" 
-            className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+            className="w-full px-3.5 py-2.5 border border-slate-300 rounded-lg outline-none hover:border-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/15 text-xs text-slate-800 transition-all"
           />
         </div>
       </div>
