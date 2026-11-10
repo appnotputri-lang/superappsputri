@@ -451,8 +451,6 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
       representations: RoleRepresentative[];
     }
 
-    const fullyDescribedNames = new Set<string>();
-
   const configForAttendance = {
     data,
     originalSharePrice: data.originalSharePrice || 0,
@@ -1001,14 +999,18 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
         newDeposits.forEach((d) => {
           const nameKey = stripSalutation(d.name);
-          const isAlreadyDescribed = fullyDescribedNames.has(nameKey);
+          const normNameKey = (nameKey || "")
+            .toUpperCase()
+            .split(",")[0]
+            .replace(/[^A-Z0-9]/g, "");
+          const isAlreadyDescribed = fullyDescribedNames.has(nameKey) || (normNameKey && fullyDescribedNames.has(normNameKey));
 
           let fullName = "";
           const salutation = (d.fs?.salutation || "Tuan").trim();
           const cleanName = nameKey;
 
           if (isAlreadyDescribed) {
-            fullName = `${salutation.toUpperCase()} ${cleanName}, tersebut diatas`;
+            fullName = `${salutation.toUpperCase()} ${cleanName}, tersebut di atas`;
           } else {
             let detailsText = "";
             if (d.fs) {
@@ -1032,6 +1034,9 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
             fullName = `${salutation.toUpperCase()} ${cleanName}${expandAbbreviations(detailsText)}`;
 
             fullyDescribedNames.add(nameKey);
+            if (normNameKey) {
+              fullyDescribedNames.add(normNameKey);
+            }
           }
 
           blocks.push({

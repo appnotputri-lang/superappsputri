@@ -2140,13 +2140,16 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
               repName = data.manualRepresentative.name.toUpperCase().trim();
             }
             
-            const isPenghadap = repName && nameUpper === repName;
+            const isPenghadap = repName && normPerson(nameUpper) === normPerson(repName);
+            const isAttending = attendees.some(
+              a => normPerson(a.name) === normPerson(nameUpper)
+            );
             const isSh = (data.shareholders || []).some(
-              s => (s.name || "").trim().toUpperCase() === nameUpper
+              s => normPerson(s.name || "") === normPerson(nameUpper)
             );
             
-            if (isSh || isPenghadap) {
-              return isPenghadap ? ", penghadap tersebut diatas" : ", tersebut diatas";
+            if (isAttending || isSh || isPenghadap) {
+              return isPenghadap ? ", penghadap tersebut di atas" : ", tersebut di atas";
             }
             
             // Fallback to full biodata
@@ -2308,13 +2311,16 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
               repName = data.manualRepresentative.name.toUpperCase().trim();
             }
             
-            const isPenghadap = repName && nameUpper === repName;
+            const isPenghadap = repName && normPerson(nameUpper) === normPerson(repName);
+            const isAttending = attendees.some(
+              a => normPerson(a.name) === normPerson(nameUpper)
+            );
             const isSh = (data.shareholders || []).some(
-              s => (s.name || "").trim().toUpperCase() === nameUpper
+              s => normPerson(s.name || "") === normPerson(nameUpper)
             );
             
-            if (isSh || isPenghadap) {
-              return isPenghadap ? ", penghadap tersebut diatas" : ", tersebut diatas";
+            if (isAttending || isSh || isPenghadap) {
+              return isPenghadap ? ", penghadap tersebut di atas" : ", tersebut di atas";
             }
             
             // Fallback to full biodata
@@ -3121,13 +3127,16 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
             repName = data.manualRepresentative.name.toUpperCase().trim();
           }
           
-          const isPenghadap = repName && nameUpper === repName;
+          const isPenghadap = repName && normPerson(nameUpper) === normPerson(repName);
+          const isAttending = attendees.some(
+            a => normPerson(a.name) === normPerson(nameUpper)
+          );
           const isSh = (data.shareholders || []).some(
-            s => (s.name || "").trim().toUpperCase() === nameUpper
+            s => normPerson(s.name || "") === normPerson(nameUpper)
           );
           
-          if (isSh || isPenghadap) {
-            return isPenghadap ? ", penghadap tersebut diatas" : ", tersebut diatas";
+          if (isAttending || isSh || isPenghadap) {
+            return isPenghadap ? ", penghadap tersebut di atas" : ", tersebut di atas";
           }
           
           // Fallback to full biodata

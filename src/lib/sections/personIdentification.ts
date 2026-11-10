@@ -43,20 +43,29 @@ export const getPersonDetailRuns = (config: PersonIdentificationConfig): FormatT
   const sal = !isBadanHukum ? `${salutation} ` : "";
   const cleanName = expandAbbreviations(nameUpper);
 
-  if (fullyDescribedNames.has(cleanName)) {
+  const normKey = cleanName
+    .toUpperCase()
+    .replace(/^(TUAN|NYONYA|NONA|TN|NY)\.?\s+/i, "")
+    .split(",")[0]
+    .replace(/[^A-Z0-9]/g, "");
+
+  if (fullyDescribedNames.has(cleanName) || (normKey && fullyDescribedNames.has(normKey))) {
     return [
       ...prefixRuns,
       { text: sal },
       { text: cleanName, bold: true },
       {
         text: isPenghadap
-          ? ", penghadap tersebut diatas"
-          : ", tersebut diatas",
+          ? ", penghadap tersebut di atas"
+          : ", tersebut di atas",
       },
     ];
   }
 
   fullyDescribedNames.add(cleanName);
+  if (normKey) {
+    fullyDescribedNames.add(normKey);
+  }
   const tglLahirHuruf = person ? dateToWords(person.birthDate) : "";
   const tglLahirAngka = person ? formatDateStr(person.birthDate) : "";
 
