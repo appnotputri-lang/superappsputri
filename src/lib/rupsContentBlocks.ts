@@ -1378,26 +1378,34 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         };
 
         if (hasExplicitDismissals) {
-          managersToDismiss = deduplicateManagers(data.managementDismissals.map((d) => {
-            const person = findPerson(d);
-            return {
-              ...person,
-              name: d.name,
-              salutation: person?.salutation || d.salutation || 'Tuan',
-              position: d.position,
-            };
-          }));
+          managersToDismiss = deduplicateManagers(
+            data.managementDismissals
+              .filter((d) => d && d.name && String(d.name).trim() !== "")
+              .map((d) => {
+                const person = findPerson(d);
+                return {
+                  ...person,
+                  name: d.name,
+                  salutation: person?.salutation || d.salutation || 'Tuan',
+                  position: d.position,
+                };
+              })
+          );
         }
         if (hasExplicitAppointments) {
-          managersToAppoint = deduplicateManagers(data.managementAppointments.map((a) => {
-            const person = findPerson(a);
-            return {
-              ...person,
-              name: a.name,
-              salutation: person?.salutation || a.salutation || 'Tuan',
-              position: a.position,
-            };
-          }));
+          managersToAppoint = deduplicateManagers(
+            data.managementAppointments
+              .filter((a) => a && a.name && String(a.name).trim() !== "")
+              .map((a) => {
+                const person = findPerson(a);
+                return {
+                  ...person,
+                  name: a.name,
+                  salutation: person?.salutation || a.salutation || 'Tuan',
+                  position: a.position,
+                };
+              })
+          );
         }
 
         // If they used explicit lists, the NEW composition is:
