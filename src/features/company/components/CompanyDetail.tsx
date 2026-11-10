@@ -220,7 +220,7 @@ export const CompanyDetail: React.FC<CompanyDetailProps> = ({
                       .map((s: any, sIdx: number) => (
                         <tr key={s.id || `${s.name}-${sIdx}`} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors text-[10px]">
                           <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.name}</td>
-                          <td className="p-2 border-r border-slate-200">Tanpa Klasifikasi</td>
+                          <td className="p-2 border-r border-slate-200 font-medium">{s.shareClassification || 'Tanpa Klasifikasi'}</td>
                           <td className="p-2 border-r border-slate-200">{formatInputNumber(s.sharesOwned)}</td>
                           <td className="p-2 border-r border-slate-200 font-bold uppercase">{s.isManagement ? (s.managementPosition || 'DIREKTUR') : '-'}</td>
                           <td className="p-2 border-r border-slate-200">Rp. {formatInputNumber(s.sharesOwned * data.originalSharePrice)}</td>

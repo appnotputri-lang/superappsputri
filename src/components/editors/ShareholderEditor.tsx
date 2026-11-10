@@ -1466,8 +1466,20 @@ const ShareholderEditor: React.FC<Props> = ({
             <>
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Klasifikasi Saham <span className="text-red-500">*</span></label>
-                <select disabled={disableFinancials} className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 disabled:bg-slate-100 disabled:opacity-50">
-                  <option>Tanpa Klasifikasi</option>
+                <select 
+                  disabled={disableFinancials} 
+                  value={shareholder.shareClassification || 'Tanpa Klasifikasi'}
+                  onChange={e => onChange({ shareClassification: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 disabled:bg-slate-100 disabled:opacity-50"
+                >
+                  <option value="Tanpa Klasifikasi">Tanpa Klasifikasi</option>
+                  <option value="Seri A">Seri A</option>
+                  <option value="Seri B">Seri B</option>
+                  <option value="Seri C">Seri C</option>
+                  <option value="Seri D">Seri D</option>
+                  <option value="Seri E">Seri E</option>
+                  <option value="Seri F">Seri F</option>
+                  <option value="Seri G">Seri G</option>
                 </select>
               </div>
               <div>

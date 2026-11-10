@@ -129,6 +129,7 @@ export interface Shareholder {
   kitasType?: 'KITAS' | 'KITAP' | 'NONE';
   kitasNumber?: string;
   sharesOwned: number;
+  shareClassification?: string;
   isExistingParty?: boolean;
   linkedPartyId?: string;
   isManagement?: boolean;

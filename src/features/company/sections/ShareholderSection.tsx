@@ -130,7 +130,7 @@ export const ShareholderSection: React.FC<ShareholderSectionProps> = ({
                         )}
                       </div>
                     </td>
-                    <td className="p-2 border-r border-slate-200">Tanpa Klasifikasi</td>
+                    <td className="p-2 border-r border-slate-200 font-medium">{s.shareClassification || 'Tanpa Klasifikasi'}</td>
                     <td className="p-2 border-r border-slate-200">{formatInputNumber(s.sharesOwned || 0)}</td>
                     <td className="p-2 border-r border-slate-200">Rp. {formatInputNumber((s.sharesOwned || 0) * (data.originalSharePrice || 0))}</td>
                     <td className="p-2 text-center text-blue-600 flex items-center justify-center gap-2">
