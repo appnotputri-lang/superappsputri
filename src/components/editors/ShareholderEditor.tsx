@@ -129,7 +129,9 @@ const ShareholderEditor: React.FC<Props> = ({
           address: foundAddress,
           passportNumber: found.passportNumber || shareholder.passportNumber || '',
           kitasNumber: found.kitasNumber || shareholder.kitasNumber || '',
-          npwp: found.npwp || shareholder.npwp || ''
+          npwp: found.npwp || shareholder.npwp || '',
+          email: found.email || shareholder.email || '',
+          phoneNumber: found.phoneNumber || found.address?.phoneNumber || shareholder.phoneNumber || ''
         });
         setSearchStatus(found.personId ? '✅ Data terhubung dari Master Database Orang!' : '✅ Data lengkap ditemukan dari database!');
       } else {
@@ -187,7 +189,9 @@ const ShareholderEditor: React.FC<Props> = ({
       isManagement: item.isManagement || (item.position ? true : false),
       linkedPartyId: item.id,
       isExistingParty: true,
-      sharesOwned: disableFinancials ? 0 : shareholder.sharesOwned
+      sharesOwned: disableFinancials ? 0 : shareholder.sharesOwned,
+      email: item.email || item.address?.email || shareholder.email || '',
+      phoneNumber: item.phoneNumber || item.address?.phoneNumber || shareholder.phoneNumber || ''
     });
     setShowLookup(false);
   };
@@ -1972,6 +1976,37 @@ const ShareholderEditor: React.FC<Props> = ({
           </div>
         </>
       )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1">Email</label>
+          <input 
+            type="email" 
+            value={shareholder.email || ''} 
+            onChange={e => {
+              const val = e.target.value;
+              onChange({ email: val });
+              updateAddress({ email: val });
+            }} 
+            placeholder="CONTOH: EMAIL@GMAIL.COM" 
+            className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1">Nomor HP</label>
+          <input 
+            type="tel" 
+            value={shareholder.phoneNumber || shAddress.phoneNumber || ''} 
+            onChange={e => {
+              const val = e.target.value;
+              onChange({ phoneNumber: val });
+              updateAddress({ phoneNumber: val });
+            }} 
+            placeholder="CONTOH: 081234567890" 
+            className="w-full px-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm"
+          />
+        </div>
+      </div>
     </div>
     </fieldset>
   );

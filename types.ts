@@ -26,6 +26,7 @@ export interface Address {
   kecamatan: string;
   postalCode?: string;
   phoneNumber?: string;
+  email?: string;
 }
 
 export interface Person {
@@ -130,6 +131,8 @@ export interface Shareholder {
   kitasNumber?: string;
   sharesOwned: number;
   shareClassification?: string;
+  email?: string;
+  phoneNumber?: string;
   isExistingParty?: boolean;
   linkedPartyId?: string;
   isManagement?: boolean;
