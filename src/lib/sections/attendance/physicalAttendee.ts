@@ -12,6 +12,7 @@ import {
 import { getPosRank } from "../common";
 import { getPersonDetailRuns, addPersonIdentificationBlocks } from "../personIdentification";
 import { buildAmendmentDeedBlocks } from "../history/amendmentDeeds";
+import { CorporateShareholderService } from "../../../services/CorporateShareholderService";
 
 export interface RoleOwnShare {
   sharesOwned: number;
@@ -85,84 +86,145 @@ export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAtte
       });
     } else {
       const shName = (sh.name || "").trim();
-      if (checkIsBadanHukum(sh)) {
-        const repName = (
-          sh.guardianName || 
-          (sh as any).representativeName || 
-          (sh as any).wakilName || 
-          (sh as any).repName || 
-          (sh.isProxy && sh.proxyData?.name) || 
+      if (checkIsBadanHukum(sh) || CorporateShareholderService.checkIsCorporateShareholder(sh)) {
+        const availableProfiles = (config as any).data?.profiles || (config as any).profiles || [];
+        const matchedProfile = CorporateShareholderService.findMatchingCorporateProfile(
+          sh,
+          availableProfiles,
+          (config as any).data?.selectedProfileId || (config as any).data?.companyName
+        );
+
+        let enrichedSh = { ...sh };
+        if (matchedProfile) {
+          if (!enrichedSh.establishmentDeedNumber && matchedProfile.establishmentDeedNumber) {
+            enrichedSh = {
+              ...enrichedSh,
+              establishmentDeedNumber: matchedProfile.establishmentDeedNumber,
+              establishmentDeedDate: matchedProfile.establishmentDeedDate || enrichedSh.establishmentDeedDate,
+              establishmentNotary: matchedProfile.establishmentNotary || enrichedSh.establishmentNotary,
+              establishmentNotaryTitle: matchedProfile.establishmentNotaryTitle || enrichedSh.establishmentNotaryTitle,
+              establishmentNotaryDomicile: matchedProfile.establishmentNotaryDomicile || enrichedSh.establishmentNotaryDomicile,
+              establishmentSkNumber: matchedProfile.establishmentSkNumber || enrichedSh.establishmentSkNumber,
+              establishmentSkDate: matchedProfile.establishmentSkDate || enrichedSh.establishmentSkDate,
+              amendmentDeeds: matchedProfile.amendmentDeeds && matchedProfile.amendmentDeeds.length > 0 ? matchedProfile.amendmentDeeds : enrichedSh.amendmentDeeds,
+              linkedProfileId: matchedProfile.id,
+            };
+          }
+        }
+
+        let repName = (
+          enrichedSh.guardianName || 
+          (enrichedSh as any).representativeName || 
+          (enrichedSh as any).wakilName || 
+          (enrichedSh as any).repName || 
+          (enrichedSh.isProxy && enrichedSh.proxyData?.name) || 
           ""
         ).trim();
+
+        let repSalutation = (
+          enrichedSh.guardianSalutation || 
+          (enrichedSh as any).representativeSalutation || 
+          (enrichedSh as any).wakilSalutation || 
+          (enrichedSh.isProxy && enrichedSh.proxyData?.salutation) || 
+          "Tuan"
+        );
+
+        let repPosition = (
+          enrichedSh.representativePosition || 
+          enrichedSh.proxyData?.position || 
+          enrichedSh.proxyData?.occupation || 
+          "Direktur"
+        );
+
+        let repPerson: any = null;
+
         if (repName) {
-          const repSalutation = (
-            sh.guardianSalutation || 
-            (sh as any).representativeSalutation || 
-            (sh as any).wakilSalutation || 
-            (sh.isProxy && sh.proxyData?.salutation) || 
-            "Tuan"
-          );
-          const repPerson = {
-            id: sh.representativeId || (sh as any).guardianId || crypto.randomUUID(),
+          repPerson = {
+            id: enrichedSh.representativeId || (enrichedSh as any).guardianId || crypto.randomUUID(),
             name: repName,
             salutation: repSalutation,
-            nik: sh.guardianNik || (sh as any).representativeNik || sh.proxyData?.nik || "",
-            birthCity: sh.guardianBirthCity || (sh as any).representativeBirthCity || sh.proxyData?.birthCity || "",
-            birthDate: sh.guardianBirthDate || (sh as any).representativeBirthDate || sh.proxyData?.birthDate || "",
-            occupation: sh.guardianOccupation || (sh as any).representativeOccupation || sh.proxyData?.occupation || "",
-            address: sh.guardianAddress || (sh as any).representativeAddress || sh.proxyData?.address,
-            nationality: sh.guardianNationality || (sh as any).representativeNationality || "WNI",
-            nationalityType: sh.guardianNationalityType || (sh as any).representativeNationalityType || "WNI",
-            passportNumber: sh.guardianPassportNumber || (sh as any).representativePassportNumber || "",
-            kitasNumber: sh.guardianKitasNumber || (sh as any).representativeKitasNumber || "",
+            nik: enrichedSh.guardianNik || (enrichedSh as any).representativeNik || enrichedSh.proxyData?.nik || "",
+            birthCity: enrichedSh.guardianBirthCity || (enrichedSh as any).representativeBirthCity || enrichedSh.proxyData?.birthCity || "",
+            birthDate: enrichedSh.guardianBirthDate || (enrichedSh as any).representativeBirthDate || enrichedSh.proxyData?.birthDate || "",
+            occupation: enrichedSh.guardianOccupation || (enrichedSh as any).representativeOccupation || enrichedSh.proxyData?.occupation || repPosition,
+            position: repPosition,
+            address: enrichedSh.guardianAddress || (enrichedSh as any).representativeAddress || enrichedSh.proxyData?.address,
+            nationality: enrichedSh.guardianNationality || (enrichedSh as any).representativeNationality || "WNI",
+            nationalityType: enrichedSh.guardianNationalityType || (enrichedSh as any).representativeNationalityType || "WNI",
+            passportNumber: enrichedSh.guardianPassportNumber || (enrichedSh as any).representativePassportNumber || "",
+            kitasNumber: enrichedSh.guardianKitasNumber || (enrichedSh as any).representativeKitasNumber || "",
           };
-
-          let att = attendees.find(
-            (a) => a.name.toUpperCase() === repName.toUpperCase(),
-          );
-          if (!att) {
-            att = {
-              type: "PERSON",
-              name: repName,
-              salutation: repSalutation,
-              sourceObj: repPerson,
-              ownShares: null,
-              management: null,
-              representations: [],
+        } else if (matchedProfile) {
+          const stakeholders = CorporateShareholderService.extractCorporateStakeholders(matchedProfile);
+          const topDir = stakeholders.find(s => s.roleCategory === 'DIREKSI') || stakeholders[0];
+          if (topDir) {
+            repName = topDir.name;
+            repSalutation = topDir.salutation || "Tuan";
+            repPosition = topDir.position || "Direktur";
+            repPerson = {
+              id: topDir.id || crypto.randomUUID(),
+              name: topDir.name,
+              salutation: topDir.salutation || "Tuan",
+              nik: topDir.nik || "",
+              birthCity: topDir.birthCity || "",
+              birthDate: topDir.birthDate || "",
+              occupation: topDir.occupation || topDir.position || "Direktur",
+              position: topDir.position || "Direktur",
+              address: topDir.address,
+              nationality: topDir.nationality || "Indonesia",
+              nationalityType: topDir.nationalityType || "WNI",
+              passportNumber: topDir.passportNumber || "",
+              kitasNumber: topDir.kitasNumber || "",
             };
-            attendees.push(att);
           }
-          att.representations.push({
-            sharesOwned: sh.sharesOwned || 0,
-            shareholder: sh,
-            proxyData: {
-              representationType: (sh as any).representativePosition === 'Kuasa Direksi'
-                ? 'KUASA_DIREKSI'
-                : (sh.proxyData?.representationType || (sh as any).representationType || 'DIREKTUR_PT_LAIN'),
-              position: (sh as any).representativePosition || sh.proxyData?.position || sh.proxyData?.occupation || "Direktur",
-              proxyDeedDate: (sh as any).proxyDeedDate || sh.proxyData?.proxyDeedDate || "",
-              ...repPerson,
-            },
-          });
-        } else {
-          attendees.push({
-            type: "ENTITY_DIRECT",
-            name: shName,
-            salutation: "",
-            sourceObj: sh,
-            ownShares:
-              sh.sharesOwned > 0
-                ? {
-                    sharesOwned: sh.sharesOwned || 0,
-                    shareholder: sh,
-                  }
-                : null,
-            management: sh.isManagement
-              ? { position: sh.managementPosition || "Direktur" }
-              : null,
-            representations: [],
-          });
         }
+
+        if (!repPerson) {
+          repName = "........................";
+          repSalutation = "Tuan";
+          repPosition = "Direktur";
+          repPerson = {
+            id: crypto.randomUUID(),
+            name: repName,
+            salutation: "Tuan",
+            nik: "................",
+            birthCity: "........",
+            birthDate: "",
+            occupation: "Direktur",
+            position: "Direktur",
+            address: { fullAddress: "........................" },
+            nationality: "Indonesia",
+            nationalityType: "WNI",
+          };
+        }
+
+        let att = attendees.find(
+          (a) => a.name.toUpperCase() === repName.toUpperCase(),
+        );
+        if (!att) {
+          att = {
+            type: "PERSON",
+            name: repName,
+            salutation: repSalutation,
+            sourceObj: repPerson,
+            ownShares: null,
+            management: null,
+            representations: [],
+          };
+          attendees.push(att);
+        }
+        att.representations.push({
+          sharesOwned: enrichedSh.sharesOwned || 0,
+          shareholder: enrichedSh,
+          proxyData: {
+            representationType: (enrichedSh as any).representativePosition === 'Kuasa Direksi' || enrichedSh.proxyData?.representationType === 'KUASA_DIREKSI'
+              ? 'KUASA_DIREKSI'
+              : (enrichedSh.proxyData?.representationType || (enrichedSh as any).representationType || 'DIREKTUR_PT_LAIN'),
+            position: repPosition,
+            proxyDeedDate: (enrichedSh as any).proxyDeedDate || enrichedSh.proxyData?.proxyDeedDate || "",
+            ...repPerson,
+          },
+        });
       } else {
         let att = attendees.find(
           (a) => a.name.toUpperCase() === shName.toUpperCase(),
@@ -297,7 +359,7 @@ const buildRepresentationBlocks = (
 
   const prefixRuns: FormatToken[] = [];
   if (isDirector) {
-    prefixRuns.push({ text: omitSelaku ? `${posName} dari ` : `selaku ${posName} dari ` });
+    prefixRuns.push({ text: omitSelaku ? `${posName} dari dan oleh karena itu sah bertindak untuk dan atas nama serta mewakili ` : `selaku ${posName} dari dan oleh karena itu sah bertindak untuk dan atas nama serta mewakili ` });
   } else {
     const proxyDate = r.proxyData.proxyDeedDate
       ? useAktaFormat

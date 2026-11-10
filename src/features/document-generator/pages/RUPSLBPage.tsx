@@ -668,7 +668,10 @@ const RUPSLBPageInternal: React.FC<RUPSLBPageProps> = ({
         }}
         onDownload={async (item, format) => {
           const p = item.rawData || {};
-          const merged = sanitizeCompanyData(p);
+          const merged = {
+            ...sanitizeCompanyData(p),
+            profiles: profiles || (p as any).profiles || []
+          };
           if (format === 'notulen') {
             if (merged.documentType === 'CIRCULAR') {
               const { generateSirkulerLaporanDocx } = await import('../../../lib/generateSirkulerLaporanDocx');

@@ -135,6 +135,62 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
     }
   }, [isCircular, missingManagementItems]);
 
+  // Sinkronisasi otomatis data pemegang saham Badan Hukum dari profiles (akta, SK, dan wakil direktur utama/direktur)
+  React.useEffect(() => {
+    if (!profiles || profiles.length === 0) return;
+    let hasChanges = false;
+    const currentList = actualData.shareholders || [];
+    const updatedList = currentList.map((sh: any) => {
+      if (!CorporateShareholderService.checkIsCorporateShareholder(sh)) return sh;
+
+      const matched = CorporateShareholderService.findMatchingCorporateProfile(
+        sh,
+        profiles,
+        actualData.selectedProfileId || actualData.companyName
+      );
+      if (!matched) return sh;
+
+      let mod = { ...sh };
+      if (!mod.establishmentDeedNumber && matched.establishmentDeedNumber) {
+        hasChanges = true;
+        mod = {
+          ...mod,
+          establishmentDeedNumber: matched.establishmentDeedNumber,
+          establishmentDeedDate: matched.establishmentDeedDate || mod.establishmentDeedDate,
+          establishmentNotary: matched.establishmentNotary || mod.establishmentNotary,
+          establishmentNotaryTitle: matched.establishmentNotaryTitle || mod.establishmentNotaryTitle,
+          establishmentNotaryDomicile: matched.establishmentNotaryDomicile || mod.establishmentNotaryDomicile,
+          establishmentSkNumber: matched.establishmentSkNumber || mod.establishmentSkNumber,
+          establishmentSkDate: matched.establishmentSkDate || mod.establishmentSkDate,
+          amendmentDeeds: matched.amendmentDeeds && matched.amendmentDeeds.length > 0 ? matched.amendmentDeeds : mod.amendmentDeeds,
+          linkedProfileId: matched.id
+        };
+      }
+
+      const repName = mod.guardianName || (mod.isProxy && mod.proxyData?.name) || '';
+      if (!repName) {
+        const stakeholders = CorporateShareholderService.extractCorporateStakeholders(matched);
+        const topDir = stakeholders.find(s => s.roleCategory === 'DIREKSI') || stakeholders[0];
+        if (topDir) {
+          hasChanges = true;
+          mod = CorporateShareholderService.applyCorporateProfileToShareholder(
+            mod,
+            matched,
+            topDir,
+            'DIREKTUR_PT_LAIN'
+          );
+          mod = CorporateShareholderService.syncShareholderRepresentative(mod);
+        }
+      }
+
+      return mod;
+    });
+
+    if (hasChanges) {
+      updateData({ shareholders: updatedList });
+    }
+  }, [profiles, actualData.shareholders, actualData.selectedProfileId, actualData.companyName]);
+
   const isPihakLain = (s: any) => {
     if (s.isOtherParty) return true;
     const isMgmt = allManagementItems.some(
@@ -235,7 +291,9 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
                   <td className="p-2 border-r border-slate-200 font-medium uppercase">
                     <div className="flex flex-col">
                       <span className="font-bold text-slate-800">
-                        {s.salutation ? `${s.salutation} ` : ''}{s.name}
+                        {isCorp
+                          ? (s.name || '').replace(/^(TUAN|NYONYA|NONA|BAPAK|IBU|BPK)\s+/i, '').trim()
+                          : `${s.salutation ? `${s.salutation} ` : ''}${s.name}`}
                       </span>
                       <div className="flex flex-wrap gap-1 mt-0.5">
                         {isCorp && (
