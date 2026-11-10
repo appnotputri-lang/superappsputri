@@ -49,45 +49,8 @@ export const ShareholderModal: React.FC<ShareholderModalProps> = ({
       title={editingShareholder?.isOtherParty ? "Formulir Lengkap Pihak Lain" : editMode === 'pengganti' ? "Formulir Lengkap Pengganti / Pengurus Baru" : editMode === 'pengganti_saham' ? "Formulir Lengkap Penerima Peralihan Saham Baru" : "Tambah Pemegang Saham, Komisaris dan Direksi"}
       maxWidth="max-w-3xl"
       headerColor="bg-white text-slate-800 border-b border-slate-200"
-    >
-      <div className="p-0 flex flex-col h-full bg-slate-50">
-        {editingShareholder && (
-          <div className="p-4 sm:p-6 overflow-y-auto">
-            <div className="max-w-2xl mx-auto w-full">
-              <ShareholderEditor 
-                shareholder={editingShareholder}
-                onChange={(updates: any) => setEditingShareholder({ ...editingShareholder, ...updates })}
-                globalSharePrice={globalSharePrice !== undefined ? globalSharePrice : (data?.originalSharePrice || data?.nilaiPerLembar || 0)}
-                totalSharesAllowed={editMode === 'lama' ? data.originalTotalShares : (data.resolutions?.capitalPaid || data.resolutions?.capitalPaidDecrease ? currentTargetSharesPaid : data.originalTotalShares)}
-                otherAllocated={(editMode === 'lama' ? (data.shareholders || []) : (data.finalShareholders || []))
-                  .filter((s: any) => s.id !== editingShareholder.id)
-                  .reduce((sum: number, s: any) => {
-                    let shares = s.sharesOwned;
-                    if (editMode === 'baru' && editingShareholder.isAcquisition && (editingShareholder.acquisitionSourceId === s.id || (s.linkedPartyId && editingShareholder.acquisitionSourceId === s.linkedPartyId))) {
-                      shares = Math.max(0, shares - (editingShareholder.acquisitionShares || 0));
-                    }
-                    return sum + shares;
-                  }, 0)
-                }
-                existingData={editMode === 'lama' ? [] : [
-                  ...(data.shareholders || []),
-                  ...(data.oldManagementItems || []).filter((m: any) => !(data.shareholders || []).some((s: any) => (s.name || '').toUpperCase() === (m.name || '').toUpperCase()))
-                ]}
-                oldSharesOwned={(data.shareholders || []).find((s: any) => (s.name || '').trim().toUpperCase() === (editingShareholder.name || '').trim().toUpperCase())?.sharesOwned || 0}
-                isOld={editMode === 'lama' || editMode === 'pengganti' || editMode === 'pengganti_saham'}
-                hasTransferAgenda={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? false : data.resolutions?.shareholders}
-                hasManagementAgenda={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? true : data.resolutions?.management}
-                hasCapitalChange={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? false : (data.resolutions?.capitalBase || data.resolutions?.capitalPaid || data.resolutions?.capitalBaseDecrease || data.resolutions?.capitalPaidDecrease)}
-                hideFinancials={Boolean(editingShareholder?.isOtherParty) || editMode === 'pengganti' || editMode === 'pengganti_saham' || editMode === 'baru'}
-                hideManagement={Boolean(editingShareholder?.isOtherParty) || editMode === 'baru'}
-                availableParties={(editMode === 'pengganti' || editMode === 'pengganti_saham' || editMode === 'baru') ? data.shareholders : undefined}
-                profiles={profiles}
-                excludeCompanyIdOrName={excludeCompanyIdOrName || data?.selectedProfileId || data?.id || data?.companyName}
-              />
-            </div>
-          </div>
-        )}
-        <div className="mt-auto flex justify-end gap-3 p-4 px-6 border-t border-slate-200 bg-white sticky bottom-0 z-10 shrink-0">
+      footer={
+        <div className="flex justify-end gap-3">
           <button 
             type="button" 
             disabled={isSaving} 
@@ -106,7 +69,40 @@ export const ShareholderModal: React.FC<ShareholderModalProps> = ({
             <span>{isSaving ? "MENYIMPAN DATA..." : "SIMPAN DATA"}</span>
           </button>
         </div>
-      </div>
+      }
+    >
+      {editingShareholder && (
+        <ShareholderEditor 
+          shareholder={editingShareholder}
+          onChange={(updates: any) => setEditingShareholder({ ...editingShareholder, ...updates })}
+          globalSharePrice={globalSharePrice !== undefined ? globalSharePrice : (data?.originalSharePrice || data?.nilaiPerLembar || 0)}
+          totalSharesAllowed={editMode === 'lama' ? data.originalTotalShares : (data.resolutions?.capitalPaid || data.resolutions?.capitalPaidDecrease ? currentTargetSharesPaid : data.originalTotalShares)}
+          otherAllocated={(editMode === 'lama' ? (data.shareholders || []) : (data.finalShareholders || []))
+            .filter((s: any) => s.id !== editingShareholder.id)
+            .reduce((sum: number, s: any) => {
+              let shares = s.sharesOwned;
+              if (editMode === 'baru' && editingShareholder.isAcquisition && (editingShareholder.acquisitionSourceId === s.id || (s.linkedPartyId && editingShareholder.acquisitionSourceId === s.linkedPartyId))) {
+                shares = Math.max(0, shares - (editingShareholder.acquisitionShares || 0));
+              }
+              return sum + shares;
+            }, 0)
+          }
+          existingData={editMode === 'lama' ? [] : [
+            ...(data.shareholders || []),
+            ...(data.oldManagementItems || []).filter((m: any) => !(data.shareholders || []).some((s: any) => (s.name || '').toUpperCase() === (m.name || '').toUpperCase()))
+          ]}
+          oldSharesOwned={(data.shareholders || []).find((s: any) => (s.name || '').trim().toUpperCase() === (editingShareholder.name || '').trim().toUpperCase())?.sharesOwned || 0}
+          isOld={editMode === 'lama' || editMode === 'pengganti' || editMode === 'pengganti_saham'}
+          hasTransferAgenda={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? false : data.resolutions?.shareholders}
+          hasManagementAgenda={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? true : data.resolutions?.management}
+          hasCapitalChange={(editMode === 'pengganti' || editMode === 'pengganti_saham') ? false : (data.resolutions?.capitalBase || data.resolutions?.capitalPaid || data.resolutions?.capitalBaseDecrease || data.resolutions?.capitalPaidDecrease)}
+          hideFinancials={Boolean(editingShareholder?.isOtherParty) || editMode === 'pengganti' || editMode === 'pengganti_saham' || editMode === 'baru'}
+          hideManagement={Boolean(editingShareholder?.isOtherParty) || editMode === 'baru'}
+          availableParties={(editMode === 'pengganti' || editMode === 'pengganti_saham' || editMode === 'baru') ? data.shareholders : undefined}
+          profiles={profiles}
+          excludeCompanyIdOrName={excludeCompanyIdOrName || data?.selectedProfileId || data?.id || data?.companyName}
+        />
+      )}
     </Modal>
   );
 };

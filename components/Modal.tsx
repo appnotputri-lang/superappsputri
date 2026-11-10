@@ -7,6 +7,7 @@ interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   children: React.ReactNode;
+  footer?: React.ReactNode;
   maxWidth?: string;
   headerColor?: string;
 }
@@ -17,6 +18,7 @@ export const Modal: React.FC<ModalProps> = ({
   isOpen, 
   onClose, 
   children,
+  footer,
   maxWidth = 'max-w-4xl',
   headerColor = 'bg-white'
 }) => {
@@ -40,9 +42,14 @@ export const Modal: React.FC<ModalProps> = ({
             <X className="w-5 h-5 text-slate-600" />
           </button>
         </div>
-        <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-slate-50 rounded-none sm:rounded-b-3xl">
+        <div className={`p-4 sm:p-6 overflow-y-auto flex-1 bg-slate-50 ${!footer ? 'rounded-b-2xl sm:rounded-b-3xl' : ''}`}>
           {children}
         </div>
+        {footer && (
+          <div className="border-t border-slate-200 bg-white px-5 sm:px-6 py-3.5 sm:py-4 shrink-0 rounded-b-2xl sm:rounded-b-3xl z-10">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -858,36 +858,13 @@ export default function DraftAktaPendirian({
         isOpen={Boolean(editingShareholder)}
         onClose={() => setEditingShareholder(null)}
         title="Tambah Pemegang Saham & Pengurus"
-        maxWidth="max-w-4xl"
+        maxWidth="max-w-3xl"
         headerColor="bg-white text-slate-800 border-b border-slate-200"
-      >
-        <div className="p-0 flex flex-col h-full bg-slate-50">
-          {editingShareholder && (
-            <div className="p-6 overflow-y-auto">
-              <ShareholderEditor 
-                shareholder={editingShareholder}
-                onChange={updates => setEditingShareholder({ ...editingShareholder, ...updates })}
-                globalSharePrice={data.nilaiPerLembar}
-                totalSharesAllowed={1000000000} 
-                otherAllocated={0} 
-                existingData={[]} 
-                allShareholders={data.shareholders}
-                oldSharesOwned={0} 
-                isOld={true} 
-                hasTransferAgenda={false} 
-                hasManagementAgenda={true} 
-                hasCapitalChange={false} 
-                hideFinancials={false} 
-                hideManagement={false} 
-                profiles={profiles}
-                disabled={isReadOnly}
-              />
-            </div>
-          )}
-          <div className="p-4 border-t border-slate-200 bg-white flex justify-end gap-3 sticky bottom-0">
+        footer={
+          <div className="flex justify-end gap-3">
              <button 
                 onClick={() => setEditingShareholder(null)} 
-                className="px-6 py-2 border border-slate-300 text-slate-700 font-bold rounded-sm text-sm hover:bg-slate-50 transition-colors uppercase"
+                className="px-6 py-2.5 border border-slate-300 text-slate-700 font-bold rounded-lg text-xs sm:text-sm hover:bg-slate-50 transition-colors uppercase cursor-pointer"
              >
                 {isReadOnly ? 'Tutup' : 'Batal'}
              </button>
@@ -898,13 +875,34 @@ export default function DraftAktaPendirian({
                       handleShareholderSave(editingShareholder);
                     }
                   }} 
-                  className="px-6 py-2 bg-[#222d32] text-white font-bold rounded-sm shadow-md text-sm hover:bg-black transition-colors uppercase flex items-center gap-2"
+                  className="px-7 py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg shadow-sm text-xs sm:text-sm transition-all uppercase flex items-center gap-2 cursor-pointer"
                >
                   <Save className="w-4 h-4" /> Simpan Data
                </button>
              )}
           </div>
-        </div>
+        }
+      >
+        {editingShareholder && (
+          <ShareholderEditor 
+            shareholder={editingShareholder}
+            onChange={updates => setEditingShareholder({ ...editingShareholder, ...updates })}
+            globalSharePrice={data.nilaiPerLembar}
+            totalSharesAllowed={1000000000} 
+            otherAllocated={0} 
+            existingData={[]} 
+            allShareholders={data.shareholders}
+            oldSharesOwned={0} 
+            isOld={true} 
+            hasTransferAgenda={false} 
+            hasManagementAgenda={true} 
+            hasCapitalChange={false} 
+            hideFinancials={false} 
+            hideManagement={false} 
+            profiles={profiles}
+            disabled={isReadOnly}
+          />
+        )}
       </Modal>
 
       {/* KBLI Modal */}
