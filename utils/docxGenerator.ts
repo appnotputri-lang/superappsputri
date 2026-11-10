@@ -559,15 +559,8 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
     );
   }
 
-  // Hitung saham dan persiapkan data peserta (filter data pengurus injeksi sintetis)
-  const validShareholders = (data.shareholders || []).filter((s: any) => {
-    if (s.isNonShareholderManagement) return false;
-    if (typeof s.id === 'string' && s.id.startsWith('mgmt-')) return false;
-    if ((s.name?.toUpperCase().includes('SEPTRI WELLY') || s.name?.toUpperCase().includes('SANJEEV RATAN')) && (Number(s.sharesOwned) || 0) === 0) {
-      return false;
-    }
-    return true;
-  });
+  // Hitung saham dan persiapkan data peserta
+  const validShareholders = (data.shareholders || []).filter((s: any) => s && (s.name || "").trim() !== "");
   const attendingShareholders = isCircular
     ? validShareholders.filter((sh) => (sh.sharesOwned || 0) > 0)
     : getPhysicallyPresentShareholders(validShareholders);
@@ -596,20 +589,49 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
 
   const attendees: PhysicalAttendee[] = [];
 
+  // Normalisasi nama orang untuk pencocokan (abaikan sapaan, gelar setelah koma, tanda baca)
+  const normPerson = (n: string) =>
+    (n || "")
+      .toUpperCase()
+      .replace(/^(TUAN|NYONYA|NONA|TN|NY)\.?\s+/, "")
+      .split(",")[0]
+      .replace(/[^A-Z0-9]/g, "");
+  const findAttendee = (name: string) => {
+    const key = normPerson(name);
+    return key ? attendees.find(a => normPerson(a.name) === key) : undefined;
+  };
+
+  // Ambil profil lengkap PT pemegang saham dari Master Klien (akta pendirian, SK, perubahan, pengurus)
+  const corpProfilePool = ((data as any).profiles && (data as any).profiles.length > 0)
+    ? (data as any).profiles
+    : ((data as any).clientProfiles || (CompanyService as any).profilesCache || []);
+  const fullCorpProfiles = new Map<string, any>();
+  for (const sh of attendingShareholders) {
+    const isCorpSh = CorporateShareholderService.checkIsCorporateShareholder(sh) || checkIsBadanHukum(sh);
+    if (!isCorpSh) continue;
+    const lite = CorporateShareholderService.findMatchingCorporateProfile(sh, corpProfilePool, data.companyName);
+    const pid = lite?.id || sh.linkedProfileId;
+    if (!pid || fullCorpProfiles.has(pid)) continue;
+    try {
+      const full = await CompanyService.getCompanyProfile(pid);
+      fullCorpProfiles.set(pid, full ? { ...(lite || {}), ...full, id: pid } : lite);
+    } catch (e) {
+      if (lite) fullCorpProfiles.set(pid, lite);
+    }
+  }
+
   attendingShareholders.forEach(sh => {
     const isCorp = CorporateShareholderService.checkIsCorporateShareholder(sh) || checkIsBadanHukum(sh);
 
     if (isCorp) {
       // Badan Hukum can NEVER attend directly as a physical person.
       // Must be represented by a Director / human representative.
-      const availableProfiles = (data.profiles && data.profiles.length > 0)
-        ? data.profiles
-        : ((data as any).clientProfiles || (CompanyService as any).profilesCache || []);
-      const matchedProfile = CorporateShareholderService.findMatchingCorporateProfile(
+      const liteProfile = CorporateShareholderService.findMatchingCorporateProfile(
         sh,
-        availableProfiles,
+        corpProfilePool,
         data.companyName
       );
+      const matchedProfile: any = fullCorpProfiles.get(liteProfile?.id || sh.linkedProfileId || "") || liteProfile;
 
       let enrichedSh = { ...sh };
       if (matchedProfile) {
@@ -623,10 +645,15 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
             establishmentNotaryDomicile: matchedProfile.establishmentNotaryDomicile || enrichedSh.establishmentNotaryDomicile,
             establishmentSkNumber: matchedProfile.establishmentSkNumber || enrichedSh.establishmentSkNumber,
             establishmentSkDate: matchedProfile.establishmentSkDate || enrichedSh.establishmentSkDate,
-            amendmentDeeds: matchedProfile.amendmentDeeds && matchedProfile.amendmentDeeds.length > 0 ? matchedProfile.amendmentDeeds : enrichedSh.amendmentDeeds,
-            linkedProfileId: matchedProfile.id,
           };
         }
+        if ((!enrichedSh.amendmentDeeds || enrichedSh.amendmentDeeds.length === 0) && matchedProfile.amendmentDeeds && matchedProfile.amendmentDeeds.length > 0) {
+          enrichedSh = { ...enrichedSh, amendmentDeeds: matchedProfile.amendmentDeeds };
+        }
+        if (!(enrichedSh as any).domicile && (matchedProfile.domicile || matchedProfile.oldDomicile)) {
+          enrichedSh = { ...enrichedSh, domicile: matchedProfile.domicile || matchedProfile.oldDomicile } as any;
+        }
+        enrichedSh = { ...enrichedSh, linkedProfileId: matchedProfile.id };
       }
 
       let repName = (
@@ -715,7 +742,7 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
         };
       }
 
-      let att = attendees.find(a => a.name.toUpperCase() === repName.toUpperCase());
+      let att = findAttendee(repName);
       if (!att) {
         att = {
           type: 'PERSON',
@@ -745,7 +772,7 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
       });
     } else if (sh.isProxy && sh.proxyData) {
       const pxName = (sh.proxyData.name || "").trim();
-      let att = attendees.find(a => a.name.toUpperCase() === pxName.toUpperCase());
+      let att = findAttendee(pxName);
       if (!att) {
         att = {
           type: 'PERSON',
@@ -765,7 +792,7 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
       });
     } else {
       const shName = (sh.name || "").trim();
-      let att = attendees.find(a => a.name.toUpperCase() === shName.toUpperCase());
+      let att = findAttendee(shName);
       if (!att) {
         att = {
           type: 'PERSON',
@@ -781,6 +808,10 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
         };
         attendees.push(att);
       } else {
+        if (!att.sourceObj?.nik && sh.nik) {
+          att.sourceObj = sh;
+          att.salutation = resolveSalutationForPerson(shName, sh.salutation, data);
+        }
         if (sh.sharesOwned > 0) {
           att.ownShares = {
             sharesOwned: sh.sharesOwned || 0,
@@ -797,29 +828,46 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
   // Apply management role lookups for physical persons
   attendees.forEach(att => {
     if (att.type === 'PERSON' && !att.management) {
-      // Jangan berikan jabatan pengurus perseroan jika orang ini murni hadir mewakili PT lain!
-      if (att.representations.length > 0 && !att.ownShares) {
-        return;
-      }
-      const pxNameUpper = att.name.toUpperCase().trim();
-      const matchedMgmt = validShareholders.find(s => s.name?.toUpperCase().trim() === pxNameUpper && s.isManagement);
+      // Seseorang bisa sekaligus menjadi pengurus Perseroan DAN wakil PT pemegang saham
+      const pxKey = normPerson(att.name);
+      const matchedMgmt = validShareholders.find(s => normPerson(s.name || "") === pxKey && s.isManagement);
       if (matchedMgmt) {
         att.management = { position: matchedMgmt.managementPosition || "Direktur" };
       }
       if (!att.management && data.newManagementItems) {
-        const matchedMgmtNew = data.newManagementItems.find(m => m.name?.toUpperCase().trim() === pxNameUpper);
+        const matchedMgmtNew = data.newManagementItems.find(m => normPerson(m.name || "") === pxKey);
         if (matchedMgmtNew) {
           att.management = { position: matchedMgmtNew.position };
         }
       }
       if (!att.management && data.oldManagementItems) {
-        const matchedMgmtOld = data.oldManagementItems.find(m => m.name?.toUpperCase().trim() === pxNameUpper);
+        const matchedMgmtOld = data.oldManagementItems.find(m => normPerson(m.name || "") === pxKey);
         if (matchedMgmtOld) {
           att.management = { position: matchedMgmtOld.position };
         }
       }
     }
   });
+
+  // PKR LB: Direksi & Dewan Komisaris Perseroan yang tidak memiliki saham tetap hadir dalam rapat
+  if (!isCircular && Array.isArray(data.oldManagementItems)) {
+    data.oldManagementItems.forEach((m: any) => {
+      const mName = (m?.name || "").trim();
+      if (!mName || m.isPresent === false) return;
+      const existingSh = validShareholders.find(s => normPerson(s.name || "") === normPerson(mName));
+      if (existingSh && existingSh.isPresent === false) return;
+      if (findAttendee(mName)) return;
+      attendees.push({
+        type: 'PERSON',
+        name: mName,
+        salutation: resolveSalutationForPerson(mName, m.salutation, data),
+        sourceObj: m,
+        ownShares: null,
+        management: { position: m.position || m.managementPosition || "Direktur" },
+        representations: []
+      });
+    });
+  }
 
   // Sort attendees: Pengurus perseroan (Direktur Utama, Direktur, Komisaris) -> Pemegang Saham Perorangan -> Wakil Badan Hukum
   attendees.sort((a, b) => {
@@ -1142,7 +1190,12 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
           const isKoperasiOrYayasanOrCV = /^(KOPERASI|YAYASAN|CV\b)/i.test(r.shareholder.name || "");
           const entityPrefix = (isAsing || isKoperasiOrYayasanOrCV) ? "" : "PT ";
           const fullPtName = `${entityPrefix}${shLegalName}`;
-          const shDetails = formatPersonDetails(r.shareholder, "", "", false, true);
+          let shDetails = formatPersonDetails(r.shareholder, "", "", false, true);
+          const shDeeds = (r.shareholder as any).amendmentDeeds || [];
+          if (shDeeds.length > 0) {
+            const lastDeed = shDeeds[shDeeds.length - 1];
+            shDetails += `, dan anggaran dasarnya telah mengalami ${shDeeds.length > 1 ? "beberapa kali perubahan, terakhir dengan" : "perubahan dengan"} ${formatAmendmentDeedSingle(lastDeed, false)}`;
+          }
 
           // Sub-bullet 1: Jabatan & Rincian Legalitas PT (Akta & SK AHU)
           getNextShLetter();

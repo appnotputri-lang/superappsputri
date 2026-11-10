@@ -55,15 +55,13 @@ export interface AttendanceConfig {
 export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAttendee[] => {
   const { shareholders, isMinutes, newManagementItems, oldManagementItems, isSirkuler } = config;
 
-  // Filter data pemegang saham: singkirkan pengurus injeksi sintetis tanpa saham
-  const validShareholders = (shareholders || []).filter((s: any) => {
-    if (s.isNonShareholderManagement) return false;
-    if (typeof s.id === 'string' && s.id.startsWith('mgmt-')) return false;
-    if ((s.name?.toUpperCase().includes('SEPTRI WELLY') || s.name?.toUpperCase().includes('SANJEEV RATAN')) && (Number(s.sharesOwned) || 0) === 0) {
-      return false;
-    }
-    return true;
-  });
+  const validShareholders = (shareholders || []).filter((s: any) => s && (s.name || "").trim() !== "");
+  const normPerson = (n: string) =>
+    (n || "")
+      .toUpperCase()
+      .replace(/^(TUAN|NYONYA|NONA|TN|NY)\.?\s+/, "")
+      .split(",")[0]
+      .replace(/[^A-Z0-9]/g, "");
 
   const attendingShareholders = isSirkuler
     ? validShareholders.filter((s) => (Number(s.sharesOwned) || 0) > 0)
@@ -77,7 +75,7 @@ export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAtte
     if (sh.isProxy && sh.proxyData) {
       const pxName = (sh.proxyData.name || "").trim();
       let att = attendees.find(
-        (a) => a.name.toUpperCase() === pxName.toUpperCase(),
+        (a) => normPerson(a.name) === normPerson(pxName),
       );
       if (!att) {
         att = {
@@ -211,7 +209,7 @@ export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAtte
         }
 
         let att = attendees.find(
-          (a) => a.name.toUpperCase() === repName.toUpperCase(),
+          (a) => normPerson(a.name) === normPerson(repName),
         );
         if (!att) {
           att = {
@@ -239,7 +237,7 @@ export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAtte
         });
       } else {
         let att = attendees.find(
-          (a) => a.name.toUpperCase() === shName.toUpperCase(),
+          (a) => normPerson(a.name) === normPerson(shName),
         );
         if (!att) {
           att = {
@@ -280,13 +278,10 @@ export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAtte
   // Lookup management roles
   attendees.forEach((att) => {
     if (att.type === "PERSON" && !att.management) {
-      // Jangan berikan jabatan pengurus perseroan jika orang ini murni hadir mewakili PT lain!
-      if (att.representations.length > 0 && !att.ownShares) {
-        return;
-      }
-      const pxNameUpper = att.name.toUpperCase().trim();
+      // Seseorang bisa sekaligus menjadi pengurus Perseroan DAN wakil PT pemegang saham
+      const pxKey = normPerson(att.name);
       const matchedMgmt = validShareholders.find(
-        (s) => s.name.toUpperCase().trim() === pxNameUpper && s.isManagement,
+        (s) => normPerson(s.name) === pxKey && s.isManagement,
       );
       if (matchedMgmt) {
         att.management = {
@@ -295,7 +290,7 @@ export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAtte
       }
       if (!att.management && newManagementItems) {
         const matchedMgmtNew = newManagementItems.find(
-          (m) => m.name.toUpperCase().trim() === pxNameUpper,
+          (m) => normPerson(m.name) === pxKey,
         );
         if (matchedMgmtNew) {
           att.management = { position: matchedMgmtNew.position };
@@ -303,7 +298,7 @@ export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAtte
       }
       if (!att.management && oldManagementItems) {
         const matchedMgmtOld = oldManagementItems.find(
-          (m) => m.name.toUpperCase().trim() === pxNameUpper,
+          (m) => normPerson(m.name) === pxKey,
         );
         if (matchedMgmtOld) {
           att.management = { position: matchedMgmtOld.position };
@@ -317,10 +312,7 @@ export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAtte
     oldManagementItems.forEach((m: any) => {
       if (m.isPresent !== false) {
         const mName = (m.name || "").trim();
-        if (mName.toUpperCase().includes('SEPTRI WELLY') || mName.toUpperCase().includes('SANJEEV RATAN')) {
-          return;
-        }
-        if (mName && !attendees.some(a => a.name.toUpperCase() === mName.toUpperCase())) {
+        if (mName && !attendees.some(a => normPerson(a.name) === normPerson(mName))) {
           attendees.push({
             type: "PERSON",
             name: mName,

@@ -106,15 +106,8 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     }
   };
 
-  // Filter attendees for Minutes (exclude synthetic injected management)
-  const validShareholders = (data.shareholders || []).filter((s: any) => {
-    if (s.isNonShareholderManagement) return false;
-    if (typeof s.id === 'string' && s.id.startsWith('mgmt-')) return false;
-    if ((s.name?.toUpperCase().includes('SEPTRI WELLY') || s.name?.toUpperCase().includes('SANJEEV RATAN')) && (Number(s.sharesOwned) || 0) === 0) {
-      return false;
-    }
-    return true;
-  });
+  // Filter attendees for Minutes
+  const validShareholders = (data.shareholders || []).filter((s: any) => s && (s.name || "").trim() !== "");
 
   const attendingShareholders = isMinutes
     ? getPhysicallyPresentShareholders(validShareholders)

@@ -72,41 +72,25 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
     return sourceMgmts;
   }, [actualData.oldManagementItems, actualData.newManagementItems, actualData.managementItems, actualData.management, actualData.directors, actualData.commissioners, actualData.companyName, profiles]);
 
-  // Bersihkan data pengurus asing yang sempat terinjeksi ke actualData.shareholders atau actualData.oldManagementItems
+  // Muat susunan Direksi & Dewan Komisaris perseroan dari profil master (prioritas: nama perseroan, lalu selectedProfileId)
   React.useEffect(() => {
-    const list = actualData.shareholders || [];
-    const cleaned = list.filter((s: any) => {
-      if (s.isNonShareholderManagement) return false;
-      if (typeof s.id === 'string' && s.id.startsWith('mgmt-')) return false;
-      // Injeksi salah kamar untuk perseroan Tectona Baratama Energi
-      if ((s.name?.toUpperCase().includes('SEPTRI WELLY') || s.name?.toUpperCase().includes('SANJEEV RATAN')) && (Number(s.sharesOwned) || 0) === 0) {
-        return false;
+    if (isCircular || allManagementItems.length > 0) return;
+    const normCompany = CorporateShareholderService.normalizeCorporateName(actualData.companyName);
+    const byName = (profiles || []).find((p: any) =>
+      p && p.companyName && CorporateShareholderService.normalizeCorporateName(p.companyName) === normCompany
+    );
+    const profileId = byName?.id || actualData.selectedProfileId;
+    if (!profileId) return;
+    CompanyService.getCompanyProfile(profileId).then(prof => {
+      if (!prof) return;
+      const mgmt = (prof.oldManagementItems && prof.oldManagementItems.length > 0)
+        ? prof.oldManagementItems
+        : (prof.newManagementItems || (prof as any).managementItems || []);
+      if (mgmt.length > 0) {
+        updateData({ oldManagementItems: mgmt });
       }
-      return true;
-    });
-
-    let cleanedOldMgmt = actualData.oldManagementItems;
-    let oldMgmtChanged = false;
-    if (Array.isArray(cleanedOldMgmt) && cleanedOldMgmt.length > 0) {
-      const filteredOld = cleanedOldMgmt.filter((m: any) => {
-        if (m.name?.toUpperCase().includes('SEPTRI WELLY') || m.name?.toUpperCase().includes('SANJEEV RATAN')) {
-          return false;
-        }
-        return true;
-      });
-      if (filteredOld.length !== cleanedOldMgmt.length) {
-        cleanedOldMgmt = filteredOld;
-        oldMgmtChanged = true;
-      }
-    }
-
-    if (cleaned.length !== list.length || oldMgmtChanged) {
-      updateData({
-        shareholders: cleaned,
-        ...(oldMgmtChanged ? { oldManagementItems: cleanedOldMgmt } : {})
-      });
-    }
-  }, [actualData.shareholders, actualData.oldManagementItems]);
+    }).catch(console.error);
+  }, [isCircular, allManagementItems.length, actualData.selectedProfileId, actualData.companyName, profiles]);
 
   // Apabila RUPS LB memilih PKR LB (bukan sirkuler), kumpulkan pengurus yang belum ada di daftar shareholders (direksi/komisaris yang tidak memiliki saham)
   const missingManagementItems = React.useMemo(() => {
@@ -147,6 +131,15 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
 
     return results;
   }, [isCircular, actualData.shareholders, allManagementItems]);
+
+  // PKR LB: simpan Direksi/Komisaris tanpa saham ke daftar para pihak agar ikut hadir di Notulen & bisa dicentang hadir/tidak
+  React.useEffect(() => {
+    if (!isCircular && missingManagementItems.length > 0) {
+      updateData({
+        shareholders: [...(actualData.shareholders || []), ...missingManagementItems]
+      });
+    }
+  }, [isCircular, missingManagementItems]);
 
   // Sinkronisasi otomatis data pemegang saham Badan Hukum dari profiles (akta, SK, dan wakil direktur utama/direktur)
   React.useEffect(() => {
