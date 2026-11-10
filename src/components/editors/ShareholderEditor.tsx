@@ -359,25 +359,6 @@ const ShareholderEditor: React.FC<Props> = ({
     onChange({ sharesOwned: val });
   };
 
-  const handleNominalRpChange = (inputValue: string) => {
-    const rpVal = parseFormattedNumber(inputValue);
-    const sharePrice = activeGlobalSharePrice || 0;
-    if (sharePrice === 0) {
-      alert("Harap tentukan Harga per Lembar Saham di Profil terlebih dahulu.");
-      return;
-    }
-    if (totalSharesAllowed === 0) {
-      alert("Harap isi Modal Disetor di tab Profil terlebih dahulu.");
-      return;
-    }
-    let calculatedShares = Math.floor(rpVal / sharePrice);
-    if (calculatedShares > maxPossible) {
-      calculatedShares = maxPossible;
-      alert(`Batas Terlampaui! Maksimal sisa lembar yang tersedia adalah ${maxPossible.toLocaleString('id-ID')} lembar (Rp ${(maxPossible * sharePrice).toLocaleString('id-ID')}).`);
-    }
-    onChange({ sharesOwned: calculatedShares });
-  };
-
   const quickFillRemaining = () => {
     onChange({ sharesOwned: maxPossible });
   };
@@ -1625,63 +1606,43 @@ const ShareholderEditor: React.FC<Props> = ({
                   <option>Tanpa Klasifikasi</option>
                 </select>
               </div>
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <label className="block text-xs font-bold text-slate-700">Nominal Saham (Rp) <span className="text-red-500">*</span></label>
-                      {canQuickFill && isOld && (
-                        <button 
-                          type="button"
-                          onClick={quickFillRemaining}
-                          className="text-[10px] text-teal-600 hover:underline font-medium"
-                        >
-                          (Ambil Sisa Saldo)
-                        </button>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-semibold select-none">Rp.</span>
-                      <input 
-                        type="text" 
-                        disabled={totalSharesAllowed === 0 || disableFinancials || !isOld}
-                        value={disableFinancials ? '0' : (shareholder.sharesOwned && activeGlobalSharePrice ? formatInputNumber(shareholder.sharesOwned * activeGlobalSharePrice) : '')} 
-                        onChange={e => handleNominalRpChange(e.target.value)}
-                        placeholder="0"
-                        className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm disabled:bg-slate-100 disabled:opacity-50"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between items-center mb-1">
-                      <label className="block text-xs font-bold text-slate-700">Terkonversi (Lembar Saham) <span className="text-red-500">*</span></label>
-                    </div>
-                    <div className="relative">
-                      <input 
-                        type="text" 
-                        disabled={totalSharesAllowed === 0 || disableFinancials || !isOld}
-                        value={disableFinancials ? '0' : (shareholder.sharesOwned === 0 ? '' : formatInputNumber(shareholder.sharesOwned))} 
-                        onChange={e => handleSharesChange(e.target.value)}
-                        placeholder="0"
-                        className="w-full px-3 py-2 pr-16 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm disabled:bg-slate-100 disabled:opacity-50 font-medium text-slate-700"
-                      />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-medium select-none">Lembar</span>
-                    </div>
-                  </div>
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-xs font-bold text-slate-700">Lembar Saham <span className="text-red-500">*</span></label>
+                  {canQuickFill && isOld && (
+                    <button 
+                      type="button"
+                      onClick={quickFillRemaining}
+                      className="text-[11px] text-teal-600 hover:text-teal-700 hover:underline font-semibold"
+                    >
+                      (Ambil Sisa Saldo)
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <input 
+                    type="text" 
+                    disabled={totalSharesAllowed === 0 || disableFinancials || !isOld}
+                    value={disableFinancials ? '0' : (shareholder.sharesOwned === 0 ? '' : formatInputNumber(shareholder.sharesOwned))} 
+                    onChange={e => handleSharesChange(e.target.value)}
+                    placeholder="0"
+                    className="w-full px-3 py-2 pr-16 border border-slate-300 rounded outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm disabled:bg-slate-100 disabled:opacity-50 font-medium text-slate-800"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-medium select-none">Lembar</span>
                 </div>
 
                 {!disableFinancials && (
-                <div className="flex flex-col gap-1 text-[10px]">
-                  <div className="flex justify-between items-center text-slate-500">
-                    <span>Harga: <b>Rp. {formatInputNumber(activeGlobalSharePrice || 0)}</b> / lembar</span>
-                    <span className="text-slate-800 font-bold italic">{formatCurrency(currentTotalValue)} ({formatInputNumber(shareholder.sharesOwned || 0)} lembar)</span>
-                  </div>
-                  {!isOld && (hasTransferAgenda || hasCapitalChange) && (
-                    <div className="text-blue-600 font-medium bg-blue-50 p-1.5 rounded border border-blue-100 flex items-center gap-1">
-                      <Zap className="w-3 h-3" /> Gunakan bagian <strong>Peralihan</strong> atau <strong>Setor Modal Baru</strong> di bawah untuk mengubah jumlah saham.
+                  <div className="mt-1.5 flex flex-col gap-1 text-[11px]">
+                    <div className="flex justify-between items-center text-slate-500">
+                      <span>Harga: <b>Rp. {formatInputNumber(activeGlobalSharePrice || 0)}</b> / lembar</span>
+                      <span className="text-slate-800 font-bold">Total: <span className="text-teal-700">{formatCurrency(currentTotalValue)}</span></span>
                     </div>
-                  )}
-                </div>
+                    {!isOld && (hasTransferAgenda || hasCapitalChange) && (
+                      <div className="text-blue-600 font-medium bg-blue-50 p-1.5 rounded border border-blue-100 flex items-center gap-1 text-[11px] mt-1">
+                        <Zap className="w-3.5 h-3.5 shrink-0" /> Gunakan bagian <strong>Peralihan</strong> atau <strong>Setor Modal Baru</strong> di bawah untuk mengubah jumlah saham.
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
