@@ -11,7 +11,6 @@ import {
   CapitalSection,
   AddressSection,
   ShareholderSection,
-  ManagementSection,
 } from '../sections';
 
 // Shared UI helper components used across form sections
@@ -194,16 +193,8 @@ export const CompanyForm: React.FC<CompanyFormProps> = ({
         {/* 8. CAPITAL SECTION */}
         <CapitalSection data={data} updateData={updateData} />
 
-        {/* 9. SHAREHOLDER SECTION */}
+        {/* 9. PENGURUS & PEMEGANG SAHAM SECTION */}
         <ShareholderSection 
-          data={data} 
-          updateData={updateData} 
-          openShareholderEditor={openShareholderEditor} 
-          deleteShareholder={deleteShareholder} 
-        />
-
-        {/* 10. MANAGEMENT SECTION */}
-        <ManagementSection 
           data={data} 
           updateData={updateData} 
           openShareholderEditor={openShareholderEditor} 
