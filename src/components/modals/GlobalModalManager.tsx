@@ -84,6 +84,7 @@ export const GlobalModalManager: React.FC<GlobalModalManagerProps> = (props) => 
         editMode={props.editMode}
         setEditMode={props.setEditMode}
         data={props.data}
+        globalSharePrice={props.data?.originalSharePrice || props.data?.nilaiPerLembar || 0}
         currentTargetSharesPaid={props.currentTargetSharesPaid}
         saveShareholder={props.saveShareholder}
         profiles={props.profiles}

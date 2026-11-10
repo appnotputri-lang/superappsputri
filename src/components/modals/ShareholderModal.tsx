@@ -13,6 +13,7 @@ interface ShareholderModalProps {
   saveShareholder: (s: any) => void;
   profiles?: any[];
   excludeCompanyIdOrName?: string;
+  globalSharePrice?: number;
 }
 
 export const ShareholderModal: React.FC<ShareholderModalProps> = ({
@@ -24,7 +25,8 @@ export const ShareholderModal: React.FC<ShareholderModalProps> = ({
   currentTargetSharesPaid,
   saveShareholder,
   profiles,
-  excludeCompanyIdOrName
+  excludeCompanyIdOrName,
+  globalSharePrice
 }) => {
   const [isSaving, setIsSaving] = React.useState(false);
 
@@ -54,6 +56,7 @@ export const ShareholderModal: React.FC<ShareholderModalProps> = ({
             <ShareholderEditor 
               shareholder={editingShareholder}
               onChange={(updates: any) => setEditingShareholder({ ...editingShareholder, ...updates })}
+              globalSharePrice={globalSharePrice !== undefined ? globalSharePrice : (data?.originalSharePrice || data?.nilaiPerLembar || 0)}
               totalSharesAllowed={editMode === 'lama' ? data.originalTotalShares : (data.resolutions?.capitalPaid || data.resolutions?.capitalPaidDecrease ? currentTargetSharesPaid : data.originalTotalShares)}
               otherAllocated={(editMode === 'lama' ? (data.shareholders || []) : (data.finalShareholders || []))
                 .filter((s: any) => s.id !== editingShareholder.id)

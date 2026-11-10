@@ -1283,6 +1283,7 @@ export const CompanyPage: React.FC<CompanyPageProps> = ({ setIsSidebarOpen, ...p
         editMode={editMode}
         setEditMode={setEditMode}
         data={data}
+        globalSharePrice={data.originalSharePrice || 0}
         currentTargetSharesPaid={currentTargetSharesPaidForModal}
         saveShareholder={saveShareholder}
         profiles={corporateProfiles.length > 0 ? corporateProfiles : (contextProfiles || [])}
