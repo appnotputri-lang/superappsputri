@@ -53,11 +53,11 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
       ...(Array.isArray(actualData.commissioners) ? actualData.commissioners : []),
     ];
 
-    // Jika belum ada pengurus di actualData, cari dari profiles berdasarkan selectedProfileId atau nama PT
-    if (sourceMgmts.length === 0 && profiles && profiles.length > 0) {
+    // Jika belum ada pengurus di actualData, cari dari profiles HANYA jika nama perseroan sama persis
+    const normCompany = CorporateShareholderService.normalizeCorporateName(actualData.companyName);
+    if (normCompany && sourceMgmts.length === 0 && profiles && profiles.length > 0) {
       const matchedProfile = profiles.find(p => 
-        (p.id && actualData.selectedProfileId && p.id === actualData.selectedProfileId) ||
-        (p.companyName && actualData.companyName && p.companyName.trim().toUpperCase() === actualData.companyName.trim().toUpperCase())
+        p && p.companyName && CorporateShareholderService.normalizeCorporateName(p.companyName) === normCompany
       );
       if (matchedProfile) {
         const fromProfile = [
@@ -70,21 +70,43 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
     }
 
     return sourceMgmts;
-  }, [actualData.oldManagementItems, actualData.newManagementItems, actualData.managementItems, actualData.management, actualData.directors, actualData.commissioners, actualData.selectedProfileId, actualData.companyName, profiles]);
+  }, [actualData.oldManagementItems, actualData.newManagementItems, actualData.managementItems, actualData.management, actualData.directors, actualData.commissioners, actualData.companyName, profiles]);
 
-  // Muat data profil master secara asinkron jika belum memiliki data pengurus
+  // Bersihkan data pengurus asing yang sempat terinjeksi ke actualData.shareholders atau actualData.oldManagementItems
   React.useEffect(() => {
-    if (!isCircular && allManagementItems.length === 0 && actualData.selectedProfileId) {
-      CompanyService.getCompanyProfile(actualData.selectedProfileId).then(prof => {
-        if (prof) {
-          const mgmt = prof.oldManagementItems || prof.newManagementItems || (prof as any).managementItems || [];
-          if (mgmt.length > 0) {
-            updateData({ oldManagementItems: mgmt });
-          }
+    const list = actualData.shareholders || [];
+    const cleaned = list.filter((s: any) => {
+      if (s.isNonShareholderManagement) return false;
+      if (typeof s.id === 'string' && s.id.startsWith('mgmt-')) return false;
+      // Injeksi salah kamar untuk perseroan Tectona Baratama Energi
+      if ((s.name?.toUpperCase().includes('SEPTRI WELLY') || s.name?.toUpperCase().includes('SANJEEV RATAN')) && (Number(s.sharesOwned) || 0) === 0) {
+        return false;
+      }
+      return true;
+    });
+
+    let cleanedOldMgmt = actualData.oldManagementItems;
+    let oldMgmtChanged = false;
+    if (Array.isArray(cleanedOldMgmt) && cleanedOldMgmt.length > 0) {
+      const filteredOld = cleanedOldMgmt.filter((m: any) => {
+        if (m.name?.toUpperCase().includes('SEPTRI WELLY') || m.name?.toUpperCase().includes('SANJEEV RATAN')) {
+          return false;
         }
-      }).catch(console.error);
+        return true;
+      });
+      if (filteredOld.length !== cleanedOldMgmt.length) {
+        cleanedOldMgmt = filteredOld;
+        oldMgmtChanged = true;
+      }
     }
-  }, [isCircular, allManagementItems.length, actualData.selectedProfileId]);
+
+    if (cleaned.length !== list.length || oldMgmtChanged) {
+      updateData({
+        shareholders: cleaned,
+        ...(oldMgmtChanged ? { oldManagementItems: cleanedOldMgmt } : {})
+      });
+    }
+  }, [actualData.shareholders, actualData.oldManagementItems]);
 
   // Apabila RUPS LB memilih PKR LB (bukan sirkuler), kumpulkan pengurus yang belum ada di daftar shareholders (direksi/komisaris yang tidak memiliki saham)
   const missingManagementItems = React.useMemo(() => {
@@ -126,15 +148,6 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
     return results;
   }, [isCircular, actualData.shareholders, allManagementItems]);
 
-  // Sinkronkan ke actualData.shareholders agar pengurus tanpa saham otomatis tersimpan di data rapat PKR LB
-  React.useEffect(() => {
-    if (!isCircular && missingManagementItems.length > 0) {
-      updateData({
-        shareholders: [...(actualData.shareholders || []), ...missingManagementItems]
-      });
-    }
-  }, [isCircular, missingManagementItems]);
-
   // Sinkronisasi otomatis data pemegang saham Badan Hukum dari profiles (akta, SK, dan wakil direktur utama/direktur)
   React.useEffect(() => {
     if (!profiles || profiles.length === 0) return;
@@ -146,11 +159,22 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
       const matched = CorporateShareholderService.findMatchingCorporateProfile(
         sh,
         profiles,
-        actualData.selectedProfileId || actualData.companyName
+        actualData.companyName
       );
       if (!matched) return sh;
 
       let mod = { ...sh };
+      // Pastikan sapaan perorangan (Tuan/Nyonya) dibersihkan dari pemegang saham Badan Hukum
+      if (mod.salutation) {
+        hasChanges = true;
+        mod.salutation = '';
+      }
+      const cleanShName = (mod.name || '').replace(/^(TUAN|NYONYA|NONA|BAPAK|IBU|BPK|TN|NY)\.?\s+/i, '').trim();
+      if (cleanShName !== mod.name) {
+        hasChanges = true;
+        mod.name = cleanShName;
+      }
+
       if (!mod.establishmentDeedNumber && matched.establishmentDeedNumber) {
         hasChanges = true;
         mod = {
@@ -189,7 +213,7 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
     if (hasChanges) {
       updateData({ shareholders: updatedList });
     }
-  }, [profiles, actualData.shareholders, actualData.selectedProfileId, actualData.companyName]);
+  }, [profiles, actualData.shareholders, actualData.companyName]);
 
   const isPihakLain = (s: any) => {
     if (s.isOtherParty) return true;

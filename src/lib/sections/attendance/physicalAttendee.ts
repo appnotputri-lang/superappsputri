@@ -13,6 +13,7 @@ import { getPosRank } from "../common";
 import { getPersonDetailRuns, addPersonIdentificationBlocks } from "../personIdentification";
 import { buildAmendmentDeedBlocks } from "../history/amendmentDeeds";
 import { CorporateShareholderService } from "../../../services/CorporateShareholderService";
+import { CompanyService } from "../../../services/CompanyService";
 
 export interface RoleOwnShare {
   sharesOwned: number;
@@ -53,11 +54,22 @@ export interface AttendanceConfig {
 
 export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAttendee[] => {
   const { shareholders, isMinutes, newManagementItems, oldManagementItems, isSirkuler } = config;
+
+  // Filter data pemegang saham: singkirkan pengurus injeksi sintetis tanpa saham
+  const validShareholders = (shareholders || []).filter((s: any) => {
+    if (s.isNonShareholderManagement) return false;
+    if (typeof s.id === 'string' && s.id.startsWith('mgmt-')) return false;
+    if ((s.name?.toUpperCase().includes('SEPTRI WELLY') || s.name?.toUpperCase().includes('SANJEEV RATAN')) && (Number(s.sharesOwned) || 0) === 0) {
+      return false;
+    }
+    return true;
+  });
+
   const attendingShareholders = isSirkuler
-    ? shareholders.filter((s) => (Number(s.sharesOwned) || 0) > 0)
+    ? validShareholders.filter((s) => (Number(s.sharesOwned) || 0) > 0)
     : (isMinutes
-        ? shareholders.filter((s) => s.isPresent !== false)
-        : shareholders.filter((s) => (Number(s.sharesOwned) || 0) > 0));
+        ? validShareholders.filter((s) => s.isPresent !== false)
+        : validShareholders.filter((s) => (Number(s.sharesOwned) || 0) > 0));
 
   const attendees: PhysicalAttendee[] = [];
 
@@ -87,11 +99,11 @@ export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAtte
     } else {
       const shName = (sh.name || "").trim();
       if (checkIsBadanHukum(sh) || CorporateShareholderService.checkIsCorporateShareholder(sh)) {
-        const availableProfiles = (config as any).data?.profiles || (config as any).profiles || [];
+        const availableProfiles = (config as any).data?.profiles || (config as any).profiles || (CompanyService as any).profilesCache || [];
         const matchedProfile = CorporateShareholderService.findMatchingCorporateProfile(
           sh,
           availableProfiles,
-          (config as any).data?.selectedProfileId || (config as any).data?.companyName
+          (config as any).data?.companyName
         );
 
         let enrichedSh = { ...sh };
@@ -268,8 +280,12 @@ export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAtte
   // Lookup management roles
   attendees.forEach((att) => {
     if (att.type === "PERSON" && !att.management) {
+      // Jangan berikan jabatan pengurus perseroan jika orang ini murni hadir mewakili PT lain!
+      if (att.representations.length > 0 && !att.ownShares) {
+        return;
+      }
       const pxNameUpper = att.name.toUpperCase().trim();
-      const matchedMgmt = shareholders.find(
+      const matchedMgmt = validShareholders.find(
         (s) => s.name.toUpperCase().trim() === pxNameUpper && s.isManagement,
       );
       if (matchedMgmt) {
@@ -301,6 +317,9 @@ export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAtte
     oldManagementItems.forEach((m: any) => {
       if (m.isPresent !== false) {
         const mName = (m.name || "").trim();
+        if (mName.toUpperCase().includes('SEPTRI WELLY') || mName.toUpperCase().includes('SANJEEV RATAN')) {
+          return;
+        }
         if (mName && !attendees.some(a => a.name.toUpperCase() === mName.toUpperCase())) {
           attendees.push({
             type: "PERSON",
@@ -315,6 +334,23 @@ export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAtte
       }
     });
   }
+
+  // Sort attendees: Pengurus perseroan -> Pemegang Saham Perorangan -> Wakil Badan Hukum
+  attendees.sort((a, b) => {
+    const getRank = (att: PhysicalAttendee) => {
+      if (att.management) {
+        const pos = (att.management?.position || "").toLowerCase();
+        if (pos.includes("direktur utama")) return 1;
+        if (pos.includes("direktur")) return 2;
+        if (pos.includes("komisaris utama")) return 3;
+        if (pos.includes("komisaris")) return 4;
+        return 5;
+      }
+      if (att.ownShares) return 6;
+      return 7;
+    };
+    return getRank(a) - getRank(b);
+  });
 
   if (isSirkuler) {
     attendees.forEach((att) => {

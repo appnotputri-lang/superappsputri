@@ -306,9 +306,13 @@ export function formatAktaDate(dateStr: string): string {
 
 export function checkIsBadanHukum(person: any): boolean {
   if (!person) return false;
-  const nameUpper = (person.name || "").toUpperCase().trim();
-  const looksLikePT = nameUpper.startsWith("PT ") || nameUpper.startsWith("PT.") || nameUpper.startsWith("PERSEROAN TERBATAS") || nameUpper.startsWith("KOPERASI ") || nameUpper.startsWith("YAYASAN ") || nameUpper.startsWith("CV ") || nameUpper.startsWith("CV.");
-  return person.shareholderType === "BADAN_HUKUM" || looksLikePT || !!person.legalEntityType;
+  if (person.shareholderType === "BADAN_HUKUM" || !!person.legalEntityType) return true;
+  const cleanName = (person.name || "")
+    .toUpperCase()
+    .replace(/^(TUAN|NYONYA|NONA|BAPAK|IBU|BPK|TN|NY)\.?\s+/i, "")
+    .trim();
+  const looksLikePT = cleanName.startsWith("PT ") || cleanName.startsWith("PT.") || cleanName.startsWith("PERSEROAN TERBATAS") || cleanName.startsWith("KOPERASI ") || cleanName.startsWith("YAYASAN ") || cleanName.startsWith("CV ") || cleanName.startsWith("CV.") || /\b(PT|PERSEROAN TERBATAS|KOPERASI|YAYASAN|CV)\b/i.test(cleanName);
+  return looksLikePT;
 }
 
 export function getGroupedAmendmentDeeds(amendmentDeeds: any[]): any[][] {

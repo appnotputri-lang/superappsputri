@@ -106,10 +106,19 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
     }
   };
 
-  // Filter attendees for Minutes
+  // Filter attendees for Minutes (exclude synthetic injected management)
+  const validShareholders = (data.shareholders || []).filter((s: any) => {
+    if (s.isNonShareholderManagement) return false;
+    if (typeof s.id === 'string' && s.id.startsWith('mgmt-')) return false;
+    if ((s.name?.toUpperCase().includes('SEPTRI WELLY') || s.name?.toUpperCase().includes('SANJEEV RATAN')) && (Number(s.sharesOwned) || 0) === 0) {
+      return false;
+    }
+    return true;
+  });
+
   const attendingShareholders = isMinutes
-    ? getPhysicallyPresentShareholders(data.shareholders)
-    : data.shareholders.filter((s) => (s.sharesOwned || 0) > 0);
+    ? getPhysicallyPresentShareholders(validShareholders)
+    : validShareholders.filter((s) => (s.sharesOwned || 0) > 0);
 
   attendingShareholders.sort((a, b) => {
     const rankA = a.isManagement ? getPosRank(a.managementPosition) : 99;
@@ -396,7 +405,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
     // Output attending shareholders for circular
     blocks.push(...buildAttendanceBlocks({
-      shareholders: data.shareholders,
+      shareholders: validShareholders,
       isMinutes: false,
       isSirkuler: true,
       originalSharePrice: data.originalSharePrice,
@@ -454,7 +463,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
   const configForAttendance = {
     data,
     originalSharePrice: data.originalSharePrice || 0,
-    shareholders: data.shareholders,
+    shareholders: validShareholders,
     oldManagementItems: data.oldManagementItems,
     newManagementItems: data.newManagementItems,
     fullyDescribedNames,

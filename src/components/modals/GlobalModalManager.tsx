@@ -201,7 +201,7 @@ export const GlobalModalManager: React.FC<GlobalModalManagerProps> = (props) => 
             availableParties={availableParties}
             shareholder={sh}
             profiles={props.profiles}
-            excludeCompanyIdOrName={props.data.selectedProfileId || props.data.companyName}
+            excludeCompanyIdOrName={props.data.companyName}
             onSave={(proxyData, linkedProfile) => {
               const newList = props.data.shareholders.map((item: any) => {
                 if (item.id === props.proxyModalOpenId) {

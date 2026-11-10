@@ -4,6 +4,7 @@ import { formatFullAddressData, checkIsBadanHukum, formatPersonDetails, dateToWo
 import { parseKbliDescription } from "../src/lib/kbliConstants";
 import { getPhysicallyPresentShareholders } from "../src/lib/meetingAttendanceHelper";
 import { CorporateShareholderService } from "../src/services/CorporateShareholderService";
+import { CompanyService } from "../src/services/CompanyService";
 import {
   formatCurrency,
   formatInputNumber,
@@ -558,11 +559,19 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
     );
   }
 
-  // Hitung saham dan persiapkan data peserta
+  // Hitung saham dan persiapkan data peserta (filter data pengurus injeksi sintetis)
+  const validShareholders = (data.shareholders || []).filter((s: any) => {
+    if (s.isNonShareholderManagement) return false;
+    if (typeof s.id === 'string' && s.id.startsWith('mgmt-')) return false;
+    if ((s.name?.toUpperCase().includes('SEPTRI WELLY') || s.name?.toUpperCase().includes('SANJEEV RATAN')) && (Number(s.sharesOwned) || 0) === 0) {
+      return false;
+    }
+    return true;
+  });
   const attendingShareholders = isCircular
-    ? data.shareholders.filter((sh) => (sh.sharesOwned || 0) > 0)
-    : getPhysicallyPresentShareholders(data.shareholders);
-  const totalIssuedShares = data.shareholders.reduce((sum, sh) => sum + (sh.sharesOwned || 0), 0);
+    ? validShareholders.filter((sh) => (sh.sharesOwned || 0) > 0)
+    : getPhysicallyPresentShareholders(validShareholders);
+  const totalIssuedShares = validShareholders.reduce((sum, sh) => sum + (sh.sharesOwned || 0), 0);
   const presentShares = attendingShareholders.reduce((sum, sh) => sum + (sh.sharesOwned || 0), 0);
   const attendingPercentage = totalIssuedShares > 0 ? (presentShares / totalIssuedShares) * 100 : 0;
 
@@ -593,11 +602,13 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
     if (isCorp) {
       // Badan Hukum can NEVER attend directly as a physical person.
       // Must be represented by a Director / human representative.
-      const availableProfiles = data.profiles || (data as any).clientProfiles || [];
+      const availableProfiles = (data.profiles && data.profiles.length > 0)
+        ? data.profiles
+        : ((data as any).clientProfiles || (CompanyService as any).profilesCache || []);
       const matchedProfile = CorporateShareholderService.findMatchingCorporateProfile(
         sh,
         availableProfiles,
-        data.selectedProfileId || data.companyName
+        data.companyName
       );
 
       let enrichedSh = { ...sh };
@@ -786,19 +797,23 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
   // Apply management role lookups for physical persons
   attendees.forEach(att => {
     if (att.type === 'PERSON' && !att.management) {
+      // Jangan berikan jabatan pengurus perseroan jika orang ini murni hadir mewakili PT lain!
+      if (att.representations.length > 0 && !att.ownShares) {
+        return;
+      }
       const pxNameUpper = att.name.toUpperCase().trim();
-      const matchedMgmt = data.shareholders.find(s => s.name.toUpperCase().trim() === pxNameUpper && s.isManagement);
+      const matchedMgmt = validShareholders.find(s => s.name?.toUpperCase().trim() === pxNameUpper && s.isManagement);
       if (matchedMgmt) {
         att.management = { position: matchedMgmt.managementPosition || "Direktur" };
       }
       if (!att.management && data.newManagementItems) {
-        const matchedMgmtNew = data.newManagementItems.find(m => m.name.toUpperCase().trim() === pxNameUpper);
+        const matchedMgmtNew = data.newManagementItems.find(m => m.name?.toUpperCase().trim() === pxNameUpper);
         if (matchedMgmtNew) {
           att.management = { position: matchedMgmtNew.position };
         }
       }
       if (!att.management && data.oldManagementItems) {
-        const matchedMgmtOld = data.oldManagementItems.find(m => m.name.toUpperCase().trim() === pxNameUpper);
+        const matchedMgmtOld = data.oldManagementItems.find(m => m.name?.toUpperCase().trim() === pxNameUpper);
         if (matchedMgmtOld) {
           att.management = { position: matchedMgmtOld.position };
         }
@@ -806,13 +821,19 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
     }
   });
 
-  // Sort attendees by management role to ensure Direktur Utama is first
+  // Sort attendees: Pengurus perseroan (Direktur Utama, Direktur, Komisaris) -> Pemegang Saham Perorangan -> Wakil Badan Hukum
   attendees.sort((a, b) => {
     const getRank = (att: PhysicalAttendee) => {
-      const pos = (att.management?.position || "").toLowerCase();
-      if (pos.includes("direktur utama")) return 1;
-      if (pos.includes("direktur")) return 2;
-      return 3;
+      if (att.management) {
+        const pos = (att.management?.position || "").toLowerCase();
+        if (pos.includes("direktur utama")) return 1;
+        if (pos.includes("direktur")) return 2;
+        if (pos.includes("komisaris utama")) return 3;
+        if (pos.includes("komisaris")) return 4;
+        return 5;
+      }
+      if (att.ownShares) return 6;
+      return 7;
     };
     return getRank(a) - getRank(b);
   });

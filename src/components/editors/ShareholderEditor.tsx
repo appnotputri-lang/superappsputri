@@ -405,7 +405,7 @@ const ShareholderEditor: React.FC<Props> = ({
 
   return (
     <fieldset disabled={disabled} className="contents">
-      <div className="space-y-4">
+      <div className="space-y-4 pb-24">
         {availableParties ? (
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-1">Pilih dari Daftar Hadir <span className="text-red-500">*</span></label>
@@ -726,9 +726,9 @@ const ShareholderEditor: React.FC<Props> = ({
       )}
 
       {!isBadanHukum && !isWna ? (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mb-4">
+        <div className="grid grid-cols-12 gap-3 sm:gap-4 mb-4">
           {/* KOLOM KIRI: NIK (lebih pendek) */}
-          <div className="md:col-span-5 lg:col-span-4">
+          <div className="col-span-12 sm:col-span-5 md:col-span-4">
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-semibold text-slate-700">NIK <span className="text-red-500 font-bold">*</span></label>
               {shareholder.personId && (
@@ -767,7 +767,7 @@ const ShareholderEditor: React.FC<Props> = ({
           </div>
 
           {/* KOLOM KANAN: NAMA & SAPAAN (lebih panjang) */}
-          <div className="md:col-span-7 lg:col-span-8">
+          <div className="col-span-12 sm:col-span-7 md:col-span-8">
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-semibold text-slate-700">Nama <span className="text-red-500 font-bold">*</span></label>
               <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">

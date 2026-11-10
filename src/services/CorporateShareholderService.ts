@@ -42,15 +42,19 @@ export class CorporateShareholderService {
     if (!sh) return false;
     if (sh.shareholderType === 'BADAN_HUKUM') return true;
     if (sh.legalEntityType && String(sh.legalEntityType).trim() !== '') return true;
-    const nameUpper = (sh.name || '').toUpperCase().trim();
+    const cleanName = (sh.name || '')
+      .toUpperCase()
+      .replace(/^(TUAN|NYONYA|NONA|BAPAK|IBU|BPK|TN|NY)\.?\s+/i, '')
+      .trim();
     return (
-      nameUpper.startsWith('PT ') ||
-      nameUpper.startsWith('PT.') ||
-      nameUpper.startsWith('PERSEROAN TERBATAS') ||
-      nameUpper.startsWith('KOPERASI ') ||
-      nameUpper.startsWith('YAYASAN ') ||
-      nameUpper.startsWith('CV ') ||
-      nameUpper.startsWith('CV.')
+      cleanName.startsWith('PT ') ||
+      cleanName.startsWith('PT.') ||
+      cleanName.startsWith('PERSEROAN TERBATAS') ||
+      cleanName.startsWith('KOPERASI ') ||
+      cleanName.startsWith('YAYASAN ') ||
+      cleanName.startsWith('CV ') ||
+      cleanName.startsWith('CV.') ||
+      /\b(PT|PERSEROAN TERBATAS|KOPERASI|YAYASAN|CV)\b/i.test(cleanName)
     );
   }
 
