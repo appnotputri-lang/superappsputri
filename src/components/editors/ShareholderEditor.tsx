@@ -170,7 +170,7 @@ const ShareholderEditor: React.FC<Props> = ({
         }
 
         onChange(updates);
-        setOcrSuccessMsg('✅ Data KTP berhasil diisi oleh AI!');
+        setOcrSuccessMsg(json.engine === 'ollama' ? '✅ Data KTP berhasil dibaca oleh AI Lokal (Ollama)!' : '✅ Data KTP berhasil diisi oleh AI!');
       } else {
         setOcrErrorMsg(json.error || 'Gagal membaca KTP. Silakan isi form secara manual.');
       }
@@ -587,16 +587,16 @@ const ShareholderEditor: React.FC<Props> = ({
         <div className="my-3 p-3.5 bg-gradient-to-r from-teal-50 via-cyan-50 to-emerald-50 rounded-lg border border-teal-200 shadow-sm transition-all">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs font-bold text-teal-900 flex items-center gap-1.5">
-              <Camera className="w-4 h-4 text-teal-600" /> Upload KTP dengan AI
+              <Camera className="w-4 h-4 text-teal-600" /> Upload KTP dengan AI Lokal (Ollama)
             </span>
             {ocrLoading && (
               <span className="text-[11px] text-teal-700 font-bold animate-pulse flex items-center gap-1">
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-600" /> Memproses AI...
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-600" /> Memproses AI Lokal (Ollama)...
               </span>
             )}
           </div>
           <p className="text-[11px] text-slate-600 mb-2.5">
-            Upload foto KTP untuk mengisi data NIK, Nama, Tanggal Lahir, Pekerjaan, dan Alamat secara otomatis.
+            Upload foto KTP untuk mengisi data NIK, Nama, Tanggal Lahir, Pekerjaan, dan Alamat secara otomatis menggunakan AI Lokal yang berjalan di Mac Anda.
           </p>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -606,7 +606,7 @@ const ShareholderEditor: React.FC<Props> = ({
                 : 'bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white cursor-pointer'
             }`}>
               <Camera className="w-4 h-4" />
-              <span>{ocrLoading ? 'Memproses KTP...' : '📷 Upload KTP dengan AI'}</span>
+              <span>{ocrLoading ? 'Memproses KTP (Ollama)...' : '📷 Upload KTP (AI Lokal Ollama)'}</span>
               <input 
                 type="file" 
                 accept="image/*" 
