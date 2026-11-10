@@ -886,7 +886,12 @@ export default function DraftAktaPendirian({
         {editingShareholder && (
           <ShareholderEditor 
             shareholder={editingShareholder}
-            onChange={updates => setEditingShareholder({ ...editingShareholder, ...updates })}
+            onChange={updates => {
+              setEditingShareholder((prev: any) => ({
+                ...(prev || editingShareholder),
+                ...updates
+              }));
+            }}
             globalSharePrice={data.nilaiPerLembar}
             totalSharesAllowed={1000000000} 
             otherAllocated={0} 

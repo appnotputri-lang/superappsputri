@@ -74,7 +74,12 @@ export const ShareholderModal: React.FC<ShareholderModalProps> = ({
       {editingShareholder && (
         <ShareholderEditor 
           shareholder={editingShareholder}
-          onChange={(updates: any) => setEditingShareholder({ ...editingShareholder, ...updates })}
+          onChange={(updates: any) => {
+            setEditingShareholder((prev: any) => ({
+              ...(prev || editingShareholder),
+              ...updates
+            }));
+          }}
           globalSharePrice={globalSharePrice !== undefined ? globalSharePrice : (data?.originalSharePrice || data?.nilaiPerLembar || 0)}
           totalSharesAllowed={editMode === 'lama' ? data.originalTotalShares : (data.resolutions?.capitalPaid || data.resolutions?.capitalPaidDecrease ? currentTargetSharesPaid : data.originalTotalShares)}
           otherAllocated={(editMode === 'lama' ? (data.shareholders || []) : (data.finalShareholders || []))
