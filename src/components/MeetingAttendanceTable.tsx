@@ -31,20 +31,86 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
   const actualData = (mergedData || data) as any;
   const isCircular = actualData.rupstType === 'sirkuler' || actualData.documentType === 'CIRCULAR' || actualData.jobType === 'sirkuler' || actualData.jobType === 'sirkuler_rupslb';
 
+  // Kumpulkan seluruh pengurus perseroan (dari oldManagementItems, newManagementItems, managementItems)
+  const allManagementItems = React.useMemo(() => {
+    const sourceMgmts: any[] = [
+      ...(Array.isArray(actualData.oldManagementItems) ? actualData.oldManagementItems : []),
+      ...(Array.isArray(actualData.newManagementItems) ? actualData.newManagementItems : []),
+      ...(Array.isArray(actualData.managementItems) ? actualData.managementItems : []),
+    ];
+    return sourceMgmts;
+  }, [actualData.oldManagementItems, actualData.newManagementItems, actualData.managementItems]);
+
+  // Apabila RUPS LB memilih PKR LB (bukan sirkuler), kumpulkan pengurus yang belum ada di daftar shareholders (direksi/komisaris yang tidak memiliki saham)
+  const missingManagementItems = React.useMemo(() => {
+    if (isCircular) return [];
+    const currentList = actualData.shareholders || [];
+    const existingNames = new Set(
+      currentList.map((s: any) => (s.name || '').trim().toUpperCase())
+    );
+
+    const results: any[] = [];
+    allManagementItems.forEach((m: any) => {
+      const rawName = (m.name || '').trim();
+      if (!rawName) return;
+      const key = rawName.toUpperCase();
+      if (!existingNames.has(key)) {
+        existingNames.add(key);
+        results.push({
+          id: m.id || `mgmt-${key.replace(/\s+/g, '_')}`,
+          name: rawName,
+          salutation: m.salutation || 'Tuan',
+          nik: m.nik || '',
+          position: m.position || 'Direktur',
+          managementPosition: m.position || 'Direktur',
+          isManagement: true,
+          sharesOwned: 0,
+          isPresent: m.isPresent !== undefined ? m.isPresent : true,
+          isProxy: false,
+          proxyData: undefined,
+          isOtherParty: false,
+          isNonShareholderManagement: true,
+          address: m.address ? { ...m.address } : undefined,
+          birthCity: m.birthCity || '',
+          birthDate: m.birthDate || '',
+          occupation: m.occupation || ''
+        });
+      }
+    });
+
+    return results;
+  }, [isCircular, actualData.shareholders, allManagementItems]);
+
+  // Sinkronkan ke actualData.shareholders agar pengurus tanpa saham otomatis tersimpan di data rapat PKR LB
+  React.useEffect(() => {
+    if (!isCircular && missingManagementItems.length > 0) {
+      updateData({
+        shareholders: [...(actualData.shareholders || []), ...missingManagementItems]
+      });
+    }
+  }, [isCircular, missingManagementItems]);
+
   const isPihakLain = (s: any) => {
     if (s.isOtherParty) return true;
-    const isMgmt = (actualData.oldManagementItems || []).some(
+    const isMgmt = allManagementItems.some(
       (m: any) => (m.name || '').trim().toUpperCase() === (s.name || '').trim().toUpperCase()
-    );
+    ) || s.isManagement;
     if (showAksiColumn && (Number(s.sharesOwned) || 0) <= 0 && !isMgmt) {
       return true;
     }
     return false;
   };
 
-  const shareholders = isCircular
-    ? (actualData.shareholders || []).filter((s: any) => (Number(s.sharesOwned) || 0) > 0 || isPihakLain(s))
-    : (actualData.shareholders || []);
+  const shareholders = React.useMemo(() => {
+    let list = [...(actualData.shareholders || [])];
+    if (!isCircular && missingManagementItems.length > 0) {
+      list = [...list, ...missingManagementItems];
+    }
+    if (isCircular) {
+      return list.filter((s: any) => (Number(s.sharesOwned) || 0) > 0 || isPihakLain(s));
+    }
+    return list;
+  }, [isCircular, actualData.shareholders, missingManagementItems]);
 
   // Pastikan dalam mode sirkuler seluruh pemegang saham otomatis tercatat hadir (100% kuorum/persetujuan)
   React.useEffect(() => {
@@ -113,26 +179,48 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
               const repPos = s.representativePosition || s.proxyData?.occupation || s.proxyData?.position || (isCorp ? 'Direktur' : 'Penerima Kuasa');
               const repSal = s.proxyData?.salutation || s.guardianSalutation || 'Tuan';
 
+              const mgmtMatch = allManagementItems.find(
+                (m: any) => (m.name || '').trim().toUpperCase() === (s.name || '').trim().toUpperCase()
+              );
+              const mgmtPos = s.managementPosition || s.position || (s.isManagement ? 'Pengurus' : '') || mgmtMatch?.position || '';
+              const isZeroShares = (Number(s.sharesOwned) || 0) <= 0;
+
               return (
                 <tr key={s.id ? `sh-${s.id}-${idx}` : `sh-idx-${idx}`} className="border-b border-slate-200 last:border-0 hover:bg-slate-50 transition-colors">
                   <td className="p-2 border-r border-slate-200 font-medium uppercase">
                     <div className="flex flex-col">
-                      <span className="font-bold text-slate-800">{s.name}</span>
-                      {isCorp && (
-                        <span className="inline-block mt-0.5 px-1.5 py-0.5 bg-blue-100 text-blue-700 font-bold text-[9px] rounded w-fit tracking-wide">
-                          Badan Hukum (PT)
-                        </span>
-                      )}
-                      {pihakLain && (
-                        <span className="inline-block mt-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[9px] rounded w-fit tracking-wide">
-                          Pihak Lain
-                        </span>
-                      )}
+                      <span className="font-bold text-slate-800">
+                        {s.salutation ? `${s.salutation} ` : ''}{s.name}
+                      </span>
+                      <div className="flex flex-wrap gap-1 mt-0.5">
+                        {isCorp && (
+                          <span className="inline-block px-1.5 py-0.5 bg-blue-100 text-blue-700 font-bold text-[9px] rounded w-fit tracking-wide">
+                            Badan Hukum (PT)
+                          </span>
+                        )}
+                        {mgmtPos && (
+                          <span className="inline-block px-1.5 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[9px] rounded w-fit tracking-wide uppercase">
+                            {mgmtPos}
+                          </span>
+                        )}
+                        {!mgmtPos && pihakLain && (
+                          <span className="inline-block px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-[9px] rounded w-fit tracking-wide">
+                            Pihak Lain
+                          </span>
+                        )}
+                        {!mgmtPos && !pihakLain && (
+                          <span className="inline-block px-1.5 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 font-bold text-[9px] rounded w-fit tracking-wide">
+                            Pemegang Saham
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </td>
                   <td className="p-2 border-r border-slate-200 font-semibold">
-                    {pihakLain && (Number(s.sharesOwned) || 0) <= 0 ? (
-                      <span className="text-slate-400 text-[11px]">-</span>
+                    {isZeroShares ? (
+                      <span className="text-slate-400 text-[11px] font-normal italic">
+                        - (Tidak memiliki saham)
+                      </span>
                     ) : (
                       `${formatInputNumber(s.sharesOwned)} Saham`
                     )}
@@ -142,7 +230,7 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
                       <input
                         type="checkbox"
                         className="w-4 h-4 cursor-pointer"
-                        checked={s.isPresent || false}
+                        checked={s.isPresent !== false}
                         onChange={e => {
                           const isChecked = e.target.checked;
                           const newList = (actualData.shareholders || []).map((item: any) =>
@@ -278,7 +366,9 @@ export const MeetingAttendanceTable: React.FC<MeetingAttendanceTableProps> = ({
             {shareholders.length === 0 && (
               <tr>
                 <td colSpan={isCircular ? (showAksiColumn ? 5 : 4) : (showAksiColumn ? 6 : 5)} className="p-4 text-center text-slate-400 italic">
-                  Belum ada data pemegang saham. Silakan isi di bagian DATA PERSEROAN atau tambah secara langsung.
+                  {isCircular 
+                    ? "Belum ada data pemegang saham. Silakan isi di bagian DATA PERSEROAN atau tambah pihak lain."
+                    : "Belum ada data para pihak (pemegang saham, direksi, komisaris, atau pihak lain)."}
                 </td>
               </tr>
             )}
