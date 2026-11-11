@@ -97,11 +97,9 @@ export const addPersonIdentificationBlocks = (
 
   if (hasDeeds) {
     const amendmentDeeds = person.amendmentDeeds;
-    const lastDeed = amendmentDeeds[amendmentDeeds.length - 1];
-    const lastDateStr = lastDeed.date ? (useAktaFormat ? formatAktaDate(lastDeed.date) : formatDateRupst(lastDeed.date)) : "...";
-    const actaNumWord = useAktaFormat ? "akta Nomor" : "Akta Nomor";
-    
-    const transition = `, dan anggaran dasarnya telah mengalami ${amendmentDeeds.length > 1 ? "beberapa kali " : ""}perubahan${amendmentDeeds.length > 1 ? `, terakhir dengan ${actaNumWord} ${lastDeed.number || "..."} tertanggal ${lastDateStr} dibuat dihadapan ${lastDeed.notary || "..."}, Notaris di ${lastDeed.notaryDomicile ? toTitleCase(lastDeed.notaryDomicile) : "..."}` : ""} berdasarkan akta${amendmentDeeds.length > 1 ? "-akta" : ""} sebagai berikut :`;
+    const transition = `, dan anggaran dasarnya telah mengalami ${
+      amendmentDeeds.length > 1 ? "beberapa kali " : ""
+    }perubahan berdasarkan akta${amendmentDeeds.length > 1 ? "-akta" : ""} sebagai berikut :`;
 
     const baseRuns = getPersonDetailRuns({ ...config, person: { ...person, amendmentDeeds: [] } }); // Exclude deeds in base runs
     if (baseRuns.length > 0) {

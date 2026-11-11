@@ -906,9 +906,9 @@ export const generateRupstAktaBlocks = (data: CompanyData): Block[] => {
       });
     } else {
       const amdList = r.shareholder.amendmentDeeds;
-      const lastDeed = amdList[amdList.length - 1];
-      const lastDateStr = lastDeed.date ? formatAktaDate(lastDeed.date) : "...";
-      const transition = `, dan anggaran dasarnya telah mengalami ${amdList.length > 1 ? "beberapa kali " : ""}perubahan${amdList.length > 1 ? `, terakhir dengan akta Nomor ${lastDeed.number || "..."} tertanggal ${lastDateStr} dibuat dihadapan ${checkNotaryWording(lastDeed.notary || "...", lastDeed.notaryTitle, lastDeed.notaryDomicile)}` : ""} berdasarkan akta${amdList.length > 1 ? "-akta" : ""} sebagai berikut :`;
+      const transition = `, dan anggaran dasarnya telah mengalami ${
+        amdList.length > 1 ? "beberapa kali " : ""
+      }perubahan berdasarkan akta${amdList.length > 1 ? "-akta" : ""} sebagai berikut :`;
 
       const baseRuns: FormatToken[] = [
         { text: prefixText },

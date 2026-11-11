@@ -427,20 +427,9 @@ const buildRepresentationBlocks = (
   }
 
   const amendmentDeeds = r.shareholder.amendmentDeeds;
-  const lastDeed = amendmentDeeds[amendmentDeeds.length - 1];
-  const lastDateStr = lastDeed.date
-    ? useAktaFormat
-      ? formatAktaDate(lastDeed.date)
-      : formatDateRupst(lastDeed.date)
-    : "...";
-  const actaNumWord = useAktaFormat ? "akta Nomor" : "Akta Nomor";
   const transition = `, dan anggaran dasarnya telah mengalami ${
     amendmentDeeds.length > 1 ? "beberapa kali " : ""
-  }perubahan${
-    amendmentDeeds.length > 1
-      ? `, terakhir dengan ${actaNumWord} ${lastDeed.number || "..."} tertanggal ${lastDateStr} dibuat dihadapan ${lastDeed.notary || "..."}, Notaris di ${lastDeed.notaryDomicile ? toTitleCase(lastDeed.notaryDomicile) : "..."}`
-      : ""
-  } berdasarkan akta${amendmentDeeds.length > 1 ? "-akta" : ""} sebagai berikut :`;
+  }perubahan berdasarkan akta${amendmentDeeds.length > 1 ? "-akta" : ""} sebagai berikut :`;
 
   // Exclude deeds from the base identification runs (they will be listed as bullets below),
   // same convention as addPersonIdentificationBlocks.

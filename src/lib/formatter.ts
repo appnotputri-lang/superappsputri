@@ -451,12 +451,7 @@ export function formatPersonDetails(
           const amdNotaryTitle = rawAmdTitle ? `, ${rawAmdTitle}` : "";
           baseString += `, dan anggaran dasarnya telah mengalami perubahan berdasarkan ${actaNumWord} ${amd.number || "..."} tertanggal ${amdDateStr} dibuat dihadapan ${amd.notary || "..."}${amdNotaryTitle}, Notaris di ${amd.notaryDomicile ? toTitleCase(amd.notaryDomicile) : "..."}`;
         } else {
-          const actaNumWord = useAktaFormat ? "akta Nomor" : "Akta Nomor";
-          const lastDeed = person.amendmentDeeds[person.amendmentDeeds.length - 1];
-          const lastDateStr = lastDeed.date ? (useAktaFormat ? formatAktaDate(lastDeed.date) : formatDateRupst(lastDeed.date)) : "...";
-          const rawLastTitle = lastDeed.notaryTitle || ((lastDeed.notary && lastDeed.notary.toLowerCase().includes('nukantini')) ? (useAktaFormat ? 'Sarjana Hukum, Magister Kenotariatan' : 'SH., M.Kn.') : '');
-          const lastNotaryTitle = rawLastTitle ? `, ${rawLastTitle}` : "";
-          baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan, terakhir dengan ${actaNumWord} ${lastDeed.number || "..."} tertanggal ${lastDateStr} dibuat dihadapan ${lastDeed.notary || "..."}${lastNotaryTitle}, Notaris di ${lastDeed.notaryDomicile ? toTitleCase(lastDeed.notaryDomicile) : "..."} berdasarkan akta-akta sebagai berikut:`;
+          baseString += `, dan anggaran dasarnya telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :`;
 
           const groupedDeeds = getGroupedAmendmentDeeds(person.amendmentDeeds);
           const keWord = ["", "", "kedua", "ketiga", "keempat", "kelima", "keenam", "ketujuh", "kedelapan", "kesembilan", "kesepuluh"];

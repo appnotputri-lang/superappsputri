@@ -326,8 +326,8 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
           text: ` (selanjutnya disebut sebagai “Rapat”) Perseroan berkedudukan di ${toTitleCase(data.domicile || data.oldDomicile || data.kedudukanPT || (data as any).kotaKedudukan || (data as any).city || (data as any).kedudukan || data.newAddress?.city || data.oldAddress?.city || "...")}, demikian berdasarkan Akta Pendirian tertanggal ${formattedEstDeedDate}, Nomor ${data.establishmentDeedNumber}, telah mendapat pengesahan dari Menteri Hukum dan Hak Asasi Manusia Republik Indonesia tertanggal ${formattedEstSkDate}, Nomor ${data.establishmentSkNumber}, dibuat di hadapan ${checkNotaryWording(data.establishmentNotary, data.establishmentNotaryTitle, data.establishmentNotaryDomicile, { isAkta: true, currentNotaryName: "NUKANTINI PUTRI PARINCHA" })}${
             hasAmendments
               ? (isSingleAmendment
-                  ? " dan telah mengalami perubahan berdasarkan akta sebagai berikut :-"
-                  : " dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :-")
+                  ? " dan telah mengalami perubahan berdasarkan akta sebagai berikut :"
+                  : " dan telah mengalami beberapa kali perubahan berdasarkan akta-akta sebagai berikut :")
               : ";"
           }`,
         },
