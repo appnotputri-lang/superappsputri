@@ -111,7 +111,10 @@ createListP = (
 
   const useNumbering = !!(options as any).numbering;
   if (useNumbering) {
-    width = indentTabs >= 0.8 ? 38.5 : 41.0;
+    if (level === 0) width = 41.0;
+    else if (level === 1) width = 39.5;
+    else if (level === 2) width = 37.5;
+    else if (level >= 3) width = 36.0;
   }
 
   const lines = parseTextRuns(tokens, width);
@@ -188,9 +191,13 @@ createNumberedP = (
   tokens: FormatToken[],
   options: Omit<IParagraphOptions, "children"> = {}
 ): Paragraph => {
-  const lines = parseTextRuns(tokens, this.W.numbered);
+  const useNumbering = !!(options as any).numbering;
+  const width = useNumbering ? 39.5 : this.W.numbered;
+  const lines = parseTextRuns(tokens, width);
   const children: any[] = [];
-  children.push(new TextRun({ text: num + "\t" }));
+  if (!useNumbering) {
+    children.push(new TextRun({ text: num + "\t" }));
+  }
 
   lines.forEach((lineTokens, i) => {
     lineTokens.forEach((t) => {
@@ -209,11 +216,19 @@ createNumberedP = (
     }
   });
 
-  // const isAlpha = typeof num === 'string' && /[a-zA-Z]/.test(num);
+  if (useNumbering) {
+    return new Paragraph({
+      style: "ListParagraph",
+      children,
+      tabStops: [this.TAB_KANAN],
+      alignment: AlignmentType.LEFT,
+      ...options,
+    });
+  }
+
   return new Paragraph({
     style: "Normal",
     children,
-    // numbering: { reference: isAlpha ? "rups-letter" : "rups-decimal", level: 0 },
     tabStops: [{ type: TabStopType.LEFT, position: 284 }, this.TAB_KANAN],
     alignment: AlignmentType.LEFT,
     indent: { left: 284, hanging: 284 },

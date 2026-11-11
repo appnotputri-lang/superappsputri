@@ -19,9 +19,25 @@ export class AktaTemplate {
     let zone: "preamble" | "attendance" | "general" | "decisions" | "saksi" = "preamble";
 
     this.blocks.forEach((block) => {
-      // Zone transitions (similar to generateRUPSTAktaDocx.ts)
+      const text = block.runs ? block.runs.map((r: any) => r.text || "").join("") : "";
+
+      // Zone transitions (matching generateRUPSTAktaDocx.ts)
       if (block.type === "list" && /^\d+\.$/.test(block.bullet ?? "")) {
         zone = "attendance";
+      } else if (zone === "attendance" && block.type === "list" && block.bullet === "-" && (block.indentTabs || 0) <= 0.6) {
+        zone = "general";
+      }
+
+      if (
+        (block.type === "p" && block.number !== undefined && zone !== "decisions") ||
+        (zone === "general" && text.includes("telah setuju dan memutuskan")) ||
+        (zone === "general" && text.includes("telah diputuskan dengan suara bulat"))
+      ) {
+        zone = "decisions";
+      }
+
+      if (block.type === "divider" && (text.includes("DEMIKIANLAH") || (block.text && block.text.includes("DEMIKIANLAH")))) {
+        zone = "saksi";
       }
 
       if (block.type === "p") {
@@ -31,7 +47,13 @@ export class AktaTemplate {
         const opts: any = { alignment: alignOpt };
 
         if (block.number && !isCentered && !isRightCenter) {
-          docxChildren.push(factory.createNumberedP(block.number, block.runs, opts));
+          const numOpts: any = {
+            style: "ListParagraph",
+            numbering: { reference: "akta-rupst-decisions", level: 0 },
+            indent: { left: 720, hanging: 360 },
+            ...opts,
+          };
+          docxChildren.push(factory.createNumberedP(block.number, block.runs, numOpts));
         } else if (block.subNumber && !isCentered) {
           docxChildren.push(factory.createSubNumberedP(block.subNumber, block.runs, block.indentTabs || 0));
         } else if (block.indentTabs && !isCentered && !isRightCenter) {
@@ -47,12 +69,79 @@ export class AktaTemplate {
           docxChildren.push(factory.createP(block.runs, isRightCenter, opts));
         }
       } else if (block.type === "list") {
-        if (zone === "preamble" && block.bullet === "-") {
+        const bullet = block.bullet ?? "";
+        const isNumbered = /^\d+\.$/.test(bullet);
+        const isLetter = /^[a-z]\.$/i.test(bullet) && !isNumbered;
+
+        if (zone === "preamble") {
           const isDeep = (block.indentTabs || 0) >= 0.8;
           const opts: any = {
             style: "ListParagraph",
             numbering: { reference: "akta-rupst-preamble", level: 2 },
             indent: isDeep ? { left: 850, hanging: 425 } : { left: 426, hanging: 426 },
+          };
+          docxChildren.push(factory.createListP(block.bullet, block.runs, block.indentTabs || 0, opts));
+        } else if (zone === "attendance") {
+          if (isNumbered) {
+            const opts: any = {
+              style: "ListParagraph",
+              numbering: { reference: "akta-rupst-attendance", level: 0 },
+              indent: { left: 720, hanging: 360 },
+            };
+            docxChildren.push(factory.createListP(block.bullet, block.runs, block.indentTabs || 0, opts));
+          } else if (isLetter) {
+            const opts: any = {
+              style: "ListParagraph",
+              numbering: { reference: "akta-rupst-attendance", level: 1 },
+              indent: { left: 1080, hanging: 360 },
+            };
+            docxChildren.push(factory.createListP(block.bullet, block.runs, block.indentTabs || 0, opts));
+          } else {
+            const isDearestDeep = (block.indentTabs || 0) >= 2.0;
+            const isDeep = (block.indentTabs || 0) >= 1.5;
+            let indent = { left: 720, hanging: 360 };
+            if (isDearestDeep) {
+              indent = { left: 1770, hanging: 360 };
+            } else if (isDeep) {
+              indent = { left: 1080, hanging: 360 };
+            }
+            const opts: any = {
+              style: "ListParagraph",
+              numbering: { reference: "akta-rupst-attendance", level: 2 },
+              indent,
+            };
+            docxChildren.push(factory.createListP(block.bullet, block.runs, block.indentTabs || 0, opts));
+          }
+        } else if (zone === "general") {
+          const isDeep = (block.indentTabs || 0) >= 0.8;
+          const opts: any = {
+            style: "ListParagraph",
+            numbering: { reference: "akta-rupst-general", level: 2 },
+            indent: isDeep ? { left: 1080, hanging: 360 } : { left: 720, hanging: 360 },
+          };
+          docxChildren.push(factory.createListP(block.bullet, block.runs, block.indentTabs || 0, opts));
+        } else if (zone === "decisions") {
+          if (isLetter) {
+            const opts: any = {
+              style: "ListParagraph",
+              numbering: { reference: "akta-rupst-decisions", level: 1 },
+              indent: { left: 1080, hanging: 360 },
+            };
+            docxChildren.push(factory.createListP(block.bullet, block.runs, block.indentTabs || 0, opts));
+          } else {
+            const isDeep = (block.indentTabs || 0) >= 1.5;
+            const opts: any = {
+              style: "ListParagraph",
+              numbering: { reference: "akta-rupst-decisions", level: 2 },
+              indent: isDeep ? { left: 1080, hanging: 360 } : { left: 720, hanging: 360 },
+            };
+            docxChildren.push(factory.createListP(block.bullet, block.runs, block.indentTabs || 0, opts));
+          }
+        } else if (zone === "saksi") {
+          const opts: any = {
+            style: "ListParagraph",
+            numbering: { reference: "akta-rupst-saksi", level: 2 },
+            indent: { left: 850, hanging: 425 },
           };
           docxChildren.push(factory.createListP(block.bullet, block.runs, block.indentTabs || 0, opts));
         } else {
