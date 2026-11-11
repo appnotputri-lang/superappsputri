@@ -180,40 +180,37 @@ const mkAttendanceNum = (t: FormatToken[], bulletStr: string) =>
     children: wrappedRuns(t, W.attendeeNum),
   });
 
-/** ATTENDANCE DASH  numId=3 ilvl=2 sejajar angka 3 */
+/** ATTENDANCE DASH  numId=3 ilvl=1 or ilvl=3 */
 const mkAttendanceDash = (t: FormatToken[], indentTabs?: number) => {
   const isDearestDeep = indentTabs !== undefined && indentTabs >= 2.0;
-  const isDeep = indentTabs !== undefined && indentTabs >= 1.5;
 
-  let indent = { left: 720, hanging: 360 };
-  let wrapWidth = W.attendeeDash;
+  let indent = { left: 1080, hanging: 360 };
+  let wrapWidth = 37.5;
+  let level = 1;
 
   if (isDearestDeep) {
-    indent = { left: 1770, hanging: 360 };
-    wrapWidth = 32.0;
-  } else if (isDeep) {
-    indent = { left: 1080, hanging: 360 };
-    wrapWidth = 36.0;
+    indent = { left: 1800, hanging: 360 };
+    wrapWidth = 33.5;
+    level = 3;
   }
 
   return new Paragraph({
     style: "ListParagraph",
-    numbering: { reference: NUM.ATTENDANCE, level: 2 },
+    numbering: { reference: NUM.ATTENDANCE, level },
     tabStops: [TAB_KANAN],
     indent,
     children: wrappedRuns(t, wrapWidth),
   });
 };
 
-/** ATTENDANCE LETTER  manual hanging indent */
+/** ATTENDANCE LETTER  numId=3 ilvl=2 */
 const mkAttendanceLetter = (t: FormatToken[], bulletStr: string) =>
   new Paragraph({
+    style: "ListParagraph",
+    numbering: { reference: NUM.ATTENDANCE, level: 2 },
     tabStops: [TAB_KANAN],
-    indent: { left: 1418, hanging: 284 }, // matching docx indentation roughly (1418 - 284 = 1134)
-    children: [
-      new TextRun({ text: `${bulletStr}\t` }),
-      ...wrappedRuns(t, W.attendeeLetter)
-    ],
+    indent: { left: 1440, hanging: 360 },
+    children: wrappedRuns(t, 35.5),
   });
 
 // ── General zone: 4 distinct builders matching corrected docx XML ─────────────

@@ -24,7 +24,10 @@ export class AktaTemplate {
       // Zone transitions (matching generateRUPSTAktaDocx.ts)
       if (block.type === "list" && /^\d+\.$/.test(block.bullet ?? "")) {
         zone = "attendance";
-      } else if (zone === "attendance" && block.type === "list" && block.bullet === "-" && (block.indentTabs || 0) <= 0.6) {
+      } else if (zone === "attendance" && (
+        (block.type === "list" && block.bullet === "-" && (block.indentTabs || 0) <= 0.6) ||
+        text.startsWith("Bahwa dari semua saham")
+      )) {
         zone = "general";
       }
 
@@ -92,22 +95,21 @@ export class AktaTemplate {
           } else if (isLetter) {
             const opts: any = {
               style: "ListParagraph",
-              numbering: { reference: "akta-rupst-attendance", level: 1 },
-              indent: { left: 1080, hanging: 360 },
+              numbering: { reference: "akta-rupst-attendance", level: 2 },
+              indent: { left: 1440, hanging: 360 },
             };
             docxChildren.push(factory.createListP(block.bullet, block.runs, block.indentTabs || 0, opts));
           } else {
             const isDearestDeep = (block.indentTabs || 0) >= 2.0;
-            const isDeep = (block.indentTabs || 0) >= 1.5;
-            let indent = { left: 720, hanging: 360 };
+            let indent = { left: 1080, hanging: 360 };
+            let numLvl = 1;
             if (isDearestDeep) {
-              indent = { left: 1770, hanging: 360 };
-            } else if (isDeep) {
-              indent = { left: 1080, hanging: 360 };
+              indent = { left: 1800, hanging: 360 };
+              numLvl = 3;
             }
             const opts: any = {
               style: "ListParagraph",
-              numbering: { reference: "akta-rupst-attendance", level: 2 },
+              numbering: { reference: "akta-rupst-attendance", level: numLvl },
               indent,
             };
             docxChildren.push(factory.createListP(block.bullet, block.runs, block.indentTabs || 0, opts));

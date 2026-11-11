@@ -111,10 +111,19 @@ createListP = (
 
   const useNumbering = !!(options as any).numbering;
   if (useNumbering) {
-    if (level === 0) width = 41.0;
-    else if (level === 1) width = 39.5;
-    else if (level === 2) width = 37.5;
-    else if (level >= 3) width = 36.0;
+    const leftDxa = (options as any).indent?.left;
+    if (leftDxa !== undefined) {
+      if (leftDxa <= 426) width = 41.0;
+      else if (leftDxa <= 720) width = 39.5;
+      else if (leftDxa <= 1080) width = 37.5;
+      else if (leftDxa <= 1440) width = 35.5;
+      else width = 33.5;
+    } else {
+      if (level === 0) width = 41.0;
+      else if (level === 1) width = 39.5;
+      else if (level === 2) width = 37.5;
+      else if (level >= 3) width = 35.5;
+    }
   }
 
   const lines = parseTextRuns(tokens, width);
