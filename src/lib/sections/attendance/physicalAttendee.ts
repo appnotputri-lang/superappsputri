@@ -456,6 +456,7 @@ const buildRepresentationBlocks = (
   indentTabs: number,
   endingText: string,
   omitSelaku?: boolean,
+  prefixOverride?: string,
 ): Block[] => {
   const { originalSharePrice, useAktaFormat, isSirkuler } = config;
   const isDirector = r.proxyData.representationType === "DIREKTUR_PT_LAIN" || r.proxyData.representationType === "KUASA_DIREKSI";
@@ -463,8 +464,9 @@ const buildRepresentationBlocks = (
   const shareRp = (r.sharesOwned || 0) * originalSharePrice;
 
   const prefixRuns: FormatToken[] = [];
+  const prefixWord = prefixOverride !== undefined ? prefixOverride : (omitSelaku ? "" : "selaku ");
   if (isDirector) {
-    prefixRuns.push({ text: omitSelaku ? `${posName} dari dan oleh karena itu sah bertindak untuk dan atas nama serta mewakili ` : `selaku ${posName} dari dan oleh karena itu sah bertindak untuk dan atas nama serta mewakili ` });
+    prefixRuns.push({ text: `${prefixWord}${posName} dari dan oleh karena itu sah bertindak untuk dan atas nama serta mewakili ` });
   } else {
     const proxyDate = r.proxyData.proxyDeedDate
       ? useAktaFormat
@@ -472,9 +474,7 @@ const buildRepresentationBlocks = (
         : formatDateRupst(r.proxyData.proxyDeedDate)
       : "__________";
     prefixRuns.push({
-      text: omitSelaku
-        ? `penerima kuasa berdasarkan Surat Kuasa tertanggal ${proxyDate}, dari dan oleh karena itu sah bertindak untuk dan atas nama `
-        : `selaku penerima kuasa berdasarkan Surat Kuasa tertanggal ${proxyDate}, dari dan oleh karena itu sah bertindak untuk dan atas nama `,
+      text: `${prefixWord}penerima kuasa berdasarkan Surat Kuasa tertanggal ${proxyDate}, dari dan oleh karena itu sah bertindak untuk dan atas nama `,
     });
   }
 
@@ -591,28 +591,15 @@ export const buildAttendanceBlocks = (config: AttendanceConfig): Block[] => {
         type: "list",
         bullet: "-",
         indentTabs: 1.5,
-        runs: [{ text: selakuText }],
-      });
-      blocks.push({
-        type: "list",
-        bullet: "-",
-        indentTabs: 1.5,
-        runs: [{ text: "Undangan Rapat." }],
+        runs: [{ text: "Dalam hal ini hadir selaku Undangan Rapat." }],
       });
     } else if (totalSubBullets === 1) {
-      blocks.push({
-        type: "list",
-        bullet: "-",
-        indentTabs: 1.5,
-        runs: [{ text: selakuText }],
-      });
-
       if (att.management) {
         blocks.push({
           type: "list",
           bullet: "-",
           indentTabs: 1.5,
-          runs: [{ text: `${toTitleCase(att.management.position)} Perseroan.` }],
+          runs: [{ text: `Dalam hal ini hadir selaku ${toTitleCase(att.management.position)} Perseroan.` }],
         });
       } else if (att.ownShares) {
         const shareRp = (att.ownShares.sharesOwned || 0) * originalSharePrice;
@@ -622,13 +609,13 @@ export const buildAttendanceBlocks = (config: AttendanceConfig): Block[] => {
           indentTabs: 1.5,
           runs: [
             {
-              text: `Pemilik dan pemegang saham sebanyak ${formatNumber(att.ownShares.sharesOwned)} lembar saham atau senilai Rp. ${formatNumber(shareRp)},- berhak mengeluarkan suara ${formatNumber(att.ownShares.sharesOwned)} suara dalam rapat.`,
+              text: `Dalam hal ini hadir selaku Pemilik dan pemegang saham sebanyak ${formatNumber(att.ownShares.sharesOwned)} lembar saham atau senilai Rp. ${formatNumber(shareRp)},- berhak mengeluarkan suara ${formatNumber(att.ownShares.sharesOwned)} suara dalam rapat.`,
             },
           ],
         });
       } else if (att.representations.length === 1) {
         const r = att.representations[0];
-        blocks.push(...buildRepresentationBlocks(r, config, "-", 1.5, ".", true));
+        blocks.push(...buildRepresentationBlocks(r, config, "-", 1.5, ".", false, "Dalam hal ini hadir selaku "));
       }
     } else if (totalSubBullets > 1) {
       blocks.push({

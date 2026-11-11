@@ -1102,32 +1102,70 @@ export const generateWordDoc = async (data: CompanyData, returnBlob?: boolean) =
         })
       );
 
-      // Dash bullet "Dalam hal ini hadir selaku :"
-      children.push(
-        new Paragraph({
-          alignment: "both" as any,
-          spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 60 },
-          numbering: { reference: "hadir-dash", level: 0 },
-          children: [
-            mkRun("Dalam hal ini hadir selaku :"),
-          ],
-        })
+      const repBulletsCount = att.representations.reduce(
+        (sum, r) => sum + ((r.sharesOwned || 0) > 0 ? 2 : 1),
+        0
       );
+      const totalSub = (att.management ? 1 : 0) + (att.ownShares ? 1 : 0) + repBulletsCount;
 
-      const isUndangan = !att.management && !att.ownShares && att.representations.length === 0;
-
-      if (isUndangan) {
+      if (totalSub === 0) {
         children.push(
           new Paragraph({
             alignment: "both" as any,
-            spacing: { line: LINE_SPACING, lineRule: "auto", before: 0, after: 120 },
-            numbering: { reference: "detail-dash", level: 0 },
+            spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 120 },
+            numbering: { reference: "hadir-dash", level: 0 },
             children: [
-              mkRun("Undangan Rapat."),
+              mkRun("Dalam hal ini hadir selaku Undangan Rapat."),
             ],
           })
         );
+      } else if (totalSub === 1) {
+        if (att.management) {
+          children.push(
+            new Paragraph({
+              alignment: "both" as any,
+              spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 120 },
+              numbering: { reference: "hadir-dash", level: 0 },
+              children: [
+                mkRun(`Dalam hal ini hadir selaku ${toTitleCase(att.management.position || "Direktur")} Perseroan.`),
+              ],
+            })
+          );
+        } else if (att.ownShares) {
+          const parValue = data.originalSharePrice || 0;
+          const currentShares = att.ownShares.sharesOwned || 0;
+          const currentValue = currentShares * parValue;
+
+          children.push(
+            new Paragraph({
+              alignment: "both" as any,
+              spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 120 },
+              numbering: { reference: "hadir-dash", level: 0 },
+              children: [
+                mkRun("Dalam hal ini hadir selaku Pemilik dan pemegang saham sebanyak "),
+                mkRun(currentShares.toLocaleString("id-ID"), true),
+                mkRun(`${w(currentShares, "shares")} lembar saham atau senilai `),
+                mkRun(formatRpDot(currentValue), true),
+                mkRun(`${w(currentValue, "rupiah")} berhak mengeluarkan suara `),
+                mkRun(currentShares.toLocaleString("id-ID"), true),
+                mkRun(`${w(currentShares, "shares")} suara dalam rapat.`),
+              ],
+            })
+          );
+        }
       } else {
+        // Dash bullet "Dalam hal ini hadir selaku :"
+        children.push(
+          new Paragraph({
+            alignment: "both" as any,
+            spacing: { line: LINE_SPACING, lineRule: "auto", before: 60, after: 60 },
+            numbering: { reference: "hadir-dash", level: 0 },
+            children: [
+              mkRun("Dalam hal ini hadir selaku :"),
+            ],
+          })
+        );
+
         // Sub letters code reset
         let shLetterCode = 97; // reset 'a' for each shareholder
         const getNextShLetter = () => {
