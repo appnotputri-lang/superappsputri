@@ -287,7 +287,7 @@ const mkAppointmentNum = (t: FormatToken[]) =>
     style: "ListParagraph",
     numbering: { reference: "akta-rupst-appointment", level: 0 },
     tabStops: [TAB_KANAN],
-    indent: { left: 720, hanging: 360 },
+    indent: { left: 1080, hanging: 360 },
     children: wrappedRuns(t, 39.5),
   });
 
@@ -516,6 +516,26 @@ export const generateRUPSTAktaDocx = async (data: CompanyData, returnBlob?: bool
         docxChildren.push(mkSaksiDash(b.runs));
         return;
       }
+      return;
+    }
+
+    if (block.type === "management-list") {
+      docxChildren.push(
+        new Paragraph({
+          children: [
+            new TextRun({ text: block.position }),
+            new TextRun({ text: "\t" }),
+            new TextRun({ text: `: ${block.name};` }),
+            new TextRun({ text: "\t" }),
+          ],
+          tabStops: [
+            { type: TabStopType.LEFT, position: 3969 },
+            TAB_KANAN,
+          ],
+          alignment: AlignmentType.LEFT,
+          indent: { left: 720 },
+        })
+      );
       return;
     }
 

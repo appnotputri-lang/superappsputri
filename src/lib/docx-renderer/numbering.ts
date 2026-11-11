@@ -189,7 +189,7 @@ export const buildAktaNumberingConfig = () => [
         format: LevelFormat.DECIMAL,
         text: "%1.",
         alignment: "left",
-        style: { paragraph: { indent: { left: 720, hanging: 360 } } },
+        style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
       },
     ],
   },

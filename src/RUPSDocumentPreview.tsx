@@ -43,8 +43,9 @@ export const RUPSDocumentPreview: React.FC<RUPSDocumentPreviewProps> = ({ data, 
 
       let paddingLeft = '0';
       let marginLeft = '0';
-      if (indent) paddingLeft = '0.5cm'; // left=284 DXA ≈ 0.5cm
-      if (indentTabs) paddingLeft = `${indentTabs * 1.5}cm`;
+      if ((block as any).indentLeft !== undefined) paddingLeft = `${((block as any).indentLeft / 567).toFixed(2)}cm`;
+      else if (indent) paddingLeft = '0.5cm'; // left=284 DXA ≈ 0.5cm
+      else if (indentTabs) paddingLeft = `${indentTabs * 1.5}cm`;
       if (align === 'right-center') {
         marginLeft = '50%';
       }
@@ -204,7 +205,7 @@ export const RUPSDocumentPreview: React.FC<RUPSDocumentPreviewProps> = ({ data, 
       lines.forEach((line, lIdx) => {
         allLines.push({
           element: (
-             <div key={`ml-${bIdx}-${lIdx}`} className="flex relative items-start gap-1">
+             <div key={`ml-${bIdx}-${lIdx}`} className="flex relative items-start gap-1" style={{ paddingLeft: '1.27cm' }}>
                <span className="w-[5cm] shrink-0 whitespace-nowrap">{lIdx === 0 ? block.position : ""}</span>
                <div className="flex-1 min-w-0">
                  <div className="flex relative w-full overflow-hidden leading-[2]">

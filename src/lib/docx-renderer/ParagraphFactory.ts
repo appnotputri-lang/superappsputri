@@ -351,11 +351,11 @@ createManagementRoleListP = (
       new TextRun({ text: "\t" }),
     ],
     tabStops: [
-      { type: TabStopType.LEFT, position: 3969 }, // 3969 = 2.75 inches
+      { type: TabStopType.LEFT, position: 3969 }, // 3969 = 7.0 cm tab stop for colon
       this.TAB_KANAN,
     ],
     alignment: AlignmentType.LEFT,
-    indent: { left: 284 },
+    indent: { left: 720 },
   });
 };
 

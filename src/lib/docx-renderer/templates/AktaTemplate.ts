@@ -61,11 +61,13 @@ export class AktaTemplate {
           docxChildren.push(factory.createNumberedP(block.number, block.runs, numOpts));
         } else if (block.subNumber && !isCentered) {
           docxChildren.push(factory.createSubNumberedP(block.subNumber, block.runs, block.indentTabs || 0));
-        } else if (block.indentTabs && !isCentered && !isRightCenter) {
+        } else if ((block.indentLeft !== undefined || block.indentTabs) && !isCentered && !isRightCenter) {
           if (block.kbliDesc) {
             docxChildren.push(factory.createKbliDescP(block.runs));
           } else {
-            const leftDxa = Math.round((block.indentTabs || 0) * 850);
+            const leftDxa = block.indentLeft !== undefined
+              ? block.indentLeft
+              : Math.round((block.indentTabs || 0) * 850);
             docxChildren.push(factory.createIndentP(block.runs, leftDxa, opts));
           }
         } else if (block.indent && !isCentered && !isRightCenter) {
@@ -129,7 +131,7 @@ export class AktaTemplate {
             const opts: any = {
               style: "ListParagraph",
               numbering: { reference: "akta-rupst-appointment", level: 0 },
-              indent: { left: 720, hanging: 360 },
+              indent: { left: 1080, hanging: 360 },
             };
             docxChildren.push(factory.createListP(block.bullet, block.runs, block.indentTabs || 0, opts));
           } else if (isLetter) {
