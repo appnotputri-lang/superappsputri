@@ -22,7 +22,7 @@ export class AktaTemplate {
       const text = block.runs ? block.runs.map((r: any) => r.text || "").join("") : "";
 
       // Zone transitions (matching generateRUPSTAktaDocx.ts)
-      if (block.type === "list" && /^\d+\.$/.test(block.bullet ?? "")) {
+      if (zone === "preamble" && block.type === "list" && /^\d+\.$/.test(block.bullet ?? "")) {
         zone = "attendance";
       } else if (zone === "attendance" && (
         (block.type === "list" && block.bullet === "-" && (block.indentTabs || 0) <= 0.6) ||
@@ -34,7 +34,9 @@ export class AktaTemplate {
       if (
         (block.type === "p" && block.number !== undefined && zone !== "decisions") ||
         (zone === "general" && text.includes("telah setuju dan memutuskan")) ||
-        (zone === "general" && text.includes("telah diputuskan dengan suara bulat"))
+        (zone === "general" && text.includes("telah diputuskan dengan suara bulat")) ||
+        (zone === "general" && text.includes("memutuskan dan menetapkan")) ||
+        (zone === "general" && text.includes("menyatakan keputusan"))
       ) {
         zone = "decisions";
       }
@@ -123,7 +125,14 @@ export class AktaTemplate {
           };
           docxChildren.push(factory.createListP(block.bullet, block.runs, block.indentTabs || 0, opts));
         } else if (zone === "decisions") {
-          if (isLetter) {
+          if (isNumbered) {
+            const opts: any = {
+              style: "ListParagraph",
+              numbering: { reference: "akta-rupst-appointment", level: 0 },
+              indent: { left: 720, hanging: 360 },
+            };
+            docxChildren.push(factory.createListP(block.bullet, block.runs, block.indentTabs || 0, opts));
+          } else if (isLetter) {
             const opts: any = {
               style: "ListParagraph",
               numbering: { reference: "akta-rupst-decisions", level: 1 },
@@ -135,7 +144,7 @@ export class AktaTemplate {
             const opts: any = {
               style: "ListParagraph",
               numbering: { reference: "akta-rupst-decisions", level: 2 },
-              indent: isDeep ? { left: 1080, hanging: 360 } : { left: 720, hanging: 360 },
+              indent: isDeep ? { left: 1440, hanging: 360 } : { left: 1080, hanging: 360 },
             };
             docxChildren.push(factory.createListP(block.bullet, block.runs, block.indentTabs || 0, opts));
           }

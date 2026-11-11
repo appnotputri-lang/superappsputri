@@ -177,6 +177,18 @@ export const buildAktaNumberingConfig = () => [
         format: LevelFormat.BULLET,
         text: "-",
         alignment: "left",
+        style: { paragraph: { indent: { left: 1080, hanging: 360 } } },
+      },
+    ],
+  },
+  {
+    reference: "akta-rupst-appointment",
+    levels: [
+      {
+        level: 0,
+        format: LevelFormat.DECIMAL,
+        text: "%1.",
+        alignment: "left",
         style: { paragraph: { indent: { left: 720, hanging: 360 } } },
       },
     ],

@@ -1559,8 +1559,8 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
             if (dismissedDirectors.length > 0) {
               blocks.push({
                 type: "p",
-                indentTabs: 0.334,
-                runs: [{ text: `Direksi` }],
+                indentTabs: 0.85,
+                runs: [{ text: `Direksi:` }],
               });
               dismissedDirectors.forEach((m) => {
                 blocks.push({
@@ -1574,8 +1574,8 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
             if (dismissedCommissioners.length > 0) {
               blocks.push({
                 type: "p",
-                indentTabs: 0.334,
-                runs: [{ text: `Dewan Komisaris` }],
+                indentTabs: 0.85,
+                runs: [{ text: `Dewan Komisaris:` }],
               });
               dismissedCommissioners.forEach((m) => {
                 blocks.push({
@@ -1590,7 +1590,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
           blocks.push({
             type: "p",
-            indentTabs: 0.334,
+            indentTabs: 0.85,
             runs: [
               {
                 text: `dengan ucapan terima kasih atas jasa-jasa dan pengabdian yang telah diberikan selama masa jabatannya dalam Perseroan, serta memberikan pelunasan dan pembebasan tanggung jawab sepenuhnya (acquit et de charge) atas tindakan pengurusan dan pengawasan yang telah dijalankan, sepanjang tindakan-tindakan tersebut tercermin dalam buku-buku serta laporan tahunan Perseroan.`,
@@ -1616,7 +1616,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
               blocks.push({
                 type: "p",
                 number: managersToDismiss.length === 0 ? resIdx++ : undefined,
-                indentTabs: managersToDismiss.length > 0 ? 0.334 : undefined,
+                indentTabs: managersToDismiss.length > 0 ? 0.85 : undefined,
                 runs: [
                   { text: `Mengangkat ` },
                   ...getPersonDetailRuns({ person: appointedDirectors[0], fullyDescribedNames, isSirkuler: isCircular, useAktaFormat: true }),
@@ -1629,7 +1629,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
               blocks.push({
                 type: "p",
                 number: managersToDismiss.length === 0 ? resIdx++ : undefined,
-                indentTabs: managersToDismiss.length > 0 ? 0.334 : undefined,
+                indentTabs: managersToDismiss.length > 0 ? 0.85 : undefined,
                 runs: [
                   {
                     text: `Mengangkat anggota Direksi Perseroan, dengan rincian sebagai berikut:`,
@@ -1656,7 +1656,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
               blocks.push({
                 type: "p",
                 number: managersToDismiss.length === 0 ? resIdx++ : undefined,
-                indentTabs: managersToDismiss.length > 0 ? 0.334 : undefined,
+                indentTabs: managersToDismiss.length > 0 ? 0.85 : undefined,
                 runs: [
                   { text: `Mengangkat ` },
                   ...getPersonDetailRuns({ person: appointedCommissioners[0], fullyDescribedNames, isSirkuler: isCircular, useAktaFormat: true }),
@@ -1669,7 +1669,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
               blocks.push({
                 type: "p",
                 number: managersToDismiss.length === 0 ? resIdx++ : undefined,
-                indentTabs: managersToDismiss.length > 0 ? 0.334 : undefined,
+                indentTabs: managersToDismiss.length > 0 ? 0.85 : undefined,
                 runs: [
                   {
                     text: `Mengangkat anggota Dewan Komisaris Perseroan, dengan rincian sebagai berikut:`,
@@ -1692,7 +1692,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
             blocks.push({
               type: "p",
               number: managersToDismiss.length === 0 ? resIdx++ : undefined,
-              indentTabs: managersToDismiss.length > 0 ? 0.334 : undefined,
+              indentTabs: managersToDismiss.length > 0 ? 0.85 : undefined,
               runs: [
                 {
                   text: `Selanjutnya mengangkat Direksi dan Dewan Komisaris Perseroan, dengan rincian sebagai berikut :`,
@@ -1717,7 +1717,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
         // OUTPUT FINAL COMPOSITION
         blocks.push({
           type: "p",
-          indentTabs: 0.334,
+          indentTabs: 0.85,
           runs: [
             {
               text: `Sehingga susunan anggota Direksi dan Dewan Komisaris Perseroan menjadi sebagai berikut :`,
@@ -1740,7 +1740,7 @@ export const generateRupsBlocks = (data: CompanyData): Block[] => {
 
         blocks.push({
           type: "p",
-          indentTabs: 0.334, // → left=284
+          indentTabs: 0.85, // → left=720 dxa
           runs: [
             {
               text: `Masa jabatan anggota Direksi dan Dewan Komisaris tersebut di atas berlaku efektif terhitung sejak tanggal Keputusan ini ditetapkan, ${data.managementEffectiveUntil || "untuk jangka waktu sebagaimana yang ditentukan dalam Anggaran Dasar Perseroan"}, dengan tidak mengurangi hak Rapat Umum Pemegang Saham untuk memberhentikan sewaktu-waktu sesuai dengan ketentuan peraturan perundang-undangan yang berlaku.`,

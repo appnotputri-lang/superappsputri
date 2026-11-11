@@ -281,6 +281,16 @@ const mkDecisionNum = (t: FormatToken[]) =>
     children: wrappedRuns(t, W.decisionNum),
   });
 
+/** APPOINTMENT NUMBER  numId for appointment sub-items in decision */
+const mkAppointmentNum = (t: FormatToken[]) =>
+  new Paragraph({
+    style: "ListParagraph",
+    numbering: { reference: "akta-rupst-appointment", level: 0 },
+    tabStops: [TAB_KANAN],
+    indent: { left: 720, hanging: 360 },
+    children: wrappedRuns(t, 39.5),
+  });
+
 /** DECISION LETTER  numId=5 ilvl=1 ind.left=1080 hanging=360 */
 const mkDecisionLetter = (t: FormatToken[]) =>
   new Paragraph({
@@ -362,7 +372,7 @@ export const generateRUPSTAktaDocx = async (data: CompanyData, returnBlob?: bool
     const text = blockText(block);
 
     // ── Zone transitions ────────────────────────────────────────────────────
-    if (block.type === "list" && /^\d+\.$/.test((block as any).bullet ?? "")) {
+    if (zone === "preamble" && block.type === "list" && /^\d+\.$/.test((block as any).bullet ?? "")) {
       zone = "attendance";
     }
 
@@ -487,6 +497,8 @@ export const generateRUPSTAktaDocx = async (data: CompanyData, returnBlob?: bool
       if (zone === "decisions") {
         if (text.startsWith("Sehubungan dengan apa yang diuraikan")) {
           docxChildren.push(mkDecisionSehubungan(b.runs));
+        } else if (isNumbered) {
+          docxChildren.push(mkAppointmentNum(b.runs));
         } else if (isLetter) {
           docxChildren.push(mkDecisionLetter(b.runs));
         } else {
