@@ -55,7 +55,7 @@ export class AktaTemplate {
           const numOpts: any = {
             style: "ListParagraph",
             numbering: { reference: "akta-rupst-decisions", level: 0 },
-            indent: { left: 720, hanging: 360 },
+            indent: { left: 720, hanging: 720 },
             ...opts,
           };
           docxChildren.push(factory.createNumberedP(block.number, block.runs, numOpts));

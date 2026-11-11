@@ -271,13 +271,13 @@ const mkAgendaItem = (t: FormatToken[]) =>
     children: wrappedRuns(t, W.agendaItem),
   });
 
-/** DECISION NUMBER  numId=5 ilvl=0 ind.left=720 hanging=360 */
+/** DECISION NUMBER  numId=5 ilvl=0 ind.left=720 hanging=720 */
 const mkDecisionNum = (t: FormatToken[]) =>
   new Paragraph({
     style: "ListParagraph",
     numbering: { reference: NUM.DECISIONS, level: 0 },
     tabStops: [TAB_KANAN],
-    indent: { left: 720, hanging: 360 },
+    indent: { left: 720, hanging: 720 },
     children: wrappedRuns(t, W.decisionNum),
   });
 
