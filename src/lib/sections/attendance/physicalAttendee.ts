@@ -368,10 +368,87 @@ export const buildAttendanceAttendees = (config: AttendanceConfig): PhysicalAtte
   return attendees;
 };
 
-// Builds the block(s) describing a single representation (proxy / director of another PT),
-// including the sub-bullet list of amendment deeds when the represented entity has a
-// deed history. Returns one block when there is no deed history to show, or multiple
-// blocks (base identification + deed bullets) when there is.
+// Builds the block(s) describing an entity representation without conjoined shareholding,
+// so that shareholding can be presented as its own distinct lettered sub-bullet (e.g. point c).
+const buildRepresentationEntityBlocks = (
+  r: RoleRepresentative,
+  config: AttendanceConfig,
+  bullet: string,
+  indentTabs: number,
+  endingText: string,
+  omitSelaku?: boolean,
+): Block[] => {
+  const { useAktaFormat } = config;
+  const isDirector = r.proxyData.representationType === "DIREKTUR_PT_LAIN" || r.proxyData.representationType === "KUASA_DIREKSI";
+  const posName = r.proxyData.position || r.proxyData.occupation || (r.shareholder as any).representativePosition || (r.proxyData.representationType === "KUASA_DIREKSI" ? "Kuasa Direksi" : "Direktur");
+
+  const prefixRuns: FormatToken[] = [];
+  if (isDirector) {
+    prefixRuns.push({ text: omitSelaku ? `${posName} dari dan oleh karena itu sah bertindak untuk dan atas nama serta mewakili ` : `selaku ${posName} dari dan oleh karena itu sah bertindak untuk dan atas nama serta mewakili ` });
+  } else {
+    const proxyDate = r.proxyData.proxyDeedDate
+      ? useAktaFormat
+        ? formatAktaDate(r.proxyData.proxyDeedDate)
+        : formatDateRupst(r.proxyData.proxyDeedDate)
+      : "__________";
+    prefixRuns.push({
+      text: omitSelaku
+        ? `penerima kuasa berdasarkan Surat Kuasa tertanggal ${proxyDate}, dari dan oleh karena itu sah bertindak untuk dan atas nama `
+        : `selaku penerima kuasa berdasarkan Surat Kuasa tertanggal ${proxyDate}, dari dan oleh karena itu sah bertindak untuk dan atas nama `,
+    });
+  }
+
+  const hasDeeds =
+    isDirector &&
+    checkIsBadanHukum(r.shareholder) &&
+    r.shareholder.amendmentDeeds &&
+    r.shareholder.amendmentDeeds.length > 0;
+
+  if (!hasDeeds) {
+    return [
+      {
+        type: "list",
+        bullet,
+        indentTabs,
+        runs: [
+          ...prefixRuns,
+          ...getPersonDetailRuns({ ...config, person: r.shareholder }),
+          { text: endingText },
+        ],
+      },
+    ];
+  }
+
+  const amendmentDeeds = r.shareholder.amendmentDeeds;
+  const transition = `, dan anggaran dasarnya telah mengalami ${
+    amendmentDeeds.length > 1 ? "beberapa kali " : ""
+  }perubahan berdasarkan akta${amendmentDeeds.length > 1 ? "-akta" : ""} sebagai berikut :`;
+
+  const baseRuns: FormatToken[] = [
+    ...prefixRuns,
+    ...getPersonDetailRuns({ ...config, person: { ...r.shareholder, amendmentDeeds: [] } }),
+  ];
+  if (baseRuns.length > 0) {
+    baseRuns[baseRuns.length - 1] = {
+      ...baseRuns[baseRuns.length - 1],
+      text: baseRuns[baseRuns.length - 1].text + transition,
+    };
+  }
+
+  return [
+    { type: "list", bullet, indentTabs, runs: baseRuns },
+    ...buildAmendmentDeedBlocks({
+      amendmentDeeds,
+      useAktaFormat: !!useAktaFormat,
+      indentTabs: indentTabs + 0.5,
+      isLastOverall: false, // End each deed bullet with semicolon so the subsequent point continues smoothly
+      suffixRuns: [],
+      isAkta: !!useAktaFormat,
+    }),
+  ];
+};
+
+// Builds representation block with conjoined shareholding for circular / single-block mode
 const buildRepresentationBlocks = (
   r: RoleRepresentative,
   config: AttendanceConfig,
@@ -476,10 +553,14 @@ export const buildAttendanceBlocks = (config: AttendanceConfig): Block[] => {
       suffixRuns: [{ text: endChar }],
     });
 
+    const repBulletsCount = att.representations.reduce(
+      (sum, r) => sum + ((r.sharesOwned || 0) > 0 ? 2 : 1),
+      0
+    );
     const totalSubBullets =
       (att.management ? 1 : 0) +
       (att.ownShares ? 1 : 0) +
-      att.representations.length;
+      repBulletsCount;
 
     if (isSirkulerMode) {
       if (att.ownShares) {
@@ -597,16 +678,37 @@ export const buildAttendanceBlocks = (config: AttendanceConfig): Block[] => {
 
       att.representations.forEach((r) => {
         bulletIdx++;
+        const repBullet = String.fromCharCode(subBulletCode + bulletIdx - 1) + ".";
+        const hasShares = (r.sharesOwned || 0) > 0;
+        const repEnding = hasShares ? "; dan" : getEnding(bulletIdx);
+
         blocks.push(
-          ...buildRepresentationBlocks(
+          ...buildRepresentationEntityBlocks(
             r,
             config,
-            String.fromCharCode(subBulletCode + bulletIdx - 1) + ".",
+            repBullet,
             2.0,
-            getEnding(bulletIdx),
+            repEnding,
             true,
           ),
         );
+
+        if (hasShares) {
+          bulletIdx++;
+          const shareBullet = String.fromCharCode(subBulletCode + bulletIdx - 1) + ".";
+          const shareRp = (r.sharesOwned || 0) * originalSharePrice;
+          const shareEnding = getEnding(bulletIdx);
+          blocks.push({
+            type: "list",
+            bullet: shareBullet,
+            indentTabs: 2.0,
+            runs: [
+              {
+                text: `Pemilik dan pemegang saham sebanyak ${formatNumber(r.sharesOwned)} lembar saham atau senilai Rp. ${formatNumber(shareRp)},- berhak mengeluarkan suara ${formatNumber(r.sharesOwned)} suara dalam rapat${shareEnding}`,
+              },
+            ],
+          });
+        }
       });
     }
   });
