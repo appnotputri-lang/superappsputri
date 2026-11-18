@@ -140,6 +140,8 @@ export default function PendirianDocumentPreview({ data, onExport, onClose, isEx
                     align = block.align || 'left';
                   } else if (block.type === 'numbered') {
                     runs = [{ text: `${block.num}. `, bold: false }, ...mapRunsWithTabs(block.runs)];
+                  } else if (block.type === 'appearer') {
+                    runs = [{ text: `${block.num}. `, bold: false }, ...mapRunsWithTabs(block.runs)];
                   } else if (block.type === 'sub-numbered') {
                     runs = [{ text: `${block.num}) `, bold: false }, ...mapRunsWithTabs(block.runs)];
                     indentTabs = block.indentTabs || 1;

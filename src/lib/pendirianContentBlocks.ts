@@ -31,6 +31,7 @@ export type Block =
   | { type: 'divider'; text: string }
   | { type: 'pasal-divider'; text: string }
   | { type: 'numbered'; num: number | string; runs: Run[]; indentTabs?: number; subStartVal?: number; startVal?: number }
+  | { type: 'appearer'; num: number | string; runs: Run[] }
   | { type: 'sub-numbered'; num: number | string; runs: Run[]; indentTabs?: number }
   | { type: 'list'; bullet: string; runs: Run[]; indentTabs?: number }
   | { type: 'saksi'; num: number | string; runs: Run[] }
@@ -270,7 +271,7 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
       });
     } else {
       blocks.push({
-        type: "numbered",
+        type: "appearer",
         num: idx + 1,
         runs: sd.customRuns || [
           { text: `${sd.namePrefix}${sd.nameText}`, bold: true },

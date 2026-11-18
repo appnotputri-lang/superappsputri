@@ -136,7 +136,11 @@ export async function generatePendirianDocx(data: PendirianData, returnBlob?: bo
     let prefixText: string = "";
     let indentOpts: any = {};
 
-    if (block.type === 'numbered') {
+    if (block.type === 'appearer') {
+      prefixText = `${block.num}. `;
+      indentOpts.left = 284;
+      indentOpts.hanging = 284;
+    } else if (block.type === 'numbered') {
       prefixText = `${block.num}.  `;
       indentOpts.left = 720;
       indentOpts.hanging = 360;
