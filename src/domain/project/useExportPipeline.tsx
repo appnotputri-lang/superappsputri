@@ -87,6 +87,9 @@ export function ExportPipelineProvider({ children }: { children: ReactNode }) {
       } else if (item.type === 'pendirian') {
         try {
           const d = item.project;
+          const sharePrice = d.nilaiPerLembar || d.originalSharePrice || d.shareValue || d.nilaiNominal || 0;
+          const authorizedShares = d.modalDasarLembar || d.authorizedShares || d.originalAuthorizedShares || 0;
+          const paidShares = d.modalDisetorLembar || d.placedShares || d.originalTotalShares || 0;
           const mappedData = {
             namaPt: d.companyName || d.namaPt || "",
             tanggal: d.signingDate || d.tanggal || "",
@@ -95,9 +98,11 @@ export function ExportPipelineProvider({ children }: { children: ReactNode }) {
             notarisTempat: d.notaryDomicile || d.notarisTempat || "Kabupaten Bandung Barat",
             kotaKedudukan: d.newAddress?.city || d.domicile || "",
             alamatLengkapPT: d.newAddress?.fullAddress || d.fullAddress || "",
-            modalDasar: d.modalDasar || d.targetCapitalBase || d.originalCapitalBase || 0,
-            nilaiPerLembar: d.nilaiPerLembar || d.originalSharePrice || 0,
-            modalDisetorPersen: d.modalDisetorPersen || (d.targetCapitalPaid / d.targetCapitalBase) * 100 || 25,
+            modalDasar: d.modalDasar || ((authorizedShares && sharePrice) ? authorizedShares * sharePrice : 0) || d.targetCapitalBase || d.originalCapitalBase || d.authorizedCapital || 0,
+            modalDasarLembar: authorizedShares,
+            nilaiPerLembar: sharePrice,
+            modalDisetorLembar: paidShares,
+            modalDisetorPersen: (paidShares && authorizedShares) ? ((paidShares / authorizedShares) * 100) : (d.modalDisetorPersen || (d.targetCapitalPaid / d.targetCapitalBase) * 100 || 25),
             kuotaWaktuDireksi: d.duration || "5",
             kbliItems: d.kbliItems || [],
             shareholders: d.shareholders || [],
@@ -142,8 +147,10 @@ export function ExportPipelineProvider({ children }: { children: ReactNode }) {
         notarisTempat: d.notaryDomicile || d.notarisTempat || "Kabupaten Bandung Barat",
         kotaKedudukan: d.newAddress?.city || d.domicile || "",
         alamatLengkapPT: d.newAddress?.fullAddress || d.fullAddress || "",
-        modalDasar: (d.modalDasarLembar && d.nilaiPerLembar) ? (d.modalDasarLembar * d.nilaiPerLembar) : (d.modalDasar || d.targetCapitalBase || d.originalCapitalBase || 0),
+        modalDasar: d.modalDasar || ((d.modalDasarLembar && d.nilaiPerLembar) ? (d.modalDasarLembar * d.nilaiPerLembar) : (d.targetCapitalBase || d.originalCapitalBase || 0)),
+        modalDasarLembar: d.modalDasarLembar || d.authorizedShares || d.originalAuthorizedShares || 0,
         nilaiPerLembar: d.nilaiPerLembar || d.originalSharePrice || 0,
+        modalDisetorLembar: d.modalDisetorLembar || d.placedShares || d.originalTotalShares || 0,
         modalDisetorPersen: (d.modalDisetorLembar && d.modalDasarLembar) ? ((d.modalDisetorLembar / d.modalDasarLembar) * 100) : (d.modalDisetorPersen || (d.targetCapitalPaid / d.targetCapitalBase) * 100 || 25),
         kuotaWaktuDireksi: d.duration || "5",
         kbliItems: d.kbliItems || [],

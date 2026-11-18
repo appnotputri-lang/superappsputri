@@ -39,6 +39,14 @@ function ensureTemplateParagraph(paragraphs: ParagraphElement[], index: number, 
   return paragraph;
 }
 
+function firstPositiveNumber(...values: unknown[]): number {
+  for (const value of values) {
+    const number = Number(value);
+    if (Number.isFinite(number) && number > 0) return number;
+  }
+  return 0;
+}
+
 function replaceTextRange(paragraph: ParagraphElement, start: number, end: number, replacement: string): void {
   const nodes = textNodes(paragraph);
   const ranges: Array<{ node: Element; start: number; end: number; text: string }> = [];
@@ -554,12 +562,30 @@ export async function generatePendirianTemplateDocx(data: PendirianData, returnB
 
   // Capital amounts: replace the numeric and terbilang slots in the existing
   // template paragraphs, leaving their fixed wording and run formatting intact.
-  const modalDasar = Number(data.modalDasar || 0);
-  const nilaiPerLembar = Number(data.nilaiPerLembar || 0);
-  const persen = Number(data.modalDisetorPersen ?? 25);
-  const totalLembar = nilaiPerLembar ? modalDasar / nilaiPerLembar : 0;
-  const modalDisetor = (modalDasar * persen) / 100;
-  const disetorLembar = (totalLembar * persen) / 100;
+  const source = data as any;
+  const nilaiPerLembar = firstPositiveNumber(data.nilaiPerLembar, source.originalSharePrice, source.shareValue, source.nilaiNominal);
+  const modalDasarLembar = firstPositiveNumber(data.modalDasarLembar, source.authorizedShares, source.originalAuthorizedShares);
+  const modalDasar = firstPositiveNumber(
+    data.modalDasar,
+    source.targetCapitalBase,
+    source.originalCapitalBase,
+    source.authorizedCapital,
+    modalDasarLembar * nilaiPerLembar,
+  );
+  const totalLembar = modalDasarLembar || (nilaiPerLembar ? Math.floor(modalDasar / nilaiPerLembar) : 0);
+  const configuredPercent = Number(data.modalDisetorPersen ?? source.paidCapitalPercentage ?? 25);
+  const modalDisetorLembar = firstPositiveNumber(data.modalDisetorLembar, source.placedShares, source.originalTotalShares);
+  const modalDisetorDirect = firstPositiveNumber(source.modalDisetor, source.targetCapitalPaid, source.originalCapitalPaid, source.paidUpCapital);
+  const disetorLembar = modalDisetorLembar ||
+    (modalDisetorDirect && nilaiPerLembar ? modalDisetorDirect / nilaiPerLembar : (totalLembar * configuredPercent) / 100);
+  const modalDisetor = nilaiPerLembar && disetorLembar
+    ? disetorLembar * nilaiPerLembar
+    : (modalDisetorDirect || (modalDasar * configuredPercent) / 100);
+  const persen = totalLembar > 0 && disetorLembar > 0
+    ? (disetorLembar / totalLembar) * 100
+    : modalDasar > 0 && modalDisetor > 0
+      ? (modalDisetor / modalDasar) * 100
+      : configuredPercent;
   const baseText = formatNumber(modalDasar);
   const shareTotalText = formatNumber(totalLembar);
   const priceText = formatNumber(nilaiPerLembar);
