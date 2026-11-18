@@ -701,7 +701,7 @@ export async function generatePendirianTemplateDocx(data: PendirianData, returnB
   const deedPlaceParagraph = p(223, "Dibuat sebagai minuta dan dilangsungkan di");
   replaceBetween(deedPlaceParagraph, "Dibuat sebagai minuta dan dilangsungkan di ", ", pada hari", notaryDomicile);
   const witnessRows = [p(224, "Nendi Suhendi"), p(225, "Siti Nur Azizah")];
-  replaceRowsWithRuns(body, witnessRows, witnessBlocks, witnessRows[1], (block) => block.runs || [], () => 41.5);
+  replaceRowsWithRuns(body, witnessRows, witnessBlocks, witnessRows[1], (block) => block.runs || [], () => 37.5);
   const closingDomicileParagraph = p(226, "Untuk sementara berada di");
   if (closingDomicile) {
     setParagraphText(closingDomicileParagraph, blockText(closingDomicile).replace(/^-\s*\t?/, "").trim());
