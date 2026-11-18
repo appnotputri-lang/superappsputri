@@ -151,7 +151,7 @@ function makeRun(
   paragraph: ParagraphElement,
   bold: boolean,
   text?: string,
-  special?: "tab" | "break",
+  special?: "tab",
   styleSource: ParagraphElement = paragraph,
 ): Element {
   const runs = directRuns(styleSource);
@@ -163,8 +163,6 @@ function makeRun(
 
   if (special === "tab") {
     run.appendChild(paragraph.ownerDocument!.createElementNS(W_NS, "w:tab"));
-  } else if (special === "break") {
-    run.appendChild(paragraph.ownerDocument!.createElementNS(W_NS, "w:br"));
   } else {
     const textNode = paragraph.ownerDocument!.createElementNS(W_NS, "w:t");
     textNode.textContent = text || "";
@@ -190,12 +188,15 @@ function replaceParagraphWithRuns(
 
   const wrapped = parseTextRuns(runs.map((run) => ({ text: run.text || "", bold: run.bold })), maxWidth);
   const lines = wrapped.length ? wrapped : [[]];
-  lines.forEach((line, index) => {
+  lines.forEach((line) => {
     for (const token of line) {
       if (token.text) paragraph.appendChild(makeRun(paragraph, !!token.bold, token.text, undefined, styleSource));
     }
+    // The source template uses leader tabs to finish each visual line. Let Word
+    // wrap the next text segment using the paragraph's existing hanging indent;
+    // an explicit w:br here resets the continuation to the paragraph margin and
+    // is what made generated rows drift right compared with the template.
     if (addLeaderTabs) paragraph.appendChild(makeRun(paragraph, false, undefined, "tab", styleSource));
-    if (index < lines.length - 1) paragraph.appendChild(makeRun(paragraph, false, undefined, "break", styleSource));
   });
 }
 
