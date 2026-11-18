@@ -491,51 +491,35 @@ export default function DraftAktaPendirian({
         {/* INFORMASI UTAMA */}
         <AhuSection title="Informasi Pendirian PT">
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-start">
-              <div className="pt-2">
-                <AhuLabel label="Pilih Klien PT (Opsional)" />
-              </div>
-              <div className="md:col-span-3">
-                {activeProjectContext ? (
-                  <div className="bg-slate-50 border border-slate-200 rounded-sm p-4 text-[13px] text-slate-700 space-y-2">
-                    <div>
-                      <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Company</div>
-                      <div className="font-bold text-slate-800 text-[14px]">
-                        {profiles.find(p => p.id === data.selectedProfileId)?.companyName || data.namaPt || initialData?.namaPt || projectName || 'PT Belum Ditentukan'}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                      <span>Source: Project Workspace</span>
-                    </div>
-                    <p className="text-[11px] text-slate-400 italic">
-                      This Company is locked because the document belongs to this Project.
-                    </p>
-                  </div>
-                ) : (
+            {!activeProjectContext && (
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-start">
+                <div className="pt-2">
+                  <AhuLabel label="Pilih Klien PT (Opsional)" />
+                </div>
+                <div className="md:col-span-3">
                   <SearchableClientSelect 
-                      value={data.selectedProfileId || ''}
-                      onChange={async (val) => {
-                          const profileId = val;
-                          if (profileId) {
-                              const fullProfile = await CompanyService.getCompanyProfile(profileId);
-                              if (fullProfile) {
-                                  setData(prev => mapCompanyProfileToPendirian(fullProfile, prev));
-                              } else {
-                                  setData(prev => ({ ...prev, selectedProfileId: profileId }));
-                              }
-                          } else {
-                              setData(prev => ({ ...prev, selectedProfileId: '' }));
-                          }
-                      }}
-                      options={profiles}
-                      placeholder="-- PILIH DATA DARI MANIFEST PT --"
-                      selectClassName="w-full text-[13px] border border-slate-200 rounded-sm px-3 py-2 bg-white outline-none cursor-pointer hover:border-slate-300 focus:border-blue-500 flex items-center justify-between"
-                      allowClear={true}
+                    value={data.selectedProfileId || ''}
+                    onChange={async (val) => {
+                      const profileId = val;
+                      if (profileId) {
+                        const fullProfile = await CompanyService.getCompanyProfile(profileId);
+                        if (fullProfile) {
+                          setData(prev => mapCompanyProfileToPendirian(fullProfile, prev));
+                        } else {
+                          setData(prev => ({ ...prev, selectedProfileId: profileId }));
+                        }
+                      } else {
+                        setData(prev => ({ ...prev, selectedProfileId: '' }));
+                      }
+                    }}
+                    options={profiles}
+                    placeholder="-- PILIH DATA DARI MANIFEST PT --"
+                    selectClassName="w-full text-[13px] border border-slate-200 rounded-sm px-3 py-2 bg-white outline-none cursor-pointer hover:border-slate-300 focus:border-blue-500 flex items-center justify-between"
+                    allowClear={true}
                   />
-                )}
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
               <AhuLabel label="Nama Perseroan Terbatas" required />
