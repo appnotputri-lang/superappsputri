@@ -210,10 +210,29 @@ function setParagraphText(paragraph: ParagraphElement, text: string): void {
   replaceBetween(paragraph, "", "", text);
 }
 
+function setKeepWithNext(paragraph: ParagraphElement): void {
+  let paragraphProperties = Array.from(paragraph.children).find(
+    (child) => child.namespaceURI === W_NS && child.localName === "pPr",
+  );
+  if (!paragraphProperties) {
+    paragraphProperties = paragraph.ownerDocument!.createElementNS(W_NS, "w:pPr");
+    paragraph.insertBefore(paragraphProperties, paragraph.firstChild);
+  }
+  if (Array.from(paragraphProperties.children).some((child) => child.namespaceURI === W_NS && child.localName === "keepNext")) {
+    return;
+  }
+
+  const keepNext = paragraph.ownerDocument!.createElementNS(W_NS, "w:keepNext");
+  const paragraphStyle = Array.from(paragraphProperties.children).find(
+    (child) => child.namespaceURI === W_NS && child.localName === "pStyle",
+  );
+  paragraphProperties.insertBefore(keepNext, paragraphStyle?.nextSibling || paragraphProperties.firstChild);
+}
+
 function replaceParagraphRange(
   body: Element,
   oldParagraphs: ParagraphElement[],
-  entries: Array<{ text: string; bold?: boolean; maxWidth?: number; prototype?: ParagraphElement }>,
+  entries: Array<{ text: string; bold?: boolean; maxWidth?: number; prototype?: ParagraphElement; keepWithNext?: boolean }>,
   prototype: ParagraphElement,
 ): ParagraphElement[] {
   const anchor = oldParagraphs[oldParagraphs.length - 1]?.nextSibling || null;
@@ -221,6 +240,7 @@ function replaceParagraphRange(
     const paragraph = (entry.prototype || prototype).cloneNode(true) as ParagraphElement;
     if (entry.bold === undefined) setParagraphText(paragraph, entry.text);
     else replaceParagraphWithRuns(paragraph, [{ text: entry.text, bold: entry.bold }], entry.maxWidth || 41.5);
+    if (entry.keepWithNext) setKeepWithNext(paragraph);
     return paragraph;
   });
   oldParagraphs.forEach((paragraph) => paragraph.parentNode?.removeChild(paragraph));
@@ -422,8 +442,9 @@ export async function generatePendirianTemplateDocx(data: PendirianData, returnB
   const kbliBlocks = achieveIndex >= 0 && kbliEndIndex > achieveIndex
     ? blocks.slice(achieveIndex + 1, kbliEndIndex)
     : [];
-  const kbliEntries: Array<{ text: string; bold?: boolean; maxWidth?: number; prototype?: ParagraphElement }> = [];
-  for (const block of kbliBlocks) {
+  const kbliEntries: Array<{ text: string; bold?: boolean; maxWidth?: number; prototype?: ParagraphElement; keepWithNext?: boolean }> = [];
+  for (let index = 0; index < kbliBlocks.length; index += 1) {
+    const block = kbliBlocks[index];
     const text = blockText(block).trim();
     if (!text) continue;
 
@@ -434,7 +455,19 @@ export async function generatePendirianTemplateDocx(data: PendirianData, returnB
       // the structure already produced by the form content builder.
       kbliEntries.push({ text, bold: false, maxWidth: 34.5, prototype: kbliBulletParagraph });
     } else if (block.type === "p" && block.kbliDesc) {
-      kbliEntries.push({ text, bold: false, maxWidth: 37.5, prototype: kbliDescriptionParagraph });
+      const nextBlock = kbliBlocks[index + 1];
+      const followedByActivityBullet = nextBlock?.type === "list" && nextBlock.indentTabs === 1.5;
+      const introMatch = followedByActivityBullet
+        ? text.match(/\s+(Kelompok ini (?:juga )?(?:tidak )?mencakup)$/i)
+        : null;
+      if (introMatch && introMatch.index !== undefined) {
+        const leadInText = text.slice(0, introMatch.index).trim();
+        const introText = introMatch[1].trim();
+        if (leadInText) kbliEntries.push({ text: leadInText, bold: false, maxWidth: 37.5, prototype: kbliDescriptionParagraph });
+        kbliEntries.push({ text: introText, bold: false, maxWidth: 37.5, prototype: kbliDescriptionParagraph, keepWithNext: true });
+      } else {
+        kbliEntries.push({ text, bold: false, maxWidth: 37.5, prototype: kbliDescriptionParagraph });
+      }
     }
   }
   replaceParagraphRange(body, [kbliCodeParagraph, kbliDescriptionParagraph], kbliEntries, kbliCodeParagraph);
