@@ -608,10 +608,17 @@ export async function generatePendirianTemplateDocx(data: PendirianData, returnB
   const roles = blocks.filter((block) => block.type === "management-role");
   const directors = roles.filter((block) => String(block.position || "").toLowerCase().includes("direktur"));
   const commissioners = roles.filter((block) => String(block.position || "").toLowerCase().includes("komisaris"));
+  const directorHeading = p(216, "Anggota Direksi");
   const directorRows = [p(217, "VICTORY HENDRIO")];
   replaceRowsWithRuns(body, directorRows, directors, directorRows[0], managementRoleRuns, () => 37.1);
+  if (directors.length) setKeepWithNext(directorHeading);
+  else directorHeading.parentNode?.removeChild(directorHeading);
+
+  const commissionerHeading = p(218, "Anggota Komisaris");
   const commissionerRows = [p(219, "DONI MALVINO")];
   replaceRowsWithRuns(body, commissionerRows, commissioners, commissionerRows[0], managementRoleRuns, () => 37.1);
+  if (commissioners.length) setKeepWithNext(commissionerHeading);
+  else commissionerHeading.parentNode?.removeChild(commissionerHeading);
 
   // Closing: domicile, witnesses and notary signature fields.
   const closingDomicile = [...blocks].reverse().find((block) => block.type === "list" && blockText(block).includes("Untuk sementara berada di"));
