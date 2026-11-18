@@ -206,6 +206,24 @@ function replaceParagraphWithRuns(
   });
 }
 
+function runsWithBoldPhrases(text: string, boldPhrases: string[]): Run[] {
+  const phrases = boldPhrases
+    .filter(Boolean)
+    .map((phrase) => ({ phrase, start: text.indexOf(phrase) }))
+    .filter((entry) => entry.start >= 0)
+    .sort((left, right) => left.start - right.start);
+  const runs: Run[] = [];
+  let cursor = 0;
+  for (const entry of phrases) {
+    if (entry.start < cursor) continue;
+    if (entry.start > cursor) runs.push({ text: text.slice(cursor, entry.start) });
+    runs.push({ text: entry.phrase, bold: true });
+    cursor = entry.start + entry.phrase.length;
+  }
+  if (cursor < text.length) runs.push({ text: text.slice(cursor) });
+  return runs.length ? runs : [{ text }];
+}
+
 function setParagraphText(paragraph: ParagraphElement, text: string): void {
   replaceBetween(paragraph, "", "", text);
 }
@@ -333,6 +351,9 @@ function fillShareAllocationRow(
   replaceBetween(paragraph, `sejumlah ${sharesText} (`, ") lembar saham", terbilang(shares));
   replaceBetween(paragraph, "Rp. ", ",-", nominalText);
   replaceBetween(paragraph, `Rp. ${nominalText},- (`, " rupiah)", terbilang(nominal));
+
+  const text = paragraphText(paragraph);
+  replaceParagraphWithRuns(paragraph, runsWithBoldPhrases(text, [name, sharesText, `Rp. ${nominalText},-`]), 37.5);
 }
 
 function fillShareTotalParagraph(paragraph: ParagraphElement, shareholders: any[], nilaiPerLembar: number): void {
@@ -344,6 +365,9 @@ function fillShareTotalParagraph(paragraph: ParagraphElement, shareholders: any[
   replaceBetween(paragraph, `Sehingga seluruhnya berjumlah ${sharesText} (`, ") lembar saham", terbilang(totalShares));
   replaceBetween(paragraph, "nominal seluruhnya sebesar Rp. ", ",-", nominalText);
   replaceBetween(paragraph, `nominal seluruhnya sebesar Rp. ${nominalText},- (`, " rupiah)", terbilang(totalNominal));
+
+  const text = paragraphText(paragraph);
+  replaceParagraphWithRuns(paragraph, runsWithBoldPhrases(text, [sharesText, `Rp. ${nominalText},-`]), 41.5);
 }
 
 function templateSignatureName(rawName: string): string {
@@ -376,6 +400,14 @@ export async function generatePendirianTemplateDocx(data: PendirianData, returnB
   const paragraphs = directParagraphs(body);
   const p = (index: number, expected: string) => ensureTemplateParagraph(paragraphs, index, expected);
   const blocks = generatePendirianBlocks(data) as RunBlock[];
+
+  // Keep Pasal 9 item 2 as one numbered paragraph so its first continuation
+  // word does not get stranded alone on the following line.
+  const meetingNotice = p(99, "Rapat Umum Pemegang Saham diselenggarakan dengan melakukan");
+  const meetingNoticeContinuation = p(100, "terlebih dahulu kepada para pemegang saham");
+  const meetingNoticeText = `${paragraphText(meetingNotice).trim()} ${paragraphText(meetingNoticeContinuation).trim()}`;
+  replaceParagraphWithRuns(meetingNotice, [{ text: meetingNoticeText }], 37.5);
+  meetingNoticeContinuation.parentNode?.removeChild(meetingNoticeContinuation);
 
   // Opening: replace only the fields that come from the form.
   replaceParagraphWithRuns(p(0, "PENDIRIAN PERSEROAN TERBATAS"), blocks[0].runs || [{ text: blockText(blocks[0]), bold: true }], 41.5, false);
