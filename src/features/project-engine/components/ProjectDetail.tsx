@@ -17,7 +17,6 @@ import DraftAktaPendirianCV from '../../../DraftAktaPendirianCV';
 import PendirianDocumentPreview from '../../../PendirianDocumentPreview';
 import { syncToUtama, getDeedTitle, formatAppearersForPendirian, formatAppearersForPendirianCV } from '../../../lib/syncUtama';
 import LeaseAgreementDraft from '../../lease-agreement/components/LeaseAgreementDraft';
-import { mapCompanyProfileToPendirian } from '../../../domain/company/mappers/companyProfileToPendirian';
 import { mapCompanyProfileToCV } from '../../../domain/company/mappers/companyProfileToCV';
 import { generatePendirianCVDocx } from '../../../lib/generatePendirianCVDocx';
 import { mapPartiesToShareholdersAndManagement } from '../../../domain/project/mappers/partyToShareholder';
@@ -1331,74 +1330,6 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       alert('Gagal mengunduh atau menyimpan dokumen: ' + err.message);
     } finally {
       setExportingDocId(null);
-    }
-  };
-
-  const handleWorkHere = async () => {
-    setLoading(true);
-    try {
-      let profSnap;
-      try {
-        profSnap = await getDocsFromCache(collection(db, 'company_profiles'));
-        if (profSnap.empty) {
-          profSnap = await getDocs(collection(db, 'company_profiles'));
-        }
-      } catch (e) {
-        profSnap = await getDocs(collection(db, 'company_profiles'));
-      }
-      setPendirianProfiles(profSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-      
-      // Look for an existing document reference with url '/pendirian' in the project
-      const pendirianDocRef = documents.find(d => d.url === '/pendirian');
-      
-      let existing: any = null;
-      if (pendirianDocRef && pendirianDocRef.refId) {
-        const docSnap = await getDoc(doc(db, 'pendirian_projects', pendirianDocRef.refId));
-        if (docSnap.exists()) {
-          existing = { id: docSnap.id, ...(docSnap.data() as any) };
-        }
-      } else {
-        // Fallback: match by selectedProfileId (clientId) or a clean name
-        const cleanTitle = project?.title.includes(' — ') 
-          ? project.title.split(' — ')[1].trim() 
-          : project?.title.includes(' - ') 
-            ? project.title.split(' - ')[1].trim() 
-            : project?.title || '';
-            
-        let qMatches: any[] = [];
-        if (project?.clientId) {
-          const q1 = query(collection(db, 'pendirian_projects'), where('selectedProfileId', '==', project.clientId));
-          const q1Snap = await getDocs(q1);
-          q1Snap.forEach(d => qMatches.push({ id: d.id, ...d.data() }));
-        }
-        if (cleanTitle && qMatches.length === 0) {
-          const q2 = query(collection(db, 'pendirian_projects'), where('namaPt', '==', cleanTitle));
-          const q2Snap = await getDocs(q2);
-          q2Snap.forEach(d => qMatches.push({ id: d.id, ...d.data() }));
-        }
-        
-        existing = qMatches[0] || null;
-      }
-      
-      if (existing) {
-        setWorkingPendirianId(existing.id);
-        setWorkingPendirianData(existing);
-      } else {
-        setWorkingPendirianId('new');
-        if (client) {
-          const defaultClientData = mapCompanyProfileToPendirian(client);
-          setWorkingPendirianData(defaultClientData);
-        } else {
-          setWorkingPendirianData(null);
-        }
-      }
-      
-      setWorkMode('pendirian');
-    } catch (e) {
-      console.error(e);
-      alert('Gagal memuat form pendirian.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -3933,7 +3864,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                 <Sparkles className="w-4 h-4" />
               </button>
             )}
-            {isPT && !['pendirian_pt', 'input_nib', 'perbaikan_data_ahu', 'buka_blokir'].includes(project.jobType) && (
+            {isPT && !['input_nib', 'perbaikan_data_ahu', 'buka_blokir'].includes(project.jobType) && (
               <>
                 {(() => {
                   const path = getRedirectPath(project.jobType);
@@ -3964,15 +3895,6 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                   );
                 })()}
               </>
-            )}
-            {project.jobType === 'pendirian_pt' && (
-              <button
-                onClick={handleWorkHere}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs flex items-center gap-2 transition-all shadow-sm"
-              >
-                <span>Kerjakan di Sini</span>
-                <Sparkles className="w-4 h-4" />
-              </button>
             )}
             {isPPAT && (
               <div className="flex items-center gap-2">

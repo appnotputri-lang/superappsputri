@@ -109,6 +109,22 @@ export const PendirianPage: React.FC<PendirianPageProps> = ({
     (editingPendirianId === 'new' && selectedDocType === 'CV')
   );
 
+  React.useEffect(() => {
+    if (editingPendirianId === 'new') {
+      setCurrentPendirianData(null);
+    }
+  }, [editingPendirianId, activeProjectContext, setCurrentPendirianData]);
+
+  const handleReturnFromForm = () => {
+    const returnToProjectId = activeProjectContext;
+    setEditingPendirianId(null);
+    setActiveProjectContext(null);
+    if (returnToProjectId) {
+      setSelectedProjectId(returnToProjectId);
+      setActiveSidebarTab('project_detail');
+    }
+  };
+
   // Common Save Handler using DocumentDraftService
   const handleSaveDraft = async (formPayload: any) => {
     setIsSaving(true);
@@ -143,11 +159,7 @@ export const PendirianPage: React.FC<PendirianPageProps> = ({
       alert(`✅ Draft Pendirian berhasil disimpan.`);
 
       if (activeProjectContext) {
-        const returnId = activeProjectContext;
-        setEditingPendirianId(null);
-        setActiveProjectContext(null);
-        setSelectedProjectId(returnId);
-        setActiveSidebarTab('project_detail');
+        handleReturnFromForm();
       }
     } catch (e: any) {
       console.error('[PendirianPage] Error saving draft:', e);
@@ -271,10 +283,7 @@ export const PendirianPage: React.FC<PendirianPageProps> = ({
           <div className="flex items-center gap-3 flex-wrap">
             <button
               type="button"
-              onClick={() => {
-                setEditingPendirianId(null);
-                setActiveProjectContext(null);
-              }}
+              onClick={handleReturnFromForm}
               className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg border border-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer uppercase"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
@@ -375,10 +384,7 @@ export const PendirianPage: React.FC<PendirianPageProps> = ({
             onChange={setCurrentPendirianData}
             autoSaveIndicator={<AutoSaveIndicatorComponent />}
             onSave={handleSaveDraft}
-            onCancel={() => {
-              setEditingPendirianId(null);
-              setActiveProjectContext(null);
-            }}
+            onCancel={handleReturnFromForm}
             onDelete={async (id) => {
               if (confirm('Apakah Anda yakin ingin menghapus data pendirian CV ini?')) {
                 await handleDeleteDraft(id, editingData?.namaCV);
@@ -412,10 +418,7 @@ export const PendirianPage: React.FC<PendirianPageProps> = ({
             onChange={setCurrentPendirianData}
             autoSaveIndicator={<AutoSaveIndicatorComponent />}
             onSave={handleSaveDraft}
-            onCancel={() => {
-              setEditingPendirianId(null);
-              setActiveProjectContext(null);
-            }}
+            onCancel={handleReturnFromForm}
             onDelete={async (id) => {
               if (confirm('Apakah Anda yakin ingin menghapus data pendirian ini?')) {
                 await handleDeleteDraft(id, editingData?.namaPt);

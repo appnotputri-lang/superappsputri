@@ -143,6 +143,29 @@ export const AppShell: React.FC = () => {
 
   const [presetLoadedForProject, setPresetLoadedForProject] = useState<string | null>(null);
 
+  const pendirianPreset = useMemo(() => {
+    if (
+      location.pathname !== '/pendirian' ||
+      editingPendirianId !== 'new' ||
+      !activeProjectContext ||
+      presetLoadedForProject !== activeProjectContext
+    ) {
+      return undefined;
+    }
+
+    const hasProjectCompanyData = Boolean(
+      data.companyName ||
+      data.selectedProfileId ||
+      (Array.isArray(data.shareholders) && data.shareholders.length > 0)
+    );
+    if (!hasProjectCompanyData) return undefined;
+
+    return mapCompanyProfileToPendirian({
+      ...data,
+      id: data.id || data.selectedProfileId
+    });
+  }, [location.pathname, editingPendirianId, activeProjectContext, presetLoadedForProject, data]);
+
   const [isFetchingNumbers, setIsFetchingNumbers] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'dirty' | 'saving' | 'error'>('saved');
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
@@ -1097,6 +1120,7 @@ readCount: ${targetClientId ? 1 : 0}`);
           setPendirianPreviewData,
           setShowPendirianPreview,
           handlePendirianExportWord,
+          pendirianPreset,
           updateData
         }}
       />
