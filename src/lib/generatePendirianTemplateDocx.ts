@@ -214,6 +214,28 @@ function replaceParagraphWithRuns(
   });
 }
 
+function setParagraphLeftIndent(paragraph: ParagraphElement, leftTwips: number): void {
+  const paragraphProperties = Array.from(paragraph.children).find(
+    (child) => child.namespaceURI === W_NS && child.localName === "pPr",
+  );
+  if (!paragraphProperties) return;
+
+  let indent = Array.from(paragraphProperties.children).find(
+    (child) => child.namespaceURI === W_NS && child.localName === "ind",
+  );
+  if (!indent) {
+    indent = paragraph.ownerDocument!.createElementNS(W_NS, "w:ind");
+    const spacing = Array.from(paragraphProperties.children).find(
+      (child) => child.namespaceURI === W_NS && child.localName === "spacing",
+    );
+    paragraphProperties.insertBefore(indent, spacing || null);
+  }
+
+  indent.setAttributeNS(W_NS, "w:left", String(leftTwips));
+  indent.removeAttributeNS(W_NS, "hanging");
+  indent.removeAttributeNS(W_NS, "firstLine");
+}
+
 function runsWithBoldPhrases(text: string, boldPhrases: string[]): Run[] {
   const phrases = boldPhrases
     .filter(Boolean)
@@ -390,6 +412,8 @@ function fillShareTotalParagraph(paragraph: ParagraphElement, shareholders: any[
 
   const text = paragraphText(paragraph);
   replaceParagraphWithRuns(paragraph, runsWithBoldPhrases(text, [sharesText, `Rp. ${nominalText},-`]), 41.5);
+  // Align the total with the body text of the following numbered clause.
+  setParagraphLeftIndent(paragraph, 284);
 }
 
 function templateSignatureName(rawName: string): string {
