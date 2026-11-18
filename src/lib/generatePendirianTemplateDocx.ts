@@ -155,6 +155,28 @@ function directRuns(paragraph: ParagraphElement): Element[] {
   return Array.from(paragraph.children).filter((child) => child.namespaceURI === W_NS && child.localName === "r");
 }
 
+function runText(run: Element): string {
+  return textNodes(run).map((node) => node.textContent || "").join("");
+}
+
+function removeLeaderTabBetween(paragraph: ParagraphElement, beforeText: string, afterText: string): void {
+  const runs = directRuns(paragraph);
+  for (let index = 0; index < runs.length; index += 1) {
+    const run = runs[index];
+    const hasTab = Array.from(run.children).some(
+      (child) => child.namespaceURI === W_NS && child.localName === "tab",
+    );
+    if (!hasTab) continue;
+
+    const textBefore = runs.slice(0, index).map(runText).join("");
+    const textAfter = runs.slice(index + 1).map(runText).join("");
+    if (textBefore.trimEnd().endsWith(beforeText) && textAfter.trimStart().startsWith(afterText)) {
+      run.parentNode?.removeChild(run);
+      return;
+    }
+  }
+}
+
 function makeRun(
   paragraph: ParagraphElement,
   bold: boolean,
@@ -446,6 +468,12 @@ export async function generatePendirianTemplateDocx(data: PendirianData, returnB
   const paragraphs = directParagraphs(body);
   const p = (index: number, expected: string) => ensureTemplateParagraph(paragraphs, index, expected);
   const blocks = generatePendirianBlocks(data) as RunBlock[];
+
+  // The template's internal leader tab splits the Pasal 16 sentence and strands
+  // "Dewan Komisaris". Keep the phrase together and retain only the final leader.
+  const commissionersMeetingParagraph = p(187, "Ketentuan sebagaimana dimaksud dalam Pasal 10");
+  removeLeaderTabBetween(commissionersMeetingParagraph, "rapat", "Dewan Komisaris");
+  replaceFirst(commissionersMeetingParagraph, "Dewan Komisaris", "Dewan\u00a0Komisaris");
 
   // Keep Pasal 9 item 2 as one numbered paragraph so its first continuation
   // word does not get stranded alone on the following line.
