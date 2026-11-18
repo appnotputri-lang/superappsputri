@@ -436,7 +436,19 @@ export async function generatePendirianTemplateDocx(data: PendirianData, returnB
   const addressBlock = blocks.find((block) => block.type === "p" && blockText(block).includes("berkedudukan di "));
   if (addressBlock) {
     const addressText = blockText(addressBlock).match(/berkedudukan di ([\s\S]*?)\.$/)?.[1];
-    if (addressText !== undefined) replaceBetween(p(15, "berkedudukan di"), "berkedudukan di ", ";", addressText);
+    if (addressText !== undefined) {
+      const addressParagraph = p(15, "berkedudukan di");
+      const templateText = paragraphText(addressParagraph);
+      const addressMarker = "berkedudukan di ";
+      const markerIndex = templateText.indexOf(addressMarker);
+      if (markerIndex < 0) throw new Error("Slot kedudukan Perseroan pada template tidak ditemukan.");
+      const fixedPrefix = templateText.slice(0, markerIndex);
+      replaceParagraphWithRuns(
+        addressParagraph,
+        [{ text: `${fixedPrefix}${addressMarker}${addressText};` }],
+        41.5,
+      );
+    }
   }
 
   // KBLI categories and activity lines are variable-length form fields. The two
