@@ -266,6 +266,20 @@ function setParagraphLeftIndentTwips(paragraph: ParagraphElement, leftIndent: nu
   indentation.setAttributeNS(W_NS, "w:left", String(leftIndent));
 }
 
+function alignNumberWithParagraphText(paragraph: ParagraphElement, reference: ParagraphElement): void {
+  const indentation = (target: ParagraphElement, attribute: "left" | "hanging") => {
+    const paragraphProperties = Array.from(target.children).find(
+      (child) => child.namespaceURI === W_NS && child.localName === "pPr",
+    );
+    const paragraphIndent = paragraphProperties && Array.from(paragraphProperties.children).find(
+      (child) => child.namespaceURI === W_NS && child.localName === "ind",
+    );
+    return Number(paragraphIndent?.getAttributeNS(W_NS, attribute) || 0);
+  };
+
+  setParagraphLeftIndentTwips(paragraph, indentation(reference, "left") + indentation(paragraph, "hanging"));
+}
+
 function replaceParagraphRange(
   body: Element,
   oldParagraphs: ParagraphElement[],
@@ -608,17 +622,22 @@ export async function generatePendirianTemplateDocx(data: PendirianData, returnB
   const roles = blocks.filter((block) => block.type === "management-role");
   const directors = roles.filter((block) => String(block.position || "").toLowerCase().includes("direktur"));
   const commissioners = roles.filter((block) => String(block.position || "").toLowerCase().includes("komisaris"));
+  const managementIntro = p(215, "adalah sebagai berikut");
   const directorHeading = p(216, "Anggota Direksi");
   const directorRows = [p(217, "VICTORY HENDRIO")];
   replaceRowsWithRuns(body, directorRows, directors, directorRows[0], managementRoleRuns, () => 37.1);
-  if (directors.length) setKeepWithNext(directorHeading);
-  else directorHeading.parentNode?.removeChild(directorHeading);
+  if (directors.length) {
+    alignNumberWithParagraphText(directorHeading, managementIntro);
+    setKeepWithNext(directorHeading);
+  } else directorHeading.parentNode?.removeChild(directorHeading);
 
   const commissionerHeading = p(218, "Anggota Komisaris");
   const commissionerRows = [p(219, "DONI MALVINO")];
   replaceRowsWithRuns(body, commissionerRows, commissioners, commissionerRows[0], managementRoleRuns, () => 37.1);
-  if (commissioners.length) setKeepWithNext(commissionerHeading);
-  else commissionerHeading.parentNode?.removeChild(commissionerHeading);
+  if (commissioners.length) {
+    alignNumberWithParagraphText(commissionerHeading, managementIntro);
+    setKeepWithNext(commissionerHeading);
+  } else commissionerHeading.parentNode?.removeChild(commissionerHeading);
 
   // Closing: domicile, witnesses and notary signature fields.
   const closingDomicile = [...blocks].reverse().find((block) => block.type === "list" && blockText(block).includes("Untuk sementara berada di"));
