@@ -50,7 +50,7 @@ function getBlockLineWidth(block: any): number {
   return 41.5;
 }
 
-export async function generatePendirianDocx(data: PendirianData, returnBlob?: boolean): Promise<any> {
+async function generatePendirianDocxFromBlocks(data: PendirianData, returnBlob?: boolean): Promise<any> {
   if (!data) {
     throw new Error("Data pendirian tidak boleh kosong");
   }
@@ -277,4 +277,14 @@ export async function generatePendirianDocx(data: PendirianData, returnBlob?: bo
   }
 
   saveAs(blob, fileName);
+}
+
+export async function generatePendirianDocx(data: PendirianData, returnBlob?: boolean): Promise<any> {
+  const clientType = (data?.clientType || "PT").toUpperCase();
+  if (["PT", "PMA", "PERORANGAN"].includes(clientType)) {
+    const { generatePendirianTemplateDocx } = await import("./generatePendirianTemplateDocx");
+    return generatePendirianTemplateDocx(data, returnBlob);
+  }
+
+  return generatePendirianDocxFromBlocks(data, returnBlob);
 }
