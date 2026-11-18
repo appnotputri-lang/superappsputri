@@ -263,10 +263,6 @@ function ensureRowCount(
   return rows;
 }
 
-function kbliDescriptionRuns(item: any): Run[] {
-  return [{ text: String(item.description || item.uraian || "") }];
-}
-
 function managementRoleRuns(block: RunBlock): Run[] {
   return [
     { text: `${block.position || ""}: ${block.salutation ? `${block.salutation} ` : ""}` },
@@ -385,7 +381,7 @@ export async function generatePendirianTemplateDocx(data: PendirianData, returnB
     appearanceBlocks,
     openingRows[openingRows.length - 1],
     (block) => block.runs || [{ text: blockText(block) }],
-    () => 41.5,
+    () => 36.5,
   );
   const openingDomicileParagraph = p(9, "Untuk sementara berada di");
   if (openingDomicileBlock) {
@@ -419,13 +415,27 @@ export async function generatePendirianTemplateDocx(data: PendirianData, returnB
   p(29, "M O D A L");
   const kbliCodeParagraph = p(27, "47914");
   const kbliDescriptionParagraph = p(28, "Kelompok ini mencakup");
+  const kbliBulletParagraph = p(23, "Perdagangan");
+  const kbliEndIndex = blocks.findIndex(
+    (block, index) => index > achieveIndex && block.type === "pasal-divider" && blockText(block) === "M O D A L",
+  );
+  const kbliBlocks = achieveIndex >= 0 && kbliEndIndex > achieveIndex
+    ? blocks.slice(achieveIndex + 1, kbliEndIndex)
+    : [];
   const kbliEntries: Array<{ text: string; bold?: boolean; maxWidth?: number; prototype?: ParagraphElement }> = [];
-  for (const item of data.kbliItems || []) {
-    const code = String((item as any).code || (item as any).kode || "").trim();
-    const name = String((item as any).name || (item as any).nama || "").trim();
-    if (code || name) kbliEntries.push({ text: `${code}${code && name ? " - " : ""}${name};`, bold: true, maxWidth: 39.3, prototype: kbliCodeParagraph });
-    const description = kbliDescriptionRuns(item)[0].text || "";
-    if (description.trim()) kbliEntries.push({ text: description, bold: false, maxWidth: 41.5, prototype: kbliDescriptionParagraph });
+  for (const block of kbliBlocks) {
+    const text = blockText(block).trim();
+    if (!text) continue;
+
+    if (block.type === "list" && block.indentTabs === 1.0) {
+      kbliEntries.push({ text, bold: true, maxWidth: 36.5, prototype: kbliCodeParagraph });
+    } else if (block.type === "list") {
+      // Keep activity bullets as separate indented list paragraphs, matching
+      // the structure already produced by the form content builder.
+      kbliEntries.push({ text, bold: false, maxWidth: 34.5, prototype: kbliBulletParagraph });
+    } else if (block.type === "p" && block.kbliDesc) {
+      kbliEntries.push({ text, bold: false, maxWidth: 37.5, prototype: kbliDescriptionParagraph });
+    }
   }
   replaceParagraphRange(body, [kbliCodeParagraph, kbliDescriptionParagraph], kbliEntries, kbliCodeParagraph);
 
