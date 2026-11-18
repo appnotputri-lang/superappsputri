@@ -229,6 +229,25 @@ function setKeepWithNext(paragraph: ParagraphElement): void {
   paragraphProperties.insertBefore(keepNext, paragraphStyle?.nextSibling || paragraphProperties.firstChild);
 }
 
+function setParagraphLeftIndentTwips(paragraph: ParagraphElement, leftIndent: number): void {
+  const paragraphProperties = Array.from(paragraph.children).find(
+    (child) => child.namespaceURI === W_NS && child.localName === "pPr",
+  );
+  if (!paragraphProperties) throw new Error("Format paragraf template Akta Pendirian tidak ditemukan.");
+
+  let indentation = Array.from(paragraphProperties.children).find(
+    (child) => child.namespaceURI === W_NS && child.localName === "ind",
+  );
+  if (!indentation) {
+    indentation = paragraph.ownerDocument!.createElementNS(W_NS, "w:ind");
+    const spacing = Array.from(paragraphProperties.children).find(
+      (child) => child.namespaceURI === W_NS && child.localName === "spacing",
+    );
+    paragraphProperties.insertBefore(indentation, spacing?.nextSibling || null);
+  }
+  indentation.setAttributeNS(W_NS, "w:left", String(leftIndent));
+}
+
 function replaceParagraphRange(
   body: Element,
   oldParagraphs: ParagraphElement[],
@@ -435,6 +454,9 @@ export async function generatePendirianTemplateDocx(data: PendirianData, returnB
   p(29, "M O D A L");
   const kbliCodeParagraph = p(27, "47914");
   const kbliDescriptionParagraph = p(28, "Kelompok ini mencakup");
+  // The description starts at the same text indent as the code paragraph's
+  // continuation line (for example, "ATAU KONTRAK;").
+  setParagraphLeftIndentTwips(kbliDescriptionParagraph, 284);
   const kbliBulletParagraph = p(23, "Perdagangan");
   const kbliEndIndex = blocks.findIndex(
     (block, index) => index > achieveIndex && block.type === "pasal-divider" && blockText(block) === "M O D A L",
