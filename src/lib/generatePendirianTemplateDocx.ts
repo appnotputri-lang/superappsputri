@@ -188,7 +188,13 @@ function replaceParagraphWithRuns(
 
   const wrapped = parseTextRuns(runs.map((run) => ({ text: run.text || "", bold: run.bold })), maxWidth);
   const lines = wrapped.length ? wrapped : [[]];
-  lines.forEach((line) => {
+  lines.forEach((line, index) => {
+    // Template text after a leader tab starts with a space. Keep that boundary
+    // so Word moves the next word as a whole instead of leaving its first
+    // character stranded after the leader at the far right of the line.
+    if (addLeaderTabs && index > 0) {
+      paragraph.appendChild(makeRun(paragraph, false, " ", undefined, styleSource));
+    }
     for (const token of line) {
       if (token.text) paragraph.appendChild(makeRun(paragraph, !!token.bold, token.text, undefined, styleSource));
     }
