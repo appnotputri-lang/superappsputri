@@ -617,9 +617,15 @@ export async function generatePendirianTemplateDocx(data: PendirianData, returnB
   }
   const yearDate = new Date(data.tanggal);
   if (!Number.isNaN(yearDate.getTime())) {
-    const year = yearDate.getFullYear();
+    const requestedFiscalYear = Number(data.tahunPenutupanBukuPertama);
+    const year = Number.isInteger(requestedFiscalYear) && requestedFiscalYear >= 1900 && requestedFiscalYear <= 9999
+      ? requestedFiscalYear
+      : yearDate.getFullYear();
     const fiscalDate = formatAktaDate(`${year}-12-31`);
-    replaceBetween(p(192, "ditutup pada tanggal"), "ditutup pada tanggal ", ".", fiscalDate);
+    const financialYearParagraph = p(192, "ditutup pada tanggal");
+    replaceBetween(financialYearParagraph, "ditutup pada tanggal ", ".", fiscalDate);
+    const financialYearText = paragraphText(financialYearParagraph).replace(/\s+/g, " ").trim();
+    replaceParagraphWithRuns(financialYearParagraph, [{ text: financialYearText }], 41.5);
 
     const termEndDate = new Date(yearDate);
     termEndDate.setFullYear(termEndDate.getFullYear() + termYears);

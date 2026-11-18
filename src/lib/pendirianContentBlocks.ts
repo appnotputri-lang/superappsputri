@@ -43,6 +43,7 @@ export interface PendirianData {
   namaPt: string;
   clientType?: string;
   tanggal: string;
+  tahunPenutupanBukuPertama?: number;
   waktu: string;
   nomorAkta?: string;
   notarisNamaSurat?: string;
@@ -50,8 +51,10 @@ export interface PendirianData {
   kotaKedudukan?: string;
   alamatLengkapPT?: string;
   modalDasar: number;
+  modalDasarLembar?: number;
   nilaiPerLembar: number;
   modalDisetorPersen?: number;
+  modalDisetorLembar?: number;
   kuotaWaktuDireksi?: string;
   kbliItems?: KbliItem[];
   shareholders?: Shareholder[];
@@ -689,7 +692,10 @@ export function generatePendirianBlocks(data: PendirianData): Block[] {
     const endDate = new Date(docDate);
     endDate.setFullYear(endDate.getFullYear() + termYears);
     endTglHuruf = formatAktaDate(endDate.toISOString());
-    const fullYear = docDate.getFullYear();
+    const requestedFiscalYear = Number(data.tahunPenutupanBukuPertama);
+    const fullYear = Number.isInteger(requestedFiscalYear) && requestedFiscalYear >= 1900 && requestedFiscalYear <= 9999
+      ? requestedFiscalYear
+      : docDate.getFullYear();
     firstYearTitle = terbilang(fullYear);
     firstYearNumber = String(fullYear);
   }

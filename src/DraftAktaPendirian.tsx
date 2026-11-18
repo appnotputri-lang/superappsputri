@@ -72,6 +72,7 @@ export interface PendirianData {
   alamatLengkapPT: string;
   kuotaWaktuDireksi: string; 
   tanggal: string;
+  tahunPenutupanBukuPertama?: number;
   waktu: string;
   nomorAkta: string;
   nomorUrut: string;
@@ -666,6 +667,19 @@ export default function DraftAktaPendirian({
                     <AhuLabel label="Waktu (Pukul)" />
                     <AhuInput type="time" value={data.waktu || ''} onChange={e => updateData('waktu', e.target.value)} />
                   </div>
+                </div>
+                <div>
+                  <AhuLabel label="Tahun Penutupan Buku Pertama" />
+                  <AhuInput
+                    type="number"
+                    min={1900}
+                    max={9999}
+                    step={1}
+                    className="max-w-40"
+                    value={data.tahunPenutupanBukuPertama ?? (data.tanggal ? Number(data.tanggal.slice(0, 4)) : new Date().getFullYear())}
+                    onChange={e => updateData('tahunPenutupanBukuPertama', e.target.value ? Number(e.target.value) : undefined)}
+                  />
+                  <p className="mt-1 text-[11px] text-slate-500">Default mengikuti tahun tanggal akta dan bisa diubah.</p>
                 </div>
              </div>
              <div className="space-y-3">
