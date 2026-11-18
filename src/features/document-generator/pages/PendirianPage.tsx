@@ -382,9 +382,7 @@ export const PendirianPage: React.FC<PendirianPageProps> = ({
               if (success) alert("Berhasil disimpan ke laporan!");
             }}
             onChange={setCurrentPendirianData}
-            autoSaveIndicator={<AutoSaveIndicatorComponent />}
-            onSave={handleSaveDraft}
-            onCancel={handleReturnFromForm}
+            autoSaveIndicator={null}
             onDelete={async (id) => {
               if (confirm('Apakah Anda yakin ingin menghapus data pendirian CV ini?')) {
                 await handleDeleteDraft(id, editingData?.namaCV);
@@ -416,9 +414,7 @@ export const PendirianPage: React.FC<PendirianPageProps> = ({
               if (success) alert("Berhasil disimpan ke laporan!");
             }}
             onChange={setCurrentPendirianData}
-            autoSaveIndicator={<AutoSaveIndicatorComponent />}
-            onSave={handleSaveDraft}
-            onCancel={handleReturnFromForm}
+            autoSaveIndicator={null}
             onDelete={async (id) => {
               if (confirm('Apakah Anda yakin ingin menghapus data pendirian ini?')) {
                 await handleDeleteDraft(id, editingData?.namaPt);
