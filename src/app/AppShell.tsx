@@ -35,6 +35,8 @@ type TabId = 'general' | 'shareholders' | 'shareholders_new' | 'representative' 
 
 export const AppShell: React.FC = () => {
   const { user, userProfile, authLoading, isEmbedMode, loginWithGoogle, logout } = useAuthContext();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState<TabId | null>(null);
 
   const {
@@ -205,8 +207,6 @@ export const AppShell: React.FC = () => {
   }, [isSaving]);
 
   const draftAktaRef = useRef<DraftAktaAppRef>(null);
-  const navigate = useNavigate();
-  const location = useLocation();
 
   // Dynamic PWA Policy: Public routes are non-PWA; internal app routes maintain full PWA
   useEffect(() => {
