@@ -159,8 +159,14 @@ function runText(run: Element): string {
   return textNodes(run).map((node) => node.textContent || "").join("");
 }
 
-function removeLeaderTabBetween(paragraph: ParagraphElement, beforeText: string, afterText: string): void {
+function moveLeaderTabAfterText(
+  paragraph: ParagraphElement,
+  currentBeforeText: string,
+  currentAfterText: string,
+  newBeforeText: string,
+): void {
   const runs = directRuns(paragraph);
+  let leaderRun: Element | undefined;
   for (let index = 0; index < runs.length; index += 1) {
     const run = runs[index];
     const hasTab = Array.from(run.children).some(
@@ -170,11 +176,15 @@ function removeLeaderTabBetween(paragraph: ParagraphElement, beforeText: string,
 
     const textBefore = runs.slice(0, index).map(runText).join("");
     const textAfter = runs.slice(index + 1).map(runText).join("");
-    if (textBefore.trimEnd().endsWith(beforeText) && textAfter.trimStart().startsWith(afterText)) {
-      run.parentNode?.removeChild(run);
-      return;
+    if (textBefore.trimEnd().endsWith(currentBeforeText) && textAfter.trimStart().startsWith(currentAfterText)) {
+      leaderRun = run;
+      break;
     }
   }
+
+  const anchor = runs.find((run) => runText(run).trimEnd().endsWith(newBeforeText));
+  if (!leaderRun || !anchor) return;
+  paragraph.insertBefore(leaderRun, anchor.nextSibling);
 }
 
 function makeRun(
@@ -469,10 +479,10 @@ export async function generatePendirianTemplateDocx(data: PendirianData, returnB
   const p = (index: number, expected: string) => ensureTemplateParagraph(paragraphs, index, expected);
   const blocks = generatePendirianBlocks(data) as RunBlock[];
 
-  // The template's internal leader tab splits the Pasal 16 sentence and strands
-  // "Dewan Komisaris". Keep the phrase together and retain only the final leader.
+  // Move the internal leader to the end of the first visual line so it does not
+  // split "rapat Dewan Komisaris" and the dashes still reach the right margin.
   const commissionersMeetingParagraph = p(187, "Ketentuan sebagaimana dimaksud dalam Pasal 10");
-  removeLeaderTabBetween(commissionersMeetingParagraph, "rapat", "Dewan Komisaris");
+  moveLeaderTabAfterText(commissionersMeetingParagraph, "rapat", "Dewan Komisaris", "berlaku");
   replaceFirst(commissionersMeetingParagraph, "Dewan Komisaris", "Dewan\u00a0Komisaris");
 
   // Keep Pasal 9 item 2 as one numbered paragraph so its first continuation
