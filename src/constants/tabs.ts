@@ -300,6 +300,13 @@ export const TAB_ACCENTS: Record<SidebarTabId, {
     bgColor: 'bg-slate-100',
     hoverBg: 'hover:bg-slate-50 hover:text-slate-950',
     indicatorBg: 'bg-slate-700'
+  },
+  formulir: {
+    iconColor: 'text-blue-600',
+    textColor: 'text-blue-900',
+    bgColor: 'bg-blue-50/70',
+    hoverBg: 'hover:bg-blue-50/40 hover:text-blue-950',
+    indicatorBg: 'bg-blue-600'
   }
 };
 
@@ -347,7 +354,8 @@ export const TAB_TO_PATH: Record<string, string> = {
   'surat_bo': '/surat-bo',
   'webinar_dashboard': '/webinar-dashboard',
   'webinar_participants': '/webinar-peserta',
-  'webinar_settings': '/webinar-pengaturan'
+  'webinar_settings': '/webinar-pengaturan',
+  'formulir': '/formulir'
 };
 
 export const PATH_TO_TAB: Record<string, SidebarTabId> = {
@@ -421,7 +429,7 @@ export const RESERVED_PATHS = new Set([
   '/rupslb', '/pendirian', '/rupst', '/perbaikan', '/draft-akta', '/panduan',
   '/sirkuler', '/rupst-public', '/kbli-mapping', '/saran-kbli', '/import-kbli',
   '/laporan', '/whatsapp-gateway', '/user-management', '/notary-reports',
-  '/protest-cheque', '/stamp-settings', '/doc', '/q', '/invoice/public'
+  '/protest-cheque', '/stamp-settings', '/doc', '/q', '/invoice/public', '/form'
 ]);
 
 export function isReservedPath(pathname: string): boolean {

@@ -20,7 +20,7 @@ const RESERVED_SLUGS = new Set([
   'rupslb', 'pendirian', 'rupst', 'perbaikan', 'draft-akta', 'panduan',
   'sirkuler', 'rupst-public', 'kbli-mapping', 'saran-kbli', 'import-kbli',
   'laporan', 'whatsapp-gateway', 'user-management', 'notary-reports',
-  'protest-cheque', 'stamp-settings', 'doc', 'q', 'login', 'beranda'
+  'protest-cheque', 'stamp-settings', 'doc', 'q', 'login', 'beranda', 'form', 'formulir'
 ]);
 
 export const onRequest = async (context: any) => {

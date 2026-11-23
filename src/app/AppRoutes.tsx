@@ -5,6 +5,7 @@ import { useAuthContext } from '../contexts/AuthContext';
 import { useCompanyContext } from '../contexts/CompanyContext';
 import { useProjectContext } from '../contexts/ProjectContext';
 import { renderAppRoute } from '../routes';
+import { PublicBusinessForm } from '../components/formulir/PublicBusinessForm';
 
 export interface AppRoutesProps {
   activeSidebarTab?: string;
@@ -136,9 +137,14 @@ export const AppRoutes: React.FC<AppRoutesProps> = (props) => {
 
   const isSingleSegmentPath = /^\/[A-Za-z0-9_-]+\/?$/.test(location.pathname) && location.pathname !== '/';
   const isPossibleTokenRoute = isSingleSegmentPath && !isReservedPath(location.pathname);
+  const isPublicFormRoute = location.pathname === '/form' || location.pathname === '/form/';
   const isLegacyInvRoute = /^\/inv\/[A-Za-z0-9_-]+\/?$/i.test(location.pathname);
   const isPublicQuotation = /^\/q\/[A-Za-z0-9_-]+\/?$/i.test(location.pathname);
   const isPublicDoc = /^\/doc\/[A-Za-z0-9_-]+\/?$/i.test(location.pathname);
+
+  if (isPublicFormRoute) {
+    return <PublicBusinessForm />;
+  }
 
   if (isPublicQuotation) {
     return renderAppRoute('quotation', { ...props, isPublic: true });

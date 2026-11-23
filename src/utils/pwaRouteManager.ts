@@ -25,6 +25,9 @@ export function isPublicUrlPath(pathname: string, hash: string = ''): boolean {
 
   if (isWebinarPublic) return true;
 
+  const isPublicForm = normalizedPath === '/form' || normalizedPath === '/form/';
+  if (isPublicForm) return true;
+
   // 2. Surat BO Public Form
   const isSuratBo =
     normalizedPath === '/surat-bo' ||

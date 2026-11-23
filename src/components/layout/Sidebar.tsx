@@ -91,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const isSectionActive = (sectionId: string, activeTab: string) => {
     if (sectionId === 'menu_utama') {
-      return ['beranda', 'data_terpusat', 'company_profile', 'projects', 'project_detail', 'laporan'].includes(activeTab);
+      return ['beranda', 'data_terpusat', 'company_profile', 'projects', 'project_detail', 'laporan', 'formulir'].includes(activeTab);
     }
     if (sectionId === 'webinar') {
       return ['webinar_dashboard', 'webinar_participants', 'webinar_settings'].includes(activeTab);
@@ -184,6 +184,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { label: 'Klien', id: 'company_profile', icon: Building2, requiresAuth: true },
         { label: 'Proyek Kerja', id: 'projects', icon: Briefcase, requiresAuth: true },
         { label: 'Laporan Proyek Kerja', id: 'laporan', icon: FileText, requiresAuth: true },
+        { label: 'Formulir', id: 'formulir', icon: FileText, requiresAuth: true },
       ]
     },
     {

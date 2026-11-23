@@ -61,11 +61,14 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     (window.location.pathname.startsWith('/webinar/') && !window.location.pathname.startsWith('/webinar/dashboard') && !window.location.pathname.startsWith('/webinar/peserta') && !window.location.pathname.startsWith('/webinar/pengaturan')) ||
     (window.location.hash && (window.location.hash.includes('/webinar') || window.location.hash.includes('#/webinar')) && !window.location.hash.includes('dashboard') && !window.location.hash.includes('peserta') && !window.location.hash.includes('pengaturan'));
 
+  const isPublicFormRoute = window.location.pathname === '/form' || window.location.pathname === '/form/';
+
   const isPublicRoute = 
     window.location.pathname === '/rupst' || 
     (window.location.hash && window.location.hash.includes('/rupst')) ||
     isSuratBoRoute ||
     isWebinarPublicRoute ||
+    isPublicFormRoute ||
     window.location.pathname.includes('/invoice/public') ||
     (window.location.hash && window.location.hash.includes('/invoice/public')) ||
     isPossibleTokenRoute ||
@@ -141,7 +144,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({
     );
   }
 
-  if (isPublicRoute && (!user || isWebinarPublicRoute || window.location.pathname.includes('/invoice/public') || isPossibleTokenRoute || isLegacyInvRoute)) {
+  if (isPublicRoute && (!user || isWebinarPublicRoute || isPublicFormRoute || window.location.pathname.includes('/invoice/public') || isPossibleTokenRoute || isLegacyInvRoute)) {
     return (
       <div className="full-app-height min-h-0 w-full overflow-y-auto bg-[#f8fafc] no-scrollbar">
         <UpdatePrompt />

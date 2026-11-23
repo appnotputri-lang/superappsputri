@@ -21,8 +21,13 @@ import { renderAgendaRoute } from './agenda.routes';
 import { renderSuratBoRoute } from './suratBo.routes';
 import { renderWebinarRoute } from './webinar.routes';
 import { renderCentralizedDataRoute } from './centralizedData.routes';
+import { renderFormulirRoute } from './formulir.routes';
 
 export const renderAppRoute = (currentTab: string, props: any) => {
+  if (currentTab === 'formulir') {
+    return renderFormulirRoute();
+  }
+
   if (currentTab === 'webinar' || currentTab === 'webinar_dashboard' || currentTab === 'webinar_participants' || currentTab === 'webinar_settings' || currentTab === 'webinar_public') {
     return renderWebinarRoute(currentTab, props);
   }
