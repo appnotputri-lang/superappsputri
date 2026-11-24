@@ -273,121 +273,30 @@ export default function DraftAktaPendirian({
     setEditingShareholder(null);
   };
 
-  const [isAddKbliModalOpen, setIsAddKbliModalOpen] = useState(false);
-  const [kbliModalSearchTerm, setKbliModalSearchTerm] = useState('');
-  const [kbliModalSearchResults, setKbliModalSearchResults] = useState<any[]>(() => {
-    return [...KBLI_DATA].sort((a, b) => a.code.localeCompare(b.code));
-  });
-  const [kbliCurrentPage, setKbliCurrentPage] = useState(1);
-  const [kbliCheckedKblis, setKbliCheckedKblis] = useState<string[]>([]);
-  
-  const performKbliModalSearch = () => {
-    setKbliCurrentPage(1);
-    if (!kbliModalSearchTerm.trim()) {
-      const sorted = [...KBLI_DATA].sort((a, b) => a.code.localeCompare(b.code));
-      setKbliModalSearchResults(sorted);
-      return;
-    }
+  const [kbliSearchQuery, setKbliSearchQuery] = useState('');
+  const kbliSearchTerm = kbliSearchQuery.trim().toLowerCase();
+  const filteredKbliData = useMemo(() => {
+    if (!kbliSearchTerm) return [];
 
-    const searchStr = kbliModalSearchTerm.toLowerCase().trim();
-    const keywords = searchStr.split(/\s+/).filter(k => k.length > 0);
+    const terms = kbliSearchTerm.split(/\s+/).filter(Boolean);
+    return KBLI_DATA.filter(item => {
+      const code = (item.code || '').toLowerCase();
+      const fields = [item.name, item.description, item.categoryName]
+        .map(value => (value || '').toLowerCase());
 
-    const filtered = KBLI_DATA.filter(item => {
-      const kodeMatch = item.code.includes(searchStr);
-      const judul = (item.name || '').toLowerCase();
-      const uraian = (item.description || '').toLowerCase();
-
-      if (/^\d+$/.test(searchStr)) {
-        return item.code.startsWith(searchStr);
-      }
-
-      return kodeMatch || keywords.every(kw => judul.includes(kw) || uraian.includes(kw));
-    });
-
-    const sortedFiltered = [...filtered].sort((a, b) => a.code.localeCompare(b.code));
-    setKbliModalSearchResults(sortedFiltered);
-  };
-
-  const handleKbliModalKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      performKbliModalSearch();
-    }
-  };
-
-  const handleToggleKbliChecked = (code: string) => {
-    setKbliCheckedKblis(prev => 
-      prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
-    );
-  };
-
-  const kbliItemsPerPage = 10;
-  const kbliTotalPages = Math.ceil(kbliModalSearchResults.length / kbliItemsPerPage);
-  
-  const kbliPaginatedResults = useMemo(() => {
-    return kbliModalSearchResults.slice(
-      (kbliCurrentPage - 1) * kbliItemsPerPage,
-      kbliCurrentPage * kbliItemsPerPage
-    );
-  }, [kbliModalSearchResults, kbliCurrentPage]);
-
-  const handleToggleAllKbliOnPage = () => {
-    const allOnPageCodes = kbliPaginatedResults.map(r => r.code);
-    const allChecked = allOnPageCodes.every(c => kbliCheckedKblis.includes(c));
-    
-    if (allChecked) {
-      setKbliCheckedKblis(prev => prev.filter(c => !allOnPageCodes.includes(c)));
-    } else {
-      const newChecked = [...kbliCheckedKblis];
-      allOnPageCodes.forEach(c => {
-        if (!newChecked.includes(c)) newChecked.push(c);
-      });
-      setKbliCheckedKblis(newChecked);
-    }
-  };
-
-  const handleAddKbliBatch = () => {
-    const newItems: KbliItem[] = [];
-    kbliCheckedKblis.forEach(code => {
-      const existing = data.kbliItems.find(k => k.code === code);
-      if (!existing) {
-        const item = KBLI_DATA.find(k => k.code === code);
-        if (item) {
-          newItems.push({
-            id: crypto.randomUUID(),
-            code: item.code,
-            name: item.name,
-            description: item.description,
-            categoryLetter: item.categoryLetter,
-            categoryName: item.categoryName
-          });
-        }
-      }
-    });
-
-    if (newItems.length > 0) {
-      setData(prev => ({ ...prev, kbliItems: [...prev.kbliItems, ...newItems] }));
-    }
-    
-    setKbliCheckedKblis([]);
-    setIsAddKbliModalOpen(false);
-  };
-
-  const getKbliPageNumbers = () => {
-    const pages = [];
-    const maxVisible = 5;
-    let start = Math.max(1, kbliCurrentPage - Math.floor(maxVisible / 2));
-    let end = Math.min(kbliTotalPages, start + maxVisible - 1);
-    
-    if (end - start + 1 < maxVisible) {
-      start = Math.max(1, end - maxVisible + 1);
-    }
-    
-    for (let i = start; i <= end; i++) pages.push(i);
-    return pages;
-  };
+      if (/^\d+$/.test(kbliSearchTerm)) return code.startsWith(kbliSearchTerm);
+      return terms.every(term => code.includes(term) || fields.some(field => field.includes(term)));
+    }).slice(0, 12);
+  }, [kbliSearchTerm]);
 
   const updateData = (field: keyof PendirianData, value: any) => {
     setData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleAddKbli = (item: KbliItem) => {
+    if (data.kbliItems.some(existing => existing.code === item.code)) return;
+    updateData('kbliItems', [...data.kbliItems, { ...item, id: crypto.randomUUID() }]);
+    setKbliSearchQuery('');
   };
 
   return (
@@ -718,16 +627,49 @@ export default function DraftAktaPendirian({
         {/* MAKSUD DAN TUJUAN (KBLI) */}
         <AhuSection title="Maksud & Tujuan (KBLI 2025)">
            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <p className="text-[11px] text-slate-500 font-medium italic">Klik tombol di samping untuk mencari data KBLI secara otomatis sesuai standar tahun 2025.</p>
-                <button
-                  type="button"
-                  onClick={() => setIsAddKbliModalOpen(true)}
-                  className="px-4 py-2 bg-[#3b5998] hover:bg-[#2d4373] text-white text-[12px] font-bold rounded-sm transition-all flex items-center gap-1.5 uppercase shadow-md"
-                >
-                  <Plus className="w-4 h-4" />
-                  Tambah KBLI
-                </button>
+              <div>
+                <AhuLabel label="Cari KBLI berdasarkan kode atau kegiatan usaha" required />
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <AhuInput
+                    type="search"
+                    value={kbliSearchQuery}
+                    onChange={e => setKbliSearchQuery(e.target.value)}
+                    placeholder="Contoh: 46100 atau perdagangan besar..."
+                    autoComplete="off"
+                    className="pl-9"
+                  />
+                </div>
+                {kbliSearchTerm && (
+                  <div className="mt-1 max-h-64 overflow-y-auto border border-slate-300 rounded-sm bg-white shadow-md">
+                    {filteredKbliData.length > 0 ? filteredKbliData.map(item => {
+                      const alreadySelected = data.kbliItems.some(selected => selected.code === item.code);
+                      return (
+                        <button
+                          key={item.code}
+                          type="button"
+                          disabled={alreadySelected}
+                          onClick={() => handleAddKbli(item)}
+                          className={`w-full px-3 py-2 border-b border-slate-100 text-left flex items-center justify-between gap-3 ${alreadySelected ? 'bg-slate-50 text-slate-400 cursor-not-allowed' : 'hover:bg-blue-50 cursor-pointer'}`}
+                        >
+                          <span className="min-w-0">
+                            <span className="font-bold font-mono text-blue-700 text-xs mr-2">[{item.code}]</span>
+                            <span className="text-[12px] font-semibold text-slate-800">{item.name}</span>
+                            <span className="block mt-0.5 text-[10px] text-slate-500 truncate">{item.description}</span>
+                          </span>
+                          {alreadySelected ? (
+                            <span className="text-[10px] font-bold uppercase shrink-0">Sudah dipilih</span>
+                          ) : (
+                            <Plus className="w-4 h-4 text-blue-600 shrink-0" />
+                          )}
+                        </button>
+                      );
+                    }) : (
+                      <p className="px-3 py-4 text-center text-[12px] text-slate-500">KBLI tidak ditemukan. Coba kode atau kata kunci lain.</p>
+                    )}
+                  </div>
+                )}
+                <p className="mt-1 text-[10px] text-slate-500">Hasil muncul otomatis. Pilih KBLI yang sesuai untuk menambahkannya ke akta.</p>
               </div>
 
               <div className="w-full bg-white border border-slate-200 rounded-sm overflow-hidden shadow-sm">
@@ -773,7 +715,7 @@ export default function DraftAktaPendirian({
                     {data.kbliItems.length === 0 && (
                       <tr>
                         <td colSpan={5} className="text-center py-12 text-slate-400 italic font-medium">
-                          Belum ada data KBLI. Silakan klik tombol "Tambah KBLI" di atas.
+                          Belum ada KBLI terpilih. Cari kode atau kegiatan usaha di kolom atas.
                         </td>
                       </tr>
                     )}
@@ -908,116 +850,6 @@ export default function DraftAktaPendirian({
         )}
       </Modal>
 
-      {/* KBLI Modal */}
-      {isAddKbliModalOpen && (
-        <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-4xl rounded-sm shadow-2xl border border-slate-200 flex flex-col max-h-[90vh]">
-            <div className="bg-[#0c2444] px-5 py-3 flex justify-between items-center text-white rounded-t-sm">
-              <h3 className="text-sm font-bold tracking-wider text-white uppercase">TAMBAH DATA KBLI (PENDIRIAN PT)</h3>
-              <button 
-                onClick={() => setIsAddKbliModalOpen(false)} 
-                className="text-white hover:text-slate-200 text-2xl font-semibold focus:outline-none transition-colors"
-              >
-                &times;
-              </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto space-y-6 flex-1">
-              <div className="text-center space-y-1">
-                <h4 className="text-[18px] font-bold text-slate-800 uppercase tracking-widest leading-none">Maksud dan Tujuan</h4>
-                <p className="text-[14px] font-bold text-slate-500 tracking-wide pt-1">(KBLI 2025)</p>
-                <div className="border-b border-slate-300 w-full pt-3"></div>
-              </div>
-
-              <div className="max-w-md mx-auto">
-                <div className="flex items-center border border-slate-300 rounded-md overflow-hidden shadow-sm focus-within:ring-2 focus-within:ring-[#0c2444]/30 focus-within:border-[#0c2444] transition-all bg-white">
-                  <input
-                    type="text"
-                    placeholder="Cari Kode atau Kata Kunci KBLI..."
-                    className="w-full px-3 py-2 text-[14px] font-medium text-slate-700 outline-none"
-                    value={kbliModalSearchTerm}
-                    onChange={(e) => setKbliModalSearchTerm(e.target.value)}
-                    onKeyDown={handleKbliModalKeyDown}
-                  />
-                  <button 
-                    onClick={performKbliModalSearch} 
-                    className="p-2.5 bg-slate-50 hover:bg-slate-100 border-l border-slate-300 text-slate-600 transition-colors focus:outline-none flex items-center justify-center shrink-0"
-                  >
-                    <Search className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="border border-slate-200 rounded-sm overflow-hidden bg-white">
-                <div className="max-h-[350px] overflow-y-auto">
-                  <table className="min-w-[600px] w-full text-left border-collapse text-[12px]">
-                    <thead className="sticky top-0 bg-slate-100 border-b border-slate-200 z-10 font-extrabold uppercase text-[11px] text-slate-700">
-                      <tr>
-                        <th className="px-4 py-3 text-center w-12 border-r border-slate-200">
-                          <input
-                            type="checkbox"
-                            checked={kbliPaginatedResults.length > 0 && kbliPaginatedResults.every(r => kbliCheckedKblis.includes(r.code))}
-                            onChange={handleToggleAllKbliOnPage}
-                          />
-                        </th>
-                        <th className="px-4 py-3 text-center w-24 border-r border-slate-200">Kode KBLI</th>
-                        <th className="px-4 py-3 text-left w-52 border-r border-slate-200">Judul KBLI</th>
-                        <th className="px-4 py-3 text-left">Uraian KBLI</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {kbliPaginatedResults.map((item: any, idx: number) => {
-                        const codeKey = item.code || item.kode || item.id || `kbli-${idx}`;
-                        const isChecked = kbliCheckedKblis.includes(codeKey) || kbliCheckedKblis.includes(item.code) || kbliCheckedKblis.includes(item.kode);
-                        const isAlreadySelected = data.kbliItems.some((i: any) => (i.code || i.kode) === (item.code || item.kode || codeKey));
-                        return (
-                          <tr 
-                            key={codeKey} 
-                            onClick={() => !isAlreadySelected && handleToggleKbliChecked(item.code || item.kode || codeKey)}
-                            className={`hover:bg-indigo-50/30 transition-colors ${isChecked ? 'bg-indigo-50 underline decoration-indigo-200' : ''} ${isAlreadySelected ? 'opacity-50 cursor-not-allowed italic' : 'cursor-pointer'}`}
-                          >
-                            <td className="px-4 py-2 text-center border-r border-slate-100" onClick={(e) => e.stopPropagation()}>
-                              {!isAlreadySelected ? (
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() => handleToggleKbliChecked(item.code)}
-                                />
-                              ) : <span className="text-[8px] font-bold text-slate-400">EXIST</span>}
-                            </td>
-                            <td className="px-4 py-2 text-center border-r border-slate-100 font-mono font-bold text-[#3b5998]">{item.code}</td>
-                            <td className="px-4 py-2 border-r border-slate-100 font-bold text-slate-800 uppercase leading-none">{item.name}</td>
-                            <td className="px-4 py-2 text-slate-500 leading-tight text-justify line-clamp-2 hover:line-clamp-none">{item.description}</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {kbliTotalPages > 1 && (
-                <div className="flex justify-center gap-1">
-                  {getKbliPageNumbers().map(pageNum => (
-                    <button
-                      key={pageNum}
-                      onClick={() => setKbliCurrentPage(pageNum)}
-                      className={`px-3 py-1 border rounded-sm font-bold text-[11px] ${kbliCurrentPage === pageNum ? 'bg-[#0c2444] text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
-                    >
-                      {pageNum}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-slate-200 bg-slate-50 px-6 py-4 flex justify-end gap-3 rounded-b-sm">
-              <button onClick={() => setIsAddKbliModalOpen(false)} className="px-4 py-2 bg-white border border-slate-300 rounded-sm text-xs font-bold text-slate-700">BATAL</button>
-              <button onClick={handleAddKbliBatch} className="px-4 py-2 bg-[#0c2444] text-white rounded-sm text-xs font-bold uppercase shadow-lg">Tambahkan Terpilih ({kbliCheckedKblis.length})</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
