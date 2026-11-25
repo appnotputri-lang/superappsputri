@@ -44,6 +44,7 @@ export interface GroupedReportItem {
   picName?: string;
   changeAgendas?: string[];
   meetingSubject?: string;
+  minutaTasks?: any[];
 }
 
 export interface GroupedReport {
@@ -146,6 +147,19 @@ export function getCleanTransitionComment(comment: string | undefined): string {
   return c;
 }
 
+const PRE_MINUTA_TASK_TITLES = new Set(["NOTULEN", "AKTA RUPS LB", "SK/SP", "NPWP", "NIB"]);
+
+const isTaskChecked = (task: any) => task?.status === 'completed' || task?.status === 'not_required';
+
+const getVisibleMinutaTasks = (project: any, tasks: any[] = []) => {
+  const isPpat = project?.projectCategory === 'PPAT' || ['akta_ppat', 'ppat', 'ajb', 'akta_ajb'].includes(project?.jobType);
+  return isPpat ? tasks : tasks.filter(task => !PRE_MINUTA_TASK_TITLES.has(String(task?.title || '').trim().toUpperCase()));
+};
+
+const formatMinutaChecklist = (tasks: any[] = []) => tasks.length > 0
+  ? tasks.map(task => `[${isTaskChecked(task) ? 'x' : ' '}] ${task.title || 'Tugas tanpa nama'}`).join('\n')
+  : 'Checklist belum tersedia';
+
 export function getGroupedReports(reports: any[]): GroupedReport[] {
   const groupedMap = new Map<string, GroupedReport>();
   
@@ -174,7 +188,8 @@ export function getGroupedReports(reports: any[]): GroupedReport[] {
       lastTransitionComment: r.lastTransitionComment,
       picName: pic,
       changeAgendas: r.changeAgendas || r.metadata?.changeAgendas || r.metadata?.agendas,
-      meetingSubject: r.meetingSubject || r.metadata?.meetingSubject
+      meetingSubject: r.meetingSubject || r.metadata?.meetingSubject,
+      minutaTasks: r.minutaTasks || []
     });
   });
   
@@ -222,6 +237,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
   const [activeReportTab, setActiveReportTab] = useState<'aktif' | 'minuta'>('aktif');
   const [projectCommentsMap, setProjectCommentsMap] = useState<Record<string, string>>({});
   const [clientProfilesMap, setClientProfilesMap] = useState<Record<string, any>>({});
+  const [projectMinutaTasksMap, setProjectMinutaTasksMap] = useState<Record<string, any[]>>({});
 
   // WhatsApp States
   const [modalOpen, setModalOpen] = useState(false);
@@ -264,6 +280,18 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
         if (!mounted) return;
 
         setOfficeProjects(list || []);
+
+        const minutaProjects = (list || []).filter(p => ['completed', 'archived', 'selesai'].includes(String(p.status || '').toLowerCase()));
+        const minutaTasksPromise = Promise.all(minutaProjects.map(async (p) => {
+          let tasks: any[] = [];
+          try {
+            tasks = await ProjectService.getProjectTasks(p.projectId) || [];
+          } catch (err) {
+            console.warn(`Gagal memuat checklist minuta untuk proyek ${p.projectId}:`, err);
+          }
+          if (tasks.length === 0 && Array.isArray(p.tasks)) tasks = p.tasks;
+          return [p.projectId, getVisibleMinutaTasks(p, tasks)] as const;
+        })).then(entries => Object.fromEntries(entries));
 
         // Fetch client profiles for all projects to guarantee latest PIC name & sapaan (Ibu/Bapak) from Master Data Klien
         const clientIdsToFetch = Array.from(
@@ -315,6 +343,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
         if (mounted) {
           setClientProfilesMap(profilesMap);
           setProjectCommentsMap(commentsMap);
+          setProjectMinutaTasksMap(await minutaTasksPromise);
         }
       } catch (err) {
         console.error("Gagal memuat office_projects untuk laporan:", err);
@@ -366,7 +395,8 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
         updatedAt: p.updatedAt || p.createdAt || 0,
         lastTransitionComment: customComment,
         changeAgendas: agendas,
-        meetingSubject: p.meetingSubject || ''
+        meetingSubject: p.meetingSubject || '',
+        minutaTasks: projectMinutaTasksMap[p.projectId] || getVisibleMinutaTasks(p, p.tasks || [])
       });
     });
 
@@ -376,7 +406,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
       const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
       return timeB - timeA;
     });
-  }, [officeProjects, projectCommentsMap, clientProfilesMap]);
+  }, [officeProjects, projectCommentsMap, clientProfilesMap, projectMinutaTasksMap]);
 
   // Apply grouping, search, and tab filters (Proyek Aktif vs Minuta)
   const filteredReports = useMemo(() => {
@@ -885,7 +915,10 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
       currentY = currentY + 4;
 
       // PDF Columns in Landscape Mode
-      const tableColumn = ["No", "Nama PT / Klien", "Nama PIC", "Jenis Pekerjaan & Agenda Perubahan", "Status Terakhir", "Catatan Transisi"];
+      const includeMinutaChecklist = activeReportTab === 'minuta';
+      const tableColumn = includeMinutaChecklist
+        ? ["No", "Nama PT / Klien", "Nama PIC", "Jenis Pekerjaan & Agenda Perubahan", "Status Terakhir", "Checklist Minuta", "Catatan Transisi"]
+        : ["No", "Nama PT / Klien", "Nama PIC", "Jenis Pekerjaan & Agenda Perubahan", "Status Terakhir", "Catatan Transisi"];
       
       // Build Rows
       const tableRows: any[] = [];
@@ -910,21 +943,23 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
             pekerjaanText = `${pekerjaanText}\n${agendasFormatted}`;
           }
 
+          const checklistText = formatMinutaChecklist(item.minutaTasks);
+          const pekerjaanStatusAndNotes = [
+            pekerjaanText,
+            displayStatus.toUpperCase(),
+            ...(includeMinutaChecklist ? [checklistText] : []),
+            noteText
+          ];
+
           if (itemIdx === 0) {
             tableRows.push([
               { content: (idx + 1).toString(), rowSpan: rowSpanVal, styles: { halign: 'center' as const, valign: 'middle' as const } },
               { content: rec.namaPt.toUpperCase(), rowSpan: rowSpanVal, styles: { valign: 'middle' as const } },
               { content: picDisplay, rowSpan: rowSpanVal, styles: { valign: 'middle' as const } },
-              pekerjaanText,
-              displayStatus.toUpperCase(),
-              noteText
+              ...pekerjaanStatusAndNotes
             ]);
           } else {
-            tableRows.push([
-              pekerjaanText,
-              displayStatus.toUpperCase(),
-              noteText
-            ]);
+            tableRows.push(pekerjaanStatusAndNotes);
           }
         });
       });
@@ -936,8 +971,10 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
         body: tableRows,
         theme: 'grid',
         styles: {
-          fontSize: 7.5,
-          cellPadding: { top: 3.5, bottom: 3.5, left: 3.5, right: 3.5 },
+          fontSize: includeMinutaChecklist ? 6.5 : 7.5,
+          cellPadding: includeMinutaChecklist
+            ? { top: 2.5, bottom: 2.5, left: 2.5, right: 2.5 }
+            : { top: 3.5, bottom: 3.5, left: 3.5, right: 3.5 },
           valign: 'middle',
           lineColor: [226, 232, 240], // slate-200 border lines
           lineWidth: 0.15,
@@ -953,7 +990,15 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
         alternateRowStyles: {
           fillColor: [248, 250, 252], // slate-50 background for alternate rows
         },
-        columnStyles: {
+        columnStyles: includeMinutaChecklist ? {
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: 40, fontStyle: 'bold', halign: 'left' },
+          2: { cellWidth: 25, halign: 'left' },
+          3: { cellWidth: 52, halign: 'left' },
+          4: { cellWidth: 32, halign: 'center' },
+          5: { cellWidth: 62, halign: 'left', fontSize: 6 },
+          6: { cellWidth: 48, halign: 'left' },
+        } : {
           0: { cellWidth: 10, halign: 'center' },
           1: { cellWidth: 48, fontStyle: 'bold', halign: 'left' },
           2: { cellWidth: 32, halign: 'left' },
@@ -1294,19 +1339,20 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
                 <th className="px-5 py-3 border-r border-slate-200">Nama PT</th>
                 <th className="px-4 py-3 border-r border-slate-200 text-center">Jenis Pekerjaan</th>
                 <th className="px-4 py-3 border-r border-slate-200 text-center">Status Terakhir</th>
+                {activeReportTab === 'minuta' && <th className="px-4 py-3 border-r border-slate-200">Checklist Minuta</th>}
                 <th className="px-4 py-3 border-r border-slate-200">Catatan Transisi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 bg-white">
               {loadingProjects ? (
                 <tr>
-                  <td colSpan={5} className="p-0 bg-white">
+                  <td colSpan={activeReportTab === 'minuta' ? 6 : 5} className="p-0 bg-white">
                     <AppLoader variant="content" message="Memuat laporan proyek..." />
                   </td>
                 </tr>
               ) : filteredReports.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="text-center py-12 text-slate-400 italic font-medium bg-slate-50/20">
+                  <td colSpan={activeReportTab === 'minuta' ? 6 : 5} className="text-center py-12 text-slate-400 italic font-medium bg-slate-50/20">
                     Tidak ada laporan dokumen yang ditemukan sesuai filter/pencarian Anda.
                   </td>
                 </tr>
@@ -1319,7 +1365,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
                     <React.Fragment key={cat.id}>
                       {/* Section Header Row */}
                       <tr className="bg-slate-50 border-y border-slate-200/80">
-                        <td colSpan={5} className="px-5 py-2.5 text-[#0c2444] font-black text-xs uppercase tracking-wider bg-slate-100/30 select-none">
+                        <td colSpan={activeReportTab === 'minuta' ? 6 : 5} className="px-5 py-2.5 text-[#0c2444] font-black text-xs uppercase tracking-wider bg-slate-100/30 select-none">
                           <div className="flex items-center gap-2">
                             <span className="text-fuchsia-600 text-sm">📂</span>
                             <span>KATEGORI: {cat.label}</span>
@@ -1381,6 +1427,25 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
                               ))}
                             </div>
                           </td>
+
+                          {activeReportTab === 'minuta' && (
+                            <td className="border-r border-slate-200 p-0 text-[10px] text-slate-700">
+                              <div className="flex flex-col divide-y divide-slate-200/80 h-full justify-stretch items-stretch">
+                                {rec.items.map((it, i) => (
+                                  <div key={i} className="px-3 py-2.5 flex flex-col justify-center min-h-[48px] flex-1 leading-snug">
+                                    {(it.minutaTasks || []).length > 0 ? (it.minutaTasks || []).map((task, taskIdx) => (
+                                      <div key={task.id || `${task.title}-${taskIdx}`} className="flex items-start gap-1.5 py-0.5">
+                                        <span className={`font-bold ${isTaskChecked(task) ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                          {isTaskChecked(task) ? '☑' : '☐'}
+                                        </span>
+                                        <span>{task.title || 'Tugas tanpa nama'}</span>
+                                      </div>
+                                    )) : <span className="italic text-slate-400">Checklist belum tersedia</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          )}
                           
                           <td className="border-r border-slate-200 p-0 text-left text-slate-600 font-medium text-[11px]">
                             <div className="flex flex-col divide-y divide-slate-200/80 h-full justify-stretch items-stretch">
@@ -1423,6 +1488,9 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
                   .map((it: any) => getCleanTransitionComment(it.lastTransitionComment))
                   .filter(Boolean)
                   .join(' • ');
+                const checklist = rec.items
+                  .map((it: any) => `${it.pekerjaan}: ${formatMinutaChecklist(it.minutaTasks)}`)
+                  .join('\n');
 
                 return (
                   <MobileDataCard
@@ -1438,6 +1506,12 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
                         <DocumentStatusBadge status={getProjectStatusDisplay(it.status, it.metadata)} />
                       </span>
                     ))}
+                    children={activeReportTab === 'minuta' ? (
+                      <div className="mt-2 rounded-md border border-slate-200 bg-slate-50 p-2 text-[10px] leading-relaxed text-slate-700 whitespace-pre-line">
+                        <div className="mb-1 font-bold uppercase tracking-wide text-slate-500">Checklist Minuta</div>
+                        {checklist}
+                      </div>
+                    ) : undefined}
                     note={notes || undefined}
                     date={dateStr}
                   />
@@ -1609,7 +1683,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
       {/* Target capture container for JPG exports - permanently in DOM and fully painted, but invisible to user */}
       <div 
         id="high-res-jpg-capture-target"
-        className="absolute top-0 -left-[9999px] w-[1200px] bg-white text-slate-800 p-12 space-y-8 flex flex-col pointer-events-none overflow-hidden"
+        className={`absolute top-0 -left-[9999px] ${activeReportTab === 'minuta' ? 'w-[1500px]' : 'w-[1200px]'} bg-white text-slate-800 p-12 space-y-8 flex flex-col pointer-events-none overflow-hidden`}
         style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
       >
         {/* Letterhead Header */}
@@ -1678,20 +1752,21 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
 
         {/* Table list */}
         <div className="overflow-x-auto">
-          <table className="min-w-[1000px] w-full text-left border-collapse border border-slate-300">
+          <table className={`w-full text-left border-collapse border border-slate-300 ${activeReportTab === 'minuta' ? 'min-w-[1350px]' : 'min-w-[1000px]'}`}>
             <thead>
               <tr className="bg-[#0c2444] text-white text-[11px] font-bold uppercase tracking-wider">
               <th className="px-4 py-4 text-center w-16 border border-slate-300">No</th>
               <th className="px-6 py-4 border border-slate-300">Nama Badan Hukum / PT</th>
               <th className="px-5 py-4 border border-slate-300 text-center w-60">Jenis Layanan Pekerjaan</th>
               <th className="px-5 py-4 border border-slate-300 text-center w-52">Status Berkas</th>
+              {activeReportTab === 'minuta' && <th className="px-4 py-4 border border-slate-300 text-center w-[360px]">Checklist Minuta</th>}
               <th className="px-5 py-4 border border-slate-300 text-center w-48">Tanggal Diperbarui</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-300 bg-white">
             {filteredReports.length === 0 ? (
               <tr>
-                <td colSpan={5} className="text-center py-12 text-slate-400 italic font-semibold">
+                <td colSpan={activeReportTab === 'minuta' ? 6 : 5} className="text-center py-12 text-slate-400 italic font-semibold">
                   Tidak ada laporan dokumen pekerjaan yang ditemukan.
                 </td>
               </tr>
@@ -1704,7 +1779,7 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
                   <React.Fragment key={'highres-cat-' + cat.id}>
                     {/* Category Section Header Row */}
                     <tr className="bg-slate-100 font-black">
-                      <td colSpan={5} className="px-6 py-3 border border-slate-300 text-[#0c2444] font-black text-[13px] tracking-wide uppercase">
+                      <td colSpan={activeReportTab === 'minuta' ? 6 : 5} className="px-6 py-3 border border-slate-300 text-[#0c2444] font-black text-[13px] tracking-wide uppercase">
                         📂 Kategori Status: {cat.label} ({getGroupedReports(catReports).length} Klien / {catReports.length} Berkas)
                       </td>
                     </tr>
@@ -1767,6 +1842,24 @@ export const LaporanList: React.FC<LaporanListProps> = ({ projects: propsProject
                             })}
                           </div>
                         </td>
+                        {activeReportTab === 'minuta' && (
+                          <td className="border border-slate-300 p-0 text-[10px] text-slate-700">
+                            <div className="flex flex-col divide-y divide-slate-300 h-full justify-stretch items-stretch">
+                              {rec.items.map((it, i) => (
+                                <div key={i} className="px-4 py-3 flex flex-col justify-center min-h-[52px] flex-1 leading-snug">
+                                  {(it.minutaTasks || []).length > 0 ? (it.minutaTasks || []).map((task, taskIdx) => (
+                                    <div key={task.id || `${task.title}-${taskIdx}`} className="flex items-start gap-1.5 py-0.5">
+                                      <span className={`font-bold ${isTaskChecked(task) ? 'text-emerald-700' : 'text-slate-400'}`}>
+                                        {isTaskChecked(task) ? '☑' : '☐'}
+                                      </span>
+                                      <span>{task.title || 'Tugas tanpa nama'}</span>
+                                    </div>
+                                  )) : <span className="italic text-slate-400">Checklist belum tersedia</span>}
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        )}
                         <td className="border border-slate-300 p-0 text-center text-slate-500 font-mono text-[11px] font-bold">
                           <div className="flex flex-col divide-y divide-slate-300 h-full justify-stretch items-stretch font-bold">
                             {rec.items.map((it, i) => (
