@@ -36,6 +36,12 @@ import { PPATDocTypeConfig } from './ppat/ppatDocTypes';
 import { isProjectFinal } from '../../../services/ClientProjectSyncService';
 import { ToastNotification, ToastState } from '../../../components/common/ToastNotification';
 import { RUPS_LB_AGENDAS } from '../../../constants/appConstants';
+import {
+  getCanonicalMinutaTaskTitle,
+  getMinutaDefaultTaskTitles,
+  isMinutaChecklistTaskTitle,
+  PRE_MINUTA_TASK_TITLES
+} from '../../../domain/project/minutaChecklist';
 
 interface UploadedDocument {
   id: string;
@@ -1539,9 +1545,10 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       const duplicateTaskIdsToDelete: string[] = [];
 
       for (const task of finalTasks) {
-        const existing = uniqueTasksMap.get(task.title);
+        const canonicalTitle = getCanonicalMinutaTaskTitle(task.title);
+        const existing = uniqueTasksMap.get(canonicalTitle);
         if (!existing) {
-          uniqueTasksMap.set(task.title, task);
+          uniqueTasksMap.set(canonicalTitle, task);
         } else {
           // Prefer completed status over pending or other states
           if (task.status === 'completed' && existing.status !== 'completed') {
@@ -1565,18 +1572,9 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       finalTasks = Array.from(uniqueTasksMap.values());
       
       if (isMinuta) {
-        const MINUTA_TASK_TITLES = [
-          "Copy KTP Para Pihak",
-          "Copy NPWP Para Pihak",
-          "Copy Seluruh Riwayat Akta",
-          "Demikianlah Lengkap",
-          "Akta Minuta diprint",
-          "Surat-Surat Pendukung",
-          "Jahit Minuta"
-        ];
-        
-        const existingTitles = finalTasks.map(t => t.title);
-        const missingTitles = MINUTA_TASK_TITLES.filter(title => !existingTitles.includes(title));
+        const minutaTaskTitles = getMinutaDefaultTaskTitles(proj);
+        const existingTitles = finalTasks.map(t => getCanonicalMinutaTaskTitle(t.title));
+        const missingTitles = minutaTaskTitles.filter(title => !existingTitles.includes(title));
         
         if (missingTitles.length > 0) {
           const createdTasks: Task[] = [];
@@ -1594,8 +1592,12 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           finalTasks = [...finalTasks, ...createdTasks];
         }
         
-        const displayedMinutaTasks = finalTasks.filter(t => !["NOTULEN", "AKTA RUPS LB", "SK/SP", "NPWP", "NIB"].includes(t.title));
-        const allChecked = displayedMinutaTasks.length > 0 && displayedMinutaTasks.every(t => t.status === 'completed' || t.status === 'not_required');
+        const displayedMinutaTasks = minutaTaskTitles.length > 0
+          ? finalTasks.filter(t => !PRE_MINUTA_TASK_TITLES.has(t.title))
+          : [];
+        const allChecked = minutaTaskTitles.length === 0 || (
+          displayedMinutaTasks.length > 0 && displayedMinutaTasks.every(t => t.status === 'completed' || t.status === 'not_required')
+        );
         
         if (proj.metadata?.minutaCheckedAll !== allChecked) {
           const updatedMetadata = {
@@ -3164,8 +3166,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
     const isMinuta = isProjectMinuta(project.status);
     if (!isMinuta) return;
 
-    const PRE_MINUTA_DEFAULT_TITLES = ["NOTULEN", "AKTA RUPS LB", "SK/SP", "NPWP", "NIB"];
-    const displayedMinutaTasks = currentTasks.filter(t => !PRE_MINUTA_DEFAULT_TITLES.includes(t.title));
+    const displayedMinutaTasks = currentTasks.filter(t => !PRE_MINUTA_TASK_TITLES.has(t.title));
 
     const allChecked = displayedMinutaTasks.length > 0 && displayedMinutaTasks.every(t => t.status === 'completed' || t.status === 'not_required');
 
@@ -3192,26 +3193,14 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
   const getDisplayedTasks = () => {
     if (!project) return [];
-    if (project.jobType === 'akta_ppat' || project.jobType === 'ppat' || project.projectCategory === 'PPAT') {
-      return tasks;
-    }
-    const isMinuta = isProjectMinuta(project.status);
-    const MINUTA_TASK_TITLES = [
-      "Copy KTP Para Pihak",
-      "Copy NPWP Para Pihak",
-      "Copy Seluruh Riwayat Akta",
-      "Demikianlah Lengkap",
-      "Akta Minuta diprint",
-      "Surat-Surat Pendukung",
-      "Jahit Minuta"
-    ];
-    const PRE_MINUTA_DEFAULT_TITLES = ["NOTULEN", "AKTA RUPS LB", "SK/SP", "NPWP", "NIB"];
-
-    if (isMinuta) {
-      return tasks.filter(t => !PRE_MINUTA_DEFAULT_TITLES.includes(t.title));
-    } else {
-      return tasks.filter(t => !MINUTA_TASK_TITLES.includes(t.title));
-    }
+    const completed = ['completed', 'archived', 'selesai'].includes(String(project.status || '').toLowerCase());
+    const visibleTasks = completed
+      ? tasks.filter(t => !PRE_MINUTA_TASK_TITLES.has(t.title))
+      : tasks.filter(t => !isMinutaChecklistTaskTitle(t.title, project));
+    return visibleTasks.map(task => ({
+      ...task,
+      title: getCanonicalMinutaTaskTitle(task.title)
+    }));
   };
 
   const handleSaveMinutaNotes = async () => {

@@ -13,6 +13,7 @@ import { toJpeg } from 'html-to-image';
 import { useProjectContext } from '../contexts/ProjectContext';
 import { ProjectCategory, PROJECT_TYPES, RUPS_LB_AGENDAS } from '../constants/appConstants';
 import { ProjectService } from '../services/ProjectService';
+import { getCanonicalMinutaTaskTitle } from '../domain/project/minutaChecklist';
 import { CompanyService } from '../services/CompanyService';
 import { AppLoader } from './ui/AppLoader';
 
@@ -153,7 +154,11 @@ const isTaskChecked = (task: any) => task?.status === 'completed' || task?.statu
 
 const getVisibleMinutaTasks = (project: any, tasks: any[] = []) => {
   const isPpat = project?.projectCategory === 'PPAT' || ['akta_ppat', 'ppat', 'ajb', 'akta_ajb'].includes(project?.jobType);
-  return isPpat ? tasks : tasks.filter(task => !PRE_MINUTA_TASK_TITLES.has(String(task?.title || '').trim().toUpperCase()));
+  const visibleTasks = isPpat ? tasks : tasks.filter(task => !PRE_MINUTA_TASK_TITLES.has(String(task?.title || '').trim().toUpperCase()));
+  return visibleTasks.map(task => ({
+    ...task,
+    title: getCanonicalMinutaTaskTitle(String(task?.title || ''))
+  }));
 };
 
 const formatMinutaChecklist = (tasks: any[] = []) => tasks.length > 0
