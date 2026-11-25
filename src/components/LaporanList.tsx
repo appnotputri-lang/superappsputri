@@ -13,7 +13,11 @@ import { toJpeg } from 'html-to-image';
 import { useProjectContext } from '../contexts/ProjectContext';
 import { ProjectCategory, PROJECT_TYPES, RUPS_LB_AGENDAS } from '../constants/appConstants';
 import { ProjectService } from '../services/ProjectService';
-import { getCanonicalMinutaTaskTitle } from '../domain/project/minutaChecklist';
+import {
+  getCanonicalMinutaTaskTitle,
+  getMinutaDefaultTaskTitles,
+  LEGACY_MINUTA_TASK_TITLES
+} from '../domain/project/minutaChecklist';
 import { CompanyService } from '../services/CompanyService';
 import { AppLoader } from './ui/AppLoader';
 
@@ -154,7 +158,9 @@ const isTaskChecked = (task: any) => task?.status === 'completed' || task?.statu
 
 const getVisibleMinutaTasks = (project: any, tasks: any[] = []) => {
   const isPpat = project?.projectCategory === 'PPAT' || ['akta_ppat', 'ppat', 'ajb', 'akta_ajb'].includes(project?.jobType);
-  const visibleTasks = isPpat ? tasks : tasks.filter(task => !PRE_MINUTA_TASK_TITLES.has(String(task?.title || '').trim().toUpperCase()));
+  const defaultTitles = new Set(getMinutaDefaultTaskTitles(project));
+  const visibleTasks = (isPpat ? tasks : tasks.filter(task => !PRE_MINUTA_TASK_TITLES.has(String(task?.title || '').trim().toUpperCase())))
+    .filter(task => !LEGACY_MINUTA_TASK_TITLES.has(String(task?.title || '')) || defaultTitles.has(getCanonicalMinutaTaskTitle(String(task?.title || ''))));
   return visibleTasks.map(task => ({
     ...task,
     title: getCanonicalMinutaTaskTitle(String(task?.title || ''))

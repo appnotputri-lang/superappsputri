@@ -13,6 +13,7 @@ export const LEGACY_MINUTA_TASK_TITLES = new Set([
 const MINUTA_TASK_TITLE_ALIASES: Record<string, string> = {
   "Copy KTP Para Pihak": "KTP Para Pihak",
   "Copy NPWP Para Pihak": "NPWP Para Pihak",
+  "Copy Seluruh Riwayat Akta": "Akta dan SK AHU Terakhir",
   "Demikianlah Lengkap": "Demikianlah"
 };
 

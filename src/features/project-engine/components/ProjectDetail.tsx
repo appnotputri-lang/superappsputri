@@ -40,6 +40,7 @@ import {
   getCanonicalMinutaTaskTitle,
   getMinutaDefaultTaskTitles,
   isMinutaChecklistTaskTitle,
+  LEGACY_MINUTA_TASK_TITLES,
   PRE_MINUTA_TASK_TITLES
 } from '../../../domain/project/minutaChecklist';
 
@@ -83,7 +84,6 @@ import {
   Sparkles,
   UploadCloud,
   RefreshCw,
-  Ban,
   FolderPlus,
   Landmark,
   Edit3,
@@ -1553,7 +1553,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
           // Prefer completed status over pending or other states
           if (task.status === 'completed' && existing.status !== 'completed') {
             duplicateTaskIdsToDelete.push(existing.id);
-            uniqueTasksMap.set(task.title, task);
+            uniqueTasksMap.set(canonicalTitle, task);
           } else {
             duplicateTaskIdsToDelete.push(task.id);
           }
@@ -1573,8 +1573,23 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       
       if (isMinuta) {
         const minutaTaskTitles = getMinutaDefaultTaskTitles(proj);
+        const defaultMinutaTitles = new Set(minutaTaskTitles);
         const existingTitles = finalTasks.map(t => getCanonicalMinutaTaskTitle(t.title));
         const missingTitles = minutaTaskTitles.filter(title => !existingTitles.includes(title));
+
+        const obsoleteLegacyTasks = finalTasks.filter(task =>
+          LEGACY_MINUTA_TASK_TITLES.has(task.title) &&
+          !defaultMinutaTitles.has(getCanonicalMinutaTaskTitle(task.title))
+        );
+        if (obsoleteLegacyTasks.length > 0) {
+          await Promise.all(obsoleteLegacyTasks.map(task =>
+            ProjectService.deleteTask(projectId, task.id).catch(error => {
+              console.error('Failed to remove obsolete default minuta task:', task.title, error);
+            })
+          ));
+          const obsoleteTaskIds = new Set(obsoleteLegacyTasks.map(task => task.id));
+          finalTasks = finalTasks.filter(task => !obsoleteTaskIds.has(task.id));
+        }
         
         if (missingTitles.length > 0) {
           const createdTasks: Task[] = [];
@@ -3284,6 +3299,19 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
 
   const handleToggleTask = async (taskId: string, currentCompleted: boolean) => {
     await handleUpdateTaskStatus(taskId, currentCompleted ? 'pending' : 'completed');
+  };
+
+  const handleDeleteTask = async (taskId: string, title: string) => {
+    if (!window.confirm(`Hapus checklist "${title}"?`)) return;
+    try {
+      await ProjectService.deleteTask(projectId, taskId);
+      const updatedTasks = tasks.filter(task => task.id !== taskId);
+      setTasks(updatedTasks);
+      await syncMinutaCompletion(updatedTasks);
+    } catch (err) {
+      console.error(err);
+      alert('Gagal menghapus checklist.');
+    }
   };
 
   const handleAddTask = async (e: React.FormEvent) => {
@@ -5207,7 +5235,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                         <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide">
                           Daftar Checklist {isProjectMinuta(project.status) ? 'Minuta' : 'Tugas'} ({completedCount}/{totalCount})
                         </h2>
-                        <p className="text-xs text-slate-500 mt-0.5">Kelola tugas operasional, berkas persyaratan, dan kelengkapan minuta.</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Centang untuk menandai selesai. Hapus item yang tidak diperlukan.</p>
                       </div>
                     </div>
 
@@ -5217,80 +5245,43 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
                         Belum ada checklist tugas untuk proyek ini. Silakan buat checklist di bawah.
                       </div>
                     ) : (
-                      <div className="space-y-2.5">
+                      <div className="space-y-2">
                         {displayedTasks.map((task) => (
                           <div
                             key={task.id}
-                            className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 border rounded-xl transition-all select-none gap-3 ${
+                            className={`flex items-center justify-between p-3 border rounded-xl transition-colors gap-3 ${
                               task.status === 'completed'
-                                ? 'border-emerald-100 bg-emerald-50/10'
+                                ? 'border-emerald-100 bg-emerald-50/40'
                                 : task.status === 'not_required'
-                                ? 'border-slate-200 bg-slate-50/40 opacity-70'
-                                : 'border-slate-150 bg-white hover:bg-slate-50/30'
+                                ? 'border-slate-200 bg-slate-50/60'
+                                : 'border-slate-200 bg-white hover:bg-slate-50'
                             }`}
                           >
-                            <div className="flex items-center gap-3">
-                              {task.status === 'completed' ? (
-                                <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                              ) : task.status === 'not_required' ? (
-                                <Ban className="w-5 h-5 text-slate-400 shrink-0" />
-                              ) : (
-                                <div className="w-5 h-5 rounded-md border border-slate-300 shrink-0" />
-                              )}
-                              <div className="flex flex-col">
-                                <span className={`text-[13px] font-semibold ${
-                                  task.status === 'completed'
-                                    ? 'line-through text-slate-500'
-                                    : task.status === 'not_required'
-                                    ? 'line-through text-slate-400 italic'
-                                    : 'text-slate-800'
-                                }`}>
+                            <label className="flex min-w-0 flex-1 items-center gap-3 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={task.status === 'completed' || task.status === 'not_required'}
+                                onChange={() => handleToggleTask(task.id, task.status === 'completed' || task.status === 'not_required')}
+                                aria-label={`Tandai ${task.title} ${task.status === 'completed' ? 'belum selesai' : 'selesai'}`}
+                                className="h-5 w-5 shrink-0 rounded border-slate-300 accent-emerald-600 cursor-pointer"
+                              />
+                              <span className={`min-w-0 text-[13px] font-medium ${
+                                task.status === 'completed' || task.status === 'not_required'
+                                  ? 'text-slate-500 line-through'
+                                  : 'text-slate-800'
+                              }`}>
                                   {task.title}
-                                </span>
-                                {task.updatedAt && (
-                                  <span className="text-[10px] text-slate-400 font-mono mt-0.5">
-                                    Terakhir diperbarui: {new Date(task.updatedAt.seconds ? task.updatedAt.toDate() : task.updatedAt).toLocaleDateString('id-ID')}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Status Selector Buttons */}
-                            <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateTaskStatus(task.id, 'completed')}
-                                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
-                                  task.status === 'completed'
-                                    ? 'bg-emerald-500 text-white border-emerald-500 shadow-xs'
-                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-                                }`}
-                              >
-                                Selesai
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateTaskStatus(task.id, 'pending')}
-                                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
-                                  task.status === 'pending' || task.status === 'in_progress'
-                                    ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
-                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-                                }`}
-                              >
-                                Belum
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleUpdateTaskStatus(task.id, 'not_required')}
-                                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
-                                  task.status === 'not_required'
-                                    ? 'bg-slate-500 text-white border-slate-500 shadow-xs'
-                                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
-                                }`}
-                              >
-                                Tidak Diperlukan
-                              </button>
-                            </div>
+                              </span>
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTask(task.id, task.title)}
+                              className="shrink-0 rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer"
+                              aria-label={`Hapus ${task.title}`}
+                              title="Hapus checklist"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
                           </div>
                         ))}
                       </div>
