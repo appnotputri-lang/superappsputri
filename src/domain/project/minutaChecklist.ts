@@ -5,6 +5,7 @@ export const LEGACY_MINUTA_TASK_TITLES = new Set([
   "Copy NPWP Para Pihak",
   "Copy Seluruh Riwayat Akta",
   "Demikianlah Lengkap",
+  "Tanda Hadir CV/PT",
   "Akta Minuta diprint",
   "Surat-Surat Pendukung",
   "Jahit Minuta"
@@ -14,11 +15,22 @@ const MINUTA_TASK_TITLE_ALIASES: Record<string, string> = {
   "Copy KTP Para Pihak": "KTP Para Pihak",
   "Copy NPWP Para Pihak": "NPWP Para Pihak",
   "Copy Seluruh Riwayat Akta": "Akta dan SK AHU Terakhir",
-  "Demikianlah Lengkap": "Demikianlah"
+  "Demikianlah Lengkap": "Demikianlah",
+  "Tanda Hadir CV/PT": "Demikianlah dan Tanda Hadir"
 };
 
-export function getCanonicalMinutaTaskTitle(title: string): string {
-  return MINUTA_TASK_TITLE_ALIASES[title] || title;
+export function getCanonicalMinutaTaskTitle(title: string, project?: any): string {
+  const canonicalTitle = MINUTA_TASK_TITLE_ALIASES[title] || title;
+  const jobType = String(project?.jobType || "").toLowerCase();
+  const projectType = String(project?.projectType || "").toLowerCase();
+  const normalized = `${jobType} ${projectType}`;
+  const isPt = jobType.includes("pendirian_pt") || jobType.includes("rups") || projectType.includes("pt") || /rups/.test(normalized);
+  const isCv = jobType.includes("cv") || projectType.includes("cv");
+
+  if ((canonicalTitle === "Demikianlah" || title === "Demikianlah") && (isPt || isCv)) {
+    return "Demikianlah dan Tanda Hadir";
+  }
+  return canonicalTitle;
 }
 
 const uniqueTitles = (titles: string[]) => Array.from(new Set(titles));
@@ -42,9 +54,9 @@ export function getMinutaDefaultTaskTitles(project: any): string[] {
     /(pendirian|perubahan|pembubaran|rups|sirkuler|akta|perjanjian|rapat)/.test(normalized);
   if (!isDeedJob) return [];
 
-  const titles = ["KTP Para Pihak", "NPWP Para Pihak", "Demikianlah"];
   const isPt = jobType.includes("pendirian_pt") || jobType.includes("rups") || projectType.includes("pt") || /rups/.test(normalized);
   const isCv = jobType.includes("cv") || projectType.includes("cv");
+  const titles = ["KTP Para Pihak", "NPWP Para Pihak", isPt || isCv ? "Demikianlah dan Tanda Hadir" : "Demikianlah"];
   const isMeeting = projectCategory === "MEETING" || /rups|rapat|sirkuler/.test(normalized);
   const isFormation = /pendirian/.test(normalized);
   const isChange = /perubahan|rups/.test(normalized);
@@ -67,8 +79,6 @@ export function getMinutaDefaultTaskTitles(project: any): string[] {
     titles.push("Surat Kuasa (jika ada)");
     return uniqueTitles(titles);
   }
-
-  if (isPt || isCv) titles.push("Tanda Hadir CV/PT");
 
   if (isFormation && isPt) {
     titles.push(
@@ -95,7 +105,7 @@ export function getMinutaDefaultTaskTitles(project: any): string[] {
   } else if (isMeeting) {
     titles.push(
       "Akta dan SK AHU Terakhir (jika badan hukum)",
-      isPt || isCv ? "Tanda Hadir CV/PT" : "Tanda Hadir Rapat",
+      ...(isPt || isCv ? [] : ["Tanda Hadir Rapat"]),
       "Notulen/Risalah Rapat atau Keputusan Sirkuler",
       "Surat Kuasa (jika ada)"
     );
@@ -127,5 +137,5 @@ export function getMinutaDefaultTaskTitles(project: any): string[] {
 
 export function isMinutaChecklistTaskTitle(title: string, project: any): boolean {
   return LEGACY_MINUTA_TASK_TITLES.has(title) ||
-    (!PRE_MINUTA_TASK_TITLES.has(title) && getMinutaDefaultTaskTitles(project).includes(title));
+    (!PRE_MINUTA_TASK_TITLES.has(title) && getMinutaDefaultTaskTitles(project).includes(getCanonicalMinutaTaskTitle(title, project)));
 }

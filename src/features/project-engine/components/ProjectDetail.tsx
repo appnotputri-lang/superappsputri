@@ -1545,7 +1545,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       const duplicateTaskIdsToDelete: string[] = [];
 
       for (const task of finalTasks) {
-        const canonicalTitle = getCanonicalMinutaTaskTitle(task.title);
+        const canonicalTitle = getCanonicalMinutaTaskTitle(task.title, proj);
         const existing = uniqueTasksMap.get(canonicalTitle);
         if (!existing) {
           uniqueTasksMap.set(canonicalTitle, task);
@@ -1574,12 +1574,12 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       if (isMinuta) {
         const minutaTaskTitles = getMinutaDefaultTaskTitles(proj);
         const defaultMinutaTitles = new Set(minutaTaskTitles);
-        const existingTitles = finalTasks.map(t => getCanonicalMinutaTaskTitle(t.title));
+        const existingTitles = finalTasks.map(t => getCanonicalMinutaTaskTitle(t.title, proj));
         const missingTitles = minutaTaskTitles.filter(title => !existingTitles.includes(title));
 
         const obsoleteLegacyTasks = finalTasks.filter(task =>
           LEGACY_MINUTA_TASK_TITLES.has(task.title) &&
-          !defaultMinutaTitles.has(getCanonicalMinutaTaskTitle(task.title))
+          !defaultMinutaTitles.has(getCanonicalMinutaTaskTitle(task.title, proj))
         );
         if (obsoleteLegacyTasks.length > 0) {
           await Promise.all(obsoleteLegacyTasks.map(task =>
@@ -3214,7 +3214,7 @@ export default function ProjectDetail({ projectId, onBack, currentUser }: Projec
       : tasks.filter(t => !isMinutaChecklistTaskTitle(t.title, project));
     return visibleTasks.map(task => ({
       ...task,
-      title: getCanonicalMinutaTaskTitle(task.title)
+      title: getCanonicalMinutaTaskTitle(task.title, project)
     }));
   };
 

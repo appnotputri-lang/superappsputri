@@ -160,11 +160,16 @@ const getVisibleMinutaTasks = (project: any, tasks: any[] = []) => {
   const isPpat = project?.projectCategory === 'PPAT' || ['akta_ppat', 'ppat', 'ajb', 'akta_ajb'].includes(project?.jobType);
   const defaultTitles = new Set(getMinutaDefaultTaskTitles(project));
   const visibleTasks = (isPpat ? tasks : tasks.filter(task => !PRE_MINUTA_TASK_TITLES.has(String(task?.title || '').trim().toUpperCase())))
-    .filter(task => !LEGACY_MINUTA_TASK_TITLES.has(String(task?.title || '')) || defaultTitles.has(getCanonicalMinutaTaskTitle(String(task?.title || ''))));
-  return visibleTasks.map(task => ({
-    ...task,
-    title: getCanonicalMinutaTaskTitle(String(task?.title || ''))
-  }));
+    .filter(task => !LEGACY_MINUTA_TASK_TITLES.has(String(task?.title || '')) || defaultTitles.has(getCanonicalMinutaTaskTitle(String(task?.title || ''), project)));
+  const canonicalTasks = new Map<string, any>();
+  visibleTasks.forEach(task => {
+    const title = getCanonicalMinutaTaskTitle(String(task?.title || ''), project);
+    const existing = canonicalTasks.get(title);
+    if (!existing || (task?.status === 'completed' && existing?.status !== 'completed')) {
+      canonicalTasks.set(title, { ...task, title });
+    }
+  });
+  return Array.from(canonicalTasks.values());
 };
 
 const formatMinutaChecklist = (tasks: any[] = []) => tasks.length > 0
